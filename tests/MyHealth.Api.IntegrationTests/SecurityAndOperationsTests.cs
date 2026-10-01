@@ -87,6 +87,18 @@ public sealed class SecurityAndOperationsTests(ApiFactory factory) : Integration
         var id = (await Scenario.Read<Scenario.IdResponse>(created)).Id;
         (await Scenario.Read<PagedResponse<ExerciseResponse>>(await trainer.Http.GetAsync("/api/v1/exercises?search=búlgaro", Ct))).Items.ShouldContain(e => e.Id == id);
 
+        // Editing a curated entry bumps its version; plans keep the version they were written against.
+        await Scenario.EnsureSuccess(await admin.Http.PutAsJsonAsync($"/api/v1/admin/exercises/{id}", new
+        {
+            name = "Afundo búlgaro", description = "Pé de trás apoiado no banco; desça até 90°.", muscleGroups = new[] { "quadriceps", "gluteos" },
+            equipment = new[] { "banco", "halteres" }, precautions = "Joelho alinhado com o pé.",
+        }, Ct));
+        var edited = await Scenario.Read<ExerciseResponse>(await trainer.Http.GetAsync($"/api/v1/exercises/{id}", Ct));
+        (edited.Version, edited.Precautions).ShouldBe((2, "Joelho alinhado com o pé."));
+        edited.Equipment.ShouldBe(["banco", "halteres"]);
+        (await trainer.Http.PutAsJsonAsync($"/api/v1/admin/exercises/{id}", new { name = "x", description = "x", muscleGroups = Array.Empty<string>(), equipment = Array.Empty<string>() }, Ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
         await Scenario.EnsureSuccess(await admin.Http.PostAsync($"/api/v1/admin/exercises/{id}/archive", null, Ct));
         (await Scenario.Read<PagedResponse<ExerciseResponse>>(await trainer.Http.GetAsync("/api/v1/exercises?search=búlgaro", Ct))).Items.ShouldNotContain(e => e.Id == id);
         await Scenario.EnsureSuccess(await admin.Http.PostAsync($"/api/v1/admin/exercises/{id}/restore", null, Ct));
@@ -97,6 +109,8 @@ public sealed class SecurityAndOperationsTests(ApiFactory factory) : Integration
             name = "Meu exercício", description = "x", muscleGroups = Array.Empty<string>(), equipment = Array.Empty<string>(),
         }, Ct))).Id;
         (await admin.Http.PostAsync($"/api/v1/admin/exercises/{custom}/archive", null, Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await admin.Http.PutAsJsonAsync($"/api/v1/admin/exercises/{custom}", new { name = "x", description = "x", muscleGroups = Array.Empty<string>(), equipment = Array.Empty<string>() }, Ct))
+            .StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         // Operator role: unknown accounts are reported, and nobody can remove their own role.
         (await admin.Http.PutAsync($"/api/v1/admin/administrators/{Guid.CreateVersion7()}", null, Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);

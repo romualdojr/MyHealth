@@ -444,4 +444,113 @@ public sealed class TherapyTests(ApiFactory factory) : IntegrationTest(factory)
         responses.Count(r => r.IsSuccessStatusCode).ShouldBe(1);
         responses.Where(r => !r.IsSuccessStatusCode).ShouldAllBe(r => r.StatusCode == HttpStatusCode.Conflict);
     }
+
+    [Fact]
+    public async Task Clients_see_only_active_services_of_their_practitioners_and_reactivating_needs_eligibility()
+    {
+        var (client, practitioner, _, _, modality, serviceId) = await ReadyAsync();
+        var unlinked = await Scenario.ClientAsync("unlinked");
+
+        var mine = await Scenario.Read<List<TherapyServiceResponse>>(await client.Http.GetAsync("/api/v1/me/therapy-services", Ct));
+        mine.ShouldHaveSingleItem().ShouldSatisfyAllConditions(s => s.Id.ShouldBe(serviceId), s => s.PractitionerName.ShouldBe("practitioner Pro"));
+        (await Scenario.Read<List<TherapyServiceResponse>>(await unlinked.Http.GetAsync("/api/v1/me/therapy-services", Ct))).ShouldBeEmpty();
+
+        // Another practitioner cannot edit it; the owner renames and deactivates it.
+        var (other, _, _) = await PractitionerAsync(modality, "other");
+        var update = new { name = "Acupuntura — retorno", durationMinutes = 40, delivery = "InPerson", isActive = false };
+        (await other.Http.PutAsJsonAsync($"/api/v1/therapy/services/{serviceId}", update, Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        await Scenario.EnsureSuccess(await practitioner.Http.PutAsJsonAsync($"/api/v1/therapy/services/{serviceId}", update, Ct));
+
+        (await Scenario.Read<List<TherapyServiceResponse>>(await client.Http.GetAsync("/api/v1/me/therapy-services", Ct))).ShouldBeEmpty();
+        var catalogue = await Scenario.Read<List<TherapyServiceResponse>>(await practitioner.Http.GetAsync("/api/v1/therapy/services", Ct));
+        catalogue.Single(s => s.Id == serviceId).ShouldSatisfyAllConditions(s => s.Name.ShouldBe("Acupuntura — retorno"), s => s.IsActive.ShouldBeFalse());
+        (await practitioner.Http.PostAsJsonAsync("/api/v1/therapy/sessions", new { clientId = client.Id, serviceId, startsAt = DateTimeOffset.UtcNow.AddDays(1) }, Ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Conflict);
+
+        // Turning it back on is offering care again: it fails once the modality is disabled.
+        await Scenario.EnsureSuccess(await Admin().Http.PostAsync($"/api/v1/admin/therapy-modalities/{modality}/disable", null, Ct));
+        (await practitioner.Http.PutAsJsonAsync($"/api/v1/therapy/services/{serviceId}", update with { isActive = true }, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Disabling_a_modality_stops_new_care_but_keeps_the_records()
+    {
+        var (client, practitioner, _, relationshipId, modality, serviceId) = await ReadyAsync();
+        var done = await ScheduleAsync(practitioner, client.Id, serviceId);
+        await ConsentAsync(client, relationshipId, modality);
+        await Scenario.EnsureSuccess(await practitioner.Http.PutAsJsonAsync($"/api/v1/therapy/sessions/{done}/record", CompleteRecord, Ct));
+        await Scenario.EnsureSuccess(await practitioner.Http.PostAsync($"/api/v1/therapy/sessions/{done}/complete", null, Ct));
+        var scheduled = await ScheduleAsync(practitioner, client.Id, serviceId, DateTimeOffset.UtcNow.AddDays(2));
+
+        await Scenario.EnsureSuccess(await Admin().Http.PostAsync($"/api/v1/admin/therapy-modalities/{modality}/disable", null, Ct));
+
+        var schedule = await practitioner.Http.PostAsJsonAsync("/api/v1/therapy/sessions", new { clientId = client.Id, serviceId, startsAt = DateTimeOffset.UtcNow.AddDays(5) }, Ct);
+        schedule.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await schedule.Content.ReadAsStringAsync(Ct)).ShouldContain("Therapy.ModalityDisabled");
+        (await practitioner.Http.PutAsJsonAsync($"/api/v1/therapy/sessions/{scheduled}/record", CompleteRecord, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await Scenario.Read<List<ModalityResponse>>(await practitioner.Http.GetAsync("/api/v1/therapy/modalities", Ct))).ShouldNotContain(m => m.Code == modality);
+
+        // Completed records stay readable by the client.
+        (await Scenario.Read<List<TherapySessionResponse>>(await client.Http.GetAsync("/api/v1/me/therapy-sessions", Ct)))
+            .Single(s => s.Id == done).Record.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task The_practitioner_lists_a_clients_consents_and_care_plans_only_with_an_active_relationship()
+    {
+        var (client, practitioner, _, relationshipId, modality, _) = await ReadyAsync();
+        await ConsentAsync(client, relationshipId, modality, "Refused");
+        var consentId = await ConsentAsync(client, relationshipId, modality);
+        await Scenario.EnsureSuccess(await practitioner.Http.PostAsJsonAsync("/api/v1/therapy/care-plans", new
+        {
+            clientId = client.Id, modalityCode = modality, goals = "Reduzir dor", plannedSessions = 4,
+        }, Ct));
+
+        var consents = await Scenario.Read<List<ConsentResponse>>(await practitioner.Http.GetAsync($"/api/v1/therapy/clients/{client.Id}/consents", Ct));
+        consents.Count.ShouldBe(2);
+        consents.Single(c => c.Id == consentId).InForce.ShouldBeTrue();
+        var plans = await Scenario.Read<List<CarePlanResponse>>(await practitioner.Http.GetAsync($"/api/v1/therapy/clients/{client.Id}/care-plans", Ct));
+        plans.ShouldHaveSingleItem().Goals.ShouldBe("Reduzir dor");
+
+        // A practitioner without a relationship with this client is refused.
+        var (outsider, _, _) = await PractitionerAsync(modality, "outsider");
+        (await outsider.Http.GetAsync($"/api/v1/therapy/clients/{client.Id}/consents", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await outsider.Http.GetAsync($"/api/v1/therapy/clients/{client.Id}/care-plans", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        // Reads are audited with the client as subject; after the relationship ends they stop.
+        var audit = await Scenario.Read<MyHealth.Application.Common.PagedResponse<AuditEntryResponse>>(
+            await Admin().Http.GetAsync($"/api/v1/admin/audit-entries?actorUserId={practitioner.Id}&pageSize=200", Ct));
+        audit.Items.ShouldContain(e => e.Action == "read" && e.ResourceType == "TherapyConsent.List" && e.SubjectUserId == client.Id);
+        audit.Items.ShouldContain(e => e.Action == "read" && e.ResourceType == "TherapyCarePlan.List" && e.SubjectUserId == client.Id);
+        await Scenario.EnsureSuccess(await client.Http.PostAsJsonAsync($"/api/v1/care-relationships/{relationshipId}/end", new { reason = "Fim" }, Ct));
+        (await practitioner.Http.GetAsync($"/api/v1/therapy/clients/{client.Id}/consents", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task A_rejected_qualification_needs_a_reason_blocks_care_and_can_be_submitted_again()
+    {
+        var modality = await EnabledModalityAsync();
+        var (practitioner, _, qualificationId) = await PractitionerAsync(modality, qualified: false);
+        var admin = Admin();
+
+        (await admin.Http.PostAsJsonAsync($"/api/v1/admin/practitioner-qualifications/{qualificationId}/reject", new { notes = " " }, Ct))
+            .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        await Scenario.EnsureSuccess(await admin.Http.PostAsJsonAsync(
+            $"/api/v1/admin/practitioner-qualifications/{qualificationId}/reject", new { notes = "Certificado ilegível" }, Ct));
+
+        var mine = (await Scenario.Read<List<QualificationResponse>>(await practitioner.Http.GetAsync("/api/v1/therapy/qualifications", Ct))).ShouldHaveSingleItem();
+        (mine.Status, mine.ReviewNotes).ShouldBe((QualificationStatus.Rejected, "Certificado ilegível"));
+        (await practitioner.Http.PostAsJsonAsync("/api/v1/therapy/services", new
+        {
+            modalityCode = modality, service = new { name = "Sessão", durationMinutes = 50, delivery = "InPerson" },
+        }, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        // A rejected (unlike a pending or verified) qualification can be submitted again with a better document.
+        await Scenario.EnsureSuccess(await practitioner.Http.PostAsJsonAsync("/api/v1/therapy/qualifications", new
+        {
+            modalityCode = modality, title = "Especialização em Acupuntura", issuer = "Instituto X", certificateNumber = "123-B",
+        }, Ct));
+        (await practitioner.Http.PostAsJsonAsync("/api/v1/therapy/qualifications", new { modalityCode = modality, title = "Outra", issuer = "Y" }, Ct))
+            .StatusCode.ShouldBe(HttpStatusCode.Conflict);
+    }
 }

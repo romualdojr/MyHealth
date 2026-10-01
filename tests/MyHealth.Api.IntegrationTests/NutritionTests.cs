@@ -256,4 +256,48 @@ public sealed class NutritionTests(ApiFactory factory) : IntegrationTest(factory
         await Scenario.EnsureSuccess(await dietitian.Http.PutAsJsonAsync($"/api/v1/meal-plans/{planId}/meals", new[] { new { name = "Lanche", items = Array.Empty<object>() } }, Ct));
         (await dietitian.Http.PostAsJsonAsync($"/api/v1/meal-plans/{planId}/publish", new { changeDescription = "v1" }, Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
+
+    [Fact]
+    public async Task The_client_lists_published_meal_plans_labelled_by_organization_but_never_drafts()
+    {
+        var (client, dietitian, _) = await LinkedDietitianAsync();
+        var published = await Scenario.DraftMealPlanAsync(dietitian, client.Id, "Plano publicado");
+        await Scenario.PublishMealPlanAsync(dietitian, published);
+        await Scenario.DraftMealPlanAsync(dietitian, client.Id, "Rascunho");
+
+        var plans = await Scenario.Read<List<ClientMealPlanListItem>>(await client.Http.GetAsync("/api/v1/me/meal-plans", Ct));
+
+        var plan = plans.ShouldHaveSingleItem();
+        (plan.PlanId, plan.Name, plan.VersionNumber, plan.Status).ShouldBe((published, "Plano publicado", 1, MealPlanStatus.Published));
+        (plan.OrganizationName, plan.DietitianName).ShouldBe(("dietitian Pro", "dietitian Pro"));
+        (await Scenario.Read<List<ClientMealPlanListItem>>(await (await Scenario.ClientAsync("other")).Http.GetAsync("/api/v1/me/meal-plans", Ct))).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task One_assessment_is_readable_by_its_client_and_author_only_and_professional_reads_are_audited()
+    {
+        var (client, dietitian, _) = await LinkedDietitianAsync();
+        var created = await dietitian.Http.PostAsJsonAsync("/api/v1/nutrition-assessments", new
+        {
+            clientId = client.Id, assessment = new { assessedOn = "2026-09-28", goals = "Mais energia" },
+        }, Ct);
+        var id = (await Scenario.Read<Scenario.IdResponse>(created)).Id;
+
+        (await Scenario.Read<NutritionAssessmentResponse>(await client.Http.GetAsync($"/api/v1/nutrition-assessments/{id}", Ct))).Content.Goals.ShouldBe("Mais energia");
+        (await Scenario.Read<NutritionAssessmentResponse>(await dietitian.Http.GetAsync($"/api/v1/nutrition-assessments/{id}", Ct))).DietitianName.ShouldBe("dietitian Pro");
+
+        // Another dietitian of the same client, in another organization, and an unrelated client get nothing.
+        var (outsider, _) = await Scenario.ProfessionalAsync("outsider", Discipline.Dietitian);
+        await Scenario.LinkAsync(outsider, client, Discipline.Dietitian);
+        (await outsider.Http.GetAsync($"/api/v1/nutrition-assessments/{id}", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await (await Scenario.ClientAsync("other")).Http.GetAsync($"/api/v1/nutrition-assessments/{id}", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        var admin = Scenario.Factory.NewUser("auditor", administrator: true);
+        var audit = await Scenario.Read<MyHealth.Application.Common.PagedResponse<MyHealth.Application.Auditing.AuditEntryResponse>>(
+            await admin.Http.GetAsync($"/api/v1/admin/audit-entries?subjectUserId={client.Id}&pageSize=200", Ct));
+        audit.Items.ShouldContain(e => e.Action == "read" && e.ResourceId == id && e.ActorUserId == dietitian.Id);
+        var denied = await Scenario.Read<MyHealth.Application.Common.PagedResponse<MyHealth.Application.Auditing.AuditEntryResponse>>(
+            await admin.Http.GetAsync($"/api/v1/admin/audit-entries?actorUserId={outsider.Id}", Ct));
+        denied.Items.ShouldContain(e => e.Action == "deny" && e.ResourceId == id && e.SubjectUserId == null);
+    }
 }
