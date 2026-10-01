@@ -1,8 +1,9 @@
 @page "/account/security"
 @attribute [Authorize]
+@inject PortalOptions Portal
 @inject MyHealthApiClient Api
 
-<PageTitle>Segurança · MyHealth</PageTitle>
+<PageTitle>Segurança · @Portal.Name</PageTitle>
 
 <h1 class="h3">Verificação em duas etapas</h1>
 <p class="text-body-secondary">

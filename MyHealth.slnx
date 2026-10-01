@@ -21,6 +21,8 @@
     <Project Path="src/MyHealth.AppHost/MyHealth.AppHost.csproj" />
     <Project Path="src/MyHealth.ServiceDefaults/MyHealth.ServiceDefaults.csproj" />
     <Project Path="src/MyHealth.Web/MyHealth.Web.csproj" />
+    <Project Path="src/MyHealth.Web.Common/MyHealth.Web.Common.csproj" />
+    <Project Path="src/MyHealth.Backoffice/MyHealth.Backoffice.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MyHealth.Domain.UnitTests/MyHealth.Domain.UnitTests.csproj" />

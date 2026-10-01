@@ -1,0 +1,160 @@
+@page "/organization/billing"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+
+<PageTitle>Plano e cobrança · Organização</PageTitle>
+
+<h1 class="h3">Plano e cobrança — @(Workspace.Membership?.TenantName ?? "organização")</h1>
+
+@if (!Workspace.IsTenantAdministrator)
+{
+    <p class="alert alert-info">Selecione uma organização que você administra.</p>
+}
+else
+{
+    <ProblemAlert Problem="_problem" />
+
+    @if (_detail is null)
+    {
+        @if (_problem is null)
+        {
+            <Loading />
+        }
+    }
+    else
+    {
+        var s = _detail.Summary;
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <span class="fs-5 fw-semibold">Assinatura</span>
+                    <StatusBadge Status="@s.Status" />
+                </div>
+                <p class="mb-1"><strong>Módulos:</strong> @string.Join(", ", s.Modules.Select(BillingLabels.Module)) · <strong>@BillingLabels.Money(s.MonthlyAmountCents)</strong> por mês</p>
+                @switch (s.Status)
+                {
+                    case "Trial":
+                        <p class="mb-0 text-body-secondary">
+                            Período de teste até @BillingLabels.Date(s.TrialEndsAt), com todos os módulos liberados. Depois disso, a cobrança é mensal e antecipada
+                            pelos módulos acima; os demais deixam de estar disponíveis.
+                        </p>
+                        break;
+                    case "PastDue":
+                        <p class="mb-0 text-warning-emphasis">Há uma fatura vencida. Pague para evitar a suspensão da organização.</p>
+                        break;
+                    case "Suspended":
+                        <p class="mb-0 text-danger">
+                            Organização suspensa: os profissionais não conseguem atender por ela até a regularização. Os clientes mantêm acesso aos próprios dados.
+                        </p>
+                        break;
+                    case "Cancelled":
+                        <p class="mb-0 text-danger">Assinatura cancelada.</p>
+                        break;
+                    default:
+                        <p class="mb-0 text-body-secondary">Próxima fatura em @BillingLabels.Date(s.NextInvoiceAt).</p>
+                        break;
+                }
+                <p class="small text-body-secondary mb-0 mt-2">Para mudar os módulos contratados, fale com o suporte da MyHealth.</p>
+            </div>
+        </div>
+
+        <h2 class="h5">Faturas</h2>
+        @if (_detail.Invoices.Count == 0)
+        {
+            <p class="text-body-secondary">Nenhuma fatura ainda.</p>
+        }
+        else
+        {
+            <table class="table table-sm align-middle">
+                <thead><tr><th>Período</th><th>Itens</th><th class="text-end">Total</th><th>Vencimento</th><th>Situação</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var i in _detail.Invoices)
+                    {
+                        <tr>
+                            <td class="text-nowrap">@BillingLabels.Date(i.PeriodStart) – @BillingLabels.Date(i.PeriodEnd)</td>
+                            <td class="small">@string.Join(", ", i.Lines.Select(l => $"{BillingLabels.Module(l.Module)} {BillingLabels.Money(l.AmountCents)}"))</td>
+                            <td class="text-end">@BillingLabels.Money(i.TotalCents)</td>
+                            <td class="@(i.IsOverdue ? "text-danger fw-semibold" : string.Empty)">@BillingLabels.Date(i.DueAt)</td>
+                            <td><StatusBadge Status="@i.Status" /></td>
+                            <td class="text-end">
+                                @if (i.Status == "Open")
+                                {
+                                    <button class="btn btn-sm btn-primary" disabled="@(_paying == i.Id)" @onclick="() => PayAsync(i)">Pagar com Pix</button>
+                                }
+                                else if (i.PaidAt is { } paid)
+                                {
+                                    <span class="small text-body-secondary">pago em @BillingLabels.Date(paid)</span>
+                                }
+                            </td>
+                        </tr>
+                        @if (_charges.TryGetValue(i.Id, out var charge) && i.Status == "Open")
+                        {
+                            <tr>
+                                <td colspan="6" class="bg-body-tertiary">
+                                    <label class="form-label small mb-1" for="pix-@i.Id">Pix copia e cola (válido até @charge.ExpiresAt.ToLocalTime().ToString("dd/MM HH:mm"))</label>
+                                    <textarea id="pix-@i.Id" class="form-control form-control-sm font-monospace mb-2" rows="2" readonly>@charge.PixCopyPaste</textarea>
+                                    @if (charge.CheckoutUrl is not null)
+                                    {
+                                        <a href="@charge.CheckoutUrl" target="_blank" rel="noopener noreferrer" class="small">Abrir página de pagamento</a>
+                                    }
+                                    <span class="d-block small text-body-secondary mt-1">A fatura é baixada automaticamente quando o pagamento é confirmado.</span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    }
+}
+
+@code {
+    private TenantBillingDetail? _detail;
+    private ApiProblem? _problem;
+    private Guid? _paying;
+    private readonly Dictionary<Guid, ChargeResponse> _charges = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _detail = null;
+        _problem = null;
+        _charges.Clear();
+        if (!Workspace.IsTenantAdministrator)
+        {
+            return;
+        }
+
+        var result = await Api.GetAsync<TenantBillingDetail>("tenant/billing");
+        _detail = result.Value;
+        _problem = result.Problem;
+    }
+
+    private async Task PayAsync(InvoiceResponse invoice)
+    {
+        _paying = invoice.Id;
+        var result = await Api.PostAsync<ChargeResponse>($"tenant/billing/invoices/{invoice.Id}/charge", null);
+        _paying = null;
+        _problem = result.Problem;
+        if (result.Value is { } charge)
+        {
+            _charges[invoice.Id] = charge;
+        }
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

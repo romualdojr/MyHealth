@@ -7,8 +7,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using MyHealth.Api.IntegrationTests.Infrastructure;
 using MyHealth.Infrastructure.Identity;
-using web::MyHealth.Web.Api;
-using Web = web::MyHealth.Web.Api;
+using web::MyHealth.Web.Common.Api;
+using Web = web::MyHealth.Web.Common.Api;
 
 namespace MyHealth.Api.IntegrationTests;
 
@@ -186,6 +186,39 @@ public sealed class WebDashboardContractTests(ApiFactory factory) : IntegrationT
 
         // A non-operator gets a clear 403 from the admin area.
         (await api.GetAsync<List<TenantSummaryItem>>("admin/tenants", ct: Ct)).Problem.ShouldNotBeNull().Status.ShouldBe(403);
+    }
+
+    [Fact]
+    public async Task The_back_office_billing_pages_and_the_organization_billing_page_read_and_act_on_their_data()
+    {
+        var (operatorApi, _, _) = await SignedInAsync("operator", administrator: true);
+        var (owner, _) = await Scenario.ProfessionalAsync("owner");
+        var tenantId = owner.TenantId!.Value;
+
+        // Back office: overview, subscriptions, prices, a tenant's detail and the actions its page performs.
+        (await Ok(operatorApi.GetAsync<List<Web.ModulePriceItem>>("admin/billing/module-prices", ct: Ct))).Select(p => p.Module).ShouldBe(["Training", "Nutrition", "Therapies"]);
+        (await Ok(operatorApi.GetAsync<List<Web.TenantBillingItem>>("admin/billing/tenants?status=Trial", ct: Ct))).ShouldContain(t => t.TenantId == tenantId);
+        (await operatorApi.PutAsync($"admin/billing/tenants/{tenantId}/modules", new { modules = new[] { "Training", "Nutrition" }, reason = "Upgrade" }, ct: Ct)).Problem.ShouldBeNull();
+        (await operatorApi.PostAsync($"admin/billing/tenants/{tenantId}/trial", new { until = DateTimeOffset.UtcNow.AddDays(60), reason = "Negociação" }, ct: Ct)).Problem.ShouldBeNull();
+        (await operatorApi.PostAsync($"admin/billing/tenants/{tenantId}/invoices", ct: Ct)).Problem.ShouldBeNull();
+        var detail = await Ok(operatorApi.GetAsync<Web.TenantBillingDetail>($"admin/billing/tenants/{tenantId}", ct: Ct));
+        detail.Summary.Status.ShouldBe("Active");
+        detail.Summary.Modules.ShouldBe(["Training", "Nutrition"]);
+        var invoice = detail.Invoices.ShouldHaveSingleItem();
+        invoice.Lines.Select(l => l.Module).ShouldBe(["Training", "Nutrition"]);
+        detail.History.Select(h => h.Status).ShouldContain("Trial");
+
+        // Organization: its administrator sees the invoice and gets a Pix charge; the operator simulates the payment.
+        var mine = await Scenario.Read<Web.TenantBillingDetail>(await owner.Http.GetAsync("/api/v1/tenant/billing", Ct));
+        mine.Invoices.ShouldHaveSingleItem().Status.ShouldBe("Open");
+        (await Scenario.Read<Web.ChargeResponse>(await owner.Http.PostAsync($"/api/v1/tenant/billing/invoices/{invoice.Id}/charge", null, Ct))).PixCopyPaste.ShouldNotBeNull();
+        (await Ok(operatorApi.PostAsync<Web.WebhookResult>($"admin/billing/invoices/{invoice.Id}/simulate-payment", null, ct: Ct))).Outcome.ShouldBe("applied");
+        (await Ok(operatorApi.PostAsync<Web.BillingCycleResult>("admin/billing/run-cycle", null, ct: Ct))).Subscriptions.ShouldBeGreaterThan(0);
+
+        var summary = await Ok(operatorApi.GetAsync<Web.RevenueSummary>("admin/billing/summary", ct: Ct));
+        summary.TenantsByStatus.ShouldContainKey("Active");
+        summary.RecentPayments.ShouldContain(p => p.InvoiceId == invoice.Id && p.TenantName == detail.Summary.Name);
+        (await Scenario.Read<Web.MeResponse>(await owner.Http.GetAsync("/api/v1/me", Ct))).Memberships.Single(m => m.TenantId == tenantId).SubscriptionStatus.ShouldBe("Active");
     }
 
     [Fact]

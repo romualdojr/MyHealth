@@ -1,7 +1,7 @@
 <div class="card h-100 @(Warn && Value > 0 ? "border-warning" : string.Empty)">
     <div class="card-body">
         <div class="small text-body-secondary">@Label</div>
-        <div class="fs-3 fw-semibold">@Value</div>
+        <div class="fs-3 fw-semibold">@(Text ?? Value.ToString(System.Globalization.CultureInfo.CurrentCulture))</div>
     </div>
 </div>
 
@@ -11,6 +11,10 @@
 
     [Parameter]
     public int Value { get; set; }
+
+    /// <summary>Shown instead of <see cref="Value"/> (amounts, for example).</summary>
+    [Parameter]
+    public string? Text { get; set; }
 
     /// <summary>Highlights the card when the value is above zero.</summary>
     [Parameter]

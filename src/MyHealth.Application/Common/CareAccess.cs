@@ -45,9 +45,15 @@ internal sealed class CareAccess(
             return membership.Error;
         }
 
-        if (!membership.Value.Practices(discipline))
+        if (!membership.Value.Disciplines.Contains(discipline))
         {
             return TenantErrors.DisciplineNotInMembership;
+        }
+
+        // The organization must be paying for this discipline's module and not be suspended (billing).
+        if (membership.Value.Access.Denial(discipline) is { } denied)
+        {
+            return denied;
         }
 
         var profile = await professionals.GetByUserAsync(user.UserId, discipline, cancellationToken);
@@ -94,9 +100,14 @@ internal sealed class CareAccess(
             return CareRelationshipErrors.NotFound;
         }
 
-        if (!membership.Value.Practices(relationship.Discipline))
+        if (!membership.Value.Disciplines.Contains(relationship.Discipline))
         {
             return TenantErrors.DisciplineNotInMembership;
+        }
+
+        if (membership.Value.Access.Denial(relationship.Discipline) is { } denied)
+        {
+            return denied;
         }
 
         if (!relationship.IsActive)

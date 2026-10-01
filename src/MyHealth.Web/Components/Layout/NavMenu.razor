@@ -27,19 +27,8 @@
                 <div class="nav-section px-3">Organização</div>
                 <div class="nav-item px-3"><NavLink class="nav-link" href="organization/members">Membros</NavLink></div>
                 <div class="nav-item px-3"><NavLink class="nav-link" href="organization/audit">Auditoria</NavLink></div>
+                <div class="nav-item px-3"><NavLink class="nav-link" href="organization/billing">Plano e cobrança</NavLink></div>
             }
-        </AuthorizeView>
-
-        <AuthorizeView Roles="@SessionClaims.AdministratorRole">
-            <div class="nav-section px-3">Plataforma</div>
-            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/professionals">Profissionais</NavLink></div>
-            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/qualifications">Qualificações</NavLink></div>
-            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/modalities">Terapias</NavLink></div>
-            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/privacy-requests">Solicitações LGPD</NavLink></div>
-            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/retention">Retenção</NavLink></div>
-            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/audit">Auditoria</NavLink></div>
-            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/tenants">Organizações</NavLink></div>
-            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/operators">Operadores</NavLink></div>
         </AuthorizeView>
 
         <AuthorizeView>

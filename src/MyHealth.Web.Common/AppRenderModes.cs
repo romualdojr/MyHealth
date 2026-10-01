@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
-namespace MyHealth.Web;
+namespace MyHealth.Web.Common;
 
 public static class AppRenderModes
 {

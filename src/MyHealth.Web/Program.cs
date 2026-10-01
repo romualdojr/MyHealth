@@ -1,7 +1,5 @@
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Mvc;
 using MyHealth.Web.Api;
+using MyHealth.Web.Common;
 using MyHealth.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,32 +10,14 @@ builder.AddServiceDefaults();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// The dashboard signs people in with its own HTTP-only cookie; the API tokens travel inside it, encrypted.
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/login";
-        options.AccessDeniedPath = "/access-denied";
-        options.Cookie.Name = "myhealth.web";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Strict;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-        options.ExpireTimeSpan = TimeSpan.FromHours(12);
-        options.SlidingExpiration = false;
-    });
-builder.Services.AddAuthorization();
-builder.Services.AddCascadingAuthenticationState();
-
-builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddHttpClient(MyHealthApiClient.HttpClientName, client =>
+// Professionals and organization administrators. Platform operators use the back office (MyHealth.Backoffice).
+builder.Services.AddMyHealthPortal(builder.Configuration, new PortalOptions
 {
-    // "https+http://" prefers HTTPS; the name is resolved by Aspire service discovery (see AppHost).
-    client.BaseAddress = new(builder.Configuration["MyHealthApi:BaseAddress"] ?? "https+http://apiservice");
+    Name = "MyHealth",
+    Tagline = "Painel para profissionais e organizações. Clientes usam o aplicativo.",
+    CookieName = "myhealth.web",
 });
-builder.Services.AddScoped<ApiSession>();
-builder.Services.AddScoped<MyHealthApiClient>();
 builder.Services.AddScoped<WorkspaceState>();
-builder.Services.AddScoped<SignInService>();
 
 var app = builder.Build();
 
@@ -56,13 +36,10 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .AddAdditionalAssemblies(typeof(PortalOptions).Assembly);
 
-app.MapPost("/account/logout", async (HttpContext context, [FromForm] string? returnUrl) =>
-{
-    await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-    return Results.LocalRedirect("/login");
-});
+app.MapMyHealthAccountEndpoints();
 
 app.MapDefaultEndpoints();
 

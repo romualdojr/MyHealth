@@ -1,5 +1,6 @@
 using MyHealth.Application.Abstractions.Auditing;
 using MyHealth.Domain.Assessments;
+using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
@@ -74,6 +75,14 @@ public interface IReadDbContext
     IQueryable<TherapySession> TherapySessions { get; }
 
     IQueryable<TherapyCarePlan> TherapyCarePlans { get; }
+
+    IQueryable<TenantSubscription> TenantSubscriptions { get; }
+
+    IQueryable<Invoice> Invoices { get; }
+
+    IQueryable<ModulePrice> ModulePrices { get; }
+
+    IQueryable<PaymentEvent> PaymentEvents { get; }
 
     IQueryable<Notification> Notifications { get; }
 

@@ -3,7 +3,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace MyHealth.Web.Api;
+namespace MyHealth.Web.Common.Api;
 
 /// <summary>An RFC 9457 problem returned by the API, reduced to what the UI shows.</summary>
 public sealed record ApiProblem(int Status, string Code, string? Detail, IReadOnlyDictionary<string, string[]>? Errors)

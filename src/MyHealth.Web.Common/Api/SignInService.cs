@@ -4,7 +4,7 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
-namespace MyHealth.Web.Api;
+namespace MyHealth.Web.Common.Api;
 
 public enum SignInOutcome
 {

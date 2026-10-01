@@ -1,0 +1,33 @@
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">MyHealth · Back office</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Menu de navegação" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <AuthorizeView Roles="@SessionClaims.AdministratorRole">
+            <div class="nav-section px-3">Cobrança</div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="" Match="NavLinkMatch.All">Visão geral</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="billing/tenants">Assinaturas</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="billing/prices">Preços dos módulos</NavLink></div>
+
+            <div class="nav-section px-3">Plataforma</div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/tenants">Organizações</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/professionals">Profissionais</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/qualifications">Qualificações</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/modalities">Terapias</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/privacy-requests">Solicitações LGPD</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/retention">Retenção</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/audit">Auditoria</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/operators">Operadores</NavLink></div>
+        </AuthorizeView>
+
+        <AuthorizeView>
+            <div class="nav-section px-3">Conta</div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="account/security">Segurança</NavLink></div>
+        </AuthorizeView>
+    </nav>
+</div>

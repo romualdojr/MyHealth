@@ -158,6 +158,23 @@ enters, so the code does not change when the lawyers answer.
 Not in Phase 3: RF-37 other modalities need their own legal review, but the same model supports them (operators add a
 modality); in-person/paper consent capture; reminders.
 
+### 2.9 Platform billing — who pays MyHealth: findings and resolutions ✅
+
+§12.1/12.2 left the commercial model open. Decided for this phase: **organizations and solo practices pay MyHealth,
+priced per module**; payments go through a provider abstraction with a fake implementation until one is chosen. How
+professionals charge their own clients (RF-47 in the client sense) is a separate, later question.
+
+| # | Finding | Resolution |
+|---|---|---|
+| B1 | What is a "module", and what does a tenant pay for? | Three modules that map one-to-one to disciplines: Training, Nutrition, Therapies. A tenant pays the sum of its subscribed modules' monthly prices. Prices are effective-dated; an invoice snapshots the price per line, so later changes never alter issued invoices. A module without a price is never invoiced (the cycle reports it). **(confirm)** real prices; placeholders are seeded. |
+| B2 | How does a new tenant start? | A 30-day trial with every module available; its chosen disciplines become its paid modules. Operators can extend a trial, change modules or end the trial early by issuing the first invoice. Existing tenants received the same trial in the migration. **(confirm)** trial length. |
+| B3 | Billing period and due date. | Monthly, prepaid: the invoice for a period is issued when it starts and is due 5 days later. **(confirm)** due and grace days. |
+| B4 | What does non-payment do? | Past due on the due date (a banner, nothing blocked); suspended after a 10-day grace period. Suspension blocks professional work in that tenant (`Tenant.Suspended`), not administration or billing, so the tenant can still pay; clients keep access to their own records (RNF-04). Paying everything overdue reactivates automatically, except an operator's manual suspension. |
+| B5 | Module gating. | After the trial, a professional whose discipline's module is not subscribed is refused with `Tenant.ModuleNotSubscribed`. |
+| B6 | Payment confirmation (RF-48). | Through the provider's signed webhook only (or an operator's audited offline payment). Each provider event is processed once (unique provider + event id); an amount that differs from the invoice is recorded and not applied. Charges are Pix-first, reused until they expire. |
+| B7 | Who operates billing? | MyHealth's operators, in a separate back-office app (not the organization dashboard), with every action requiring a reason or note and kept in the subscription history. |
+| B8 | Brazilian invoicing (NF-e/NFS-e) and taxes. | Out of scope here: invoices are internal charges, not fiscal documents. **(decide)** the fiscal-document provider together with the payment provider. |
+
 ## 3. Development phases
 
 The phases below re-cut §10 so that every phase ends with a demonstrable, testable slice. P0 is split into three backend phases because nutrition and therapy are independent modules (§2 product principle) and therapy is legally gated.
@@ -214,10 +231,20 @@ The phases below re-cut §10 so that every phase ends with a demonstrable, testa
 | Isolation and therapy summary | `TherapyTests.Sessions_are_isolated_*`, `TherapyTests.Summary_inside_the_same_organization_*` |
 | Scheduling and care plans | `TherapyTests.Scheduling_*`, `TherapyTests.Care_plans_*` |
 
+### 3.4 Platform billing mapping (API and back office)
+
+| Requirement | Covered by |
+|---|---|
+| B2 trial on creation, all modules open | `BillingTests.A_new_organization_starts_a_trial_*`, `TenantSubscriptionTests` |
+| B1/B5 per-module invoice and gating | `BillingTests.After_the_trial_only_paid_modules_work_*`, `TenantSubscriptionTests.An_invoice_snapshots_*` |
+| B3/B4 past due, suspension, reactivation | `TenantSubscriptionTests.Non_payment_moves_*`, `BillingTests.A_suspended_organization_blocks_*` |
+| B6 webhook signature, idempotency, amount mismatch | `BillingTests.The_organization_administrator_pays_*`, `BillingTests.A_payment_with_a_different_amount_*`, `InvoiceTests` |
+| B7 operator actions and revenue summary | `BillingTests.Operators_set_prices_*`, `WebDashboardContractTests.The_back_office_billing_pages_*` |
+
 ## 4. Open decisions for the business (carry-over from §12)
 
 1. Initial market (independent vs. clinics) — now only affects onboarding and billing; both use the same tenant model.
-2. Who pays and who invoices the client.
+2. ~~Who pays MyHealth~~ — organizations and solo practices, per module (2.9). Still open: real prices, trial/due/grace periods, the payment and fiscal-document providers, and whether professionals will charge their own clients through MyHealth.
 3. ~~Nutrition MVP depth~~ — built as diary + prescribed plan, no nutrient database (2.7 N8); revisit with RF-31.
 4. Therapy modalities at launch and the qualification-verification procedure — the API is ready (2.8); legal counsel must supply, per modality, the accepted councils, the required record fields, the consent wording and disclosed risks, and the legal-review reference used to enable it. Also confirm re-consent on every new consent version (R4) and whether paper consent must be supported.
 5. Retention periods per record type and the legal basis catalogue (RNF-01) — the API now stores them (2.7 N12) but they must be decided before enforcement.

@@ -1,4 +1,4 @@
-namespace MyHealth.Web.Api;
+namespace MyHealth.Web.Common.Api;
 
 // The web dashboard keeps its own copies of the API's response shapes (only the fields it shows), so it can be built
 // and deployed on its own. Enums travel as strings, exactly as the API serializes them. A contract test in
@@ -12,7 +12,8 @@ public sealed record MeResponse(
 
 public sealed record MyProfessionalProfile(Guid Id, string Discipline, string DisplayName, string VerificationStatus);
 
-public sealed record MyMembership(Guid MembershipId, Guid TenantId, string TenantName, string Kind, IReadOnlyList<string> Disciplines, bool IsAdministrator);
+public sealed record MyMembership(
+    Guid MembershipId, Guid TenantId, string TenantName, string Kind, IReadOnlyList<string> Disciplines, bool IsAdministrator, string? SubscriptionStatus);
 
 public sealed record TwoFactorStatus(string SharedKey, int RecoveryCodesLeft, IReadOnlyList<string>? RecoveryCodes, bool IsTwoFactorEnabled);
 
@@ -54,6 +55,40 @@ public sealed record TrainerClientSummary(
 
 public sealed record TrainerDashboard(IReadOnlyList<TrainerClientSummary> Clients, int TotalPendingFeedback, int TotalDiscomfortReports, int TotalPlansNeedingReview);
 
+// Billing: organizations and solo practices pay MyHealth per module.
+
+public sealed record ModulePriceItem(string Module, long? MonthlyAmountCents, DateTimeOffset? EffectiveFrom, IReadOnlyList<PriceChange> History);
+
+public sealed record PriceChange(long MonthlyAmountCents, DateTimeOffset EffectiveFrom, DateTimeOffset SetAt);
+
+public sealed record ChargeResponse(string Provider, string? PixCopyPaste, string? CheckoutUrl, DateTimeOffset ExpiresAt);
+
+public sealed record InvoiceLine(string Module, long AmountCents);
+
+public sealed record InvoiceResponse(
+    Guid Id, Guid TenantId, DateTimeOffset PeriodStart, DateTimeOffset PeriodEnd, IReadOnlyList<InvoiceLine> Lines, long TotalCents, string Currency,
+    DateTimeOffset IssuedAt, DateTimeOffset DueAt, string Status, bool IsOverdue, DateTimeOffset? PaidAt, string? PaymentReference, ChargeResponse? Charge,
+    string? VoidReason);
+
+public sealed record TenantBillingItem(
+    Guid TenantId, string Name, string Kind, string Status, IReadOnlyList<string> Modules, long MonthlyAmountCents, long OpenAmountCents,
+    long OverdueAmountCents, DateTimeOffset TrialEndsAt, DateTimeOffset NextInvoiceAt, DateTimeOffset? LastPaidAt, DateTimeOffset CreatedAt);
+
+public sealed record SubscriptionChange(string Status, DateTimeOffset At, Guid? By, string Reason);
+
+public sealed record TenantBillingDetail(
+    TenantBillingItem Summary, IReadOnlyList<string> AdministratorEmails, IReadOnlyList<SubscriptionChange> History, IReadOnlyList<InvoiceResponse> Invoices);
+
+public sealed record RevenueSummary(
+    long MonthlyRecurringRevenueCents, IReadOnlyDictionary<string, int> TenantsByStatus, long OpenAmountCents, long OverdueAmountCents,
+    long PaidLast30DaysCents, int PaymentsLast30Days, IReadOnlyList<RecentPayment> RecentPayments);
+
+public sealed record RecentPayment(Guid InvoiceId, Guid TenantId, string TenantName, long AmountCents, DateTimeOffset PaidAt, string? Reference);
+
+public sealed record BillingCycleResult(int Subscriptions, int InvoicesIssued, int PastDue, int Suspended, int Active, IReadOnlyList<string> Skipped);
+
+public sealed record WebhookResult(string Outcome);
+
 /// <summary>Disciplines and council-facing labels in Portuguese, for display only.</summary>
 public static class Labels
 {
@@ -79,6 +114,12 @@ public static class Labels
         "Completed" => "Concluída",
         "Active" => "Ativo",
         "Declined" => "Recusado",
+        "Trial" => "Período de teste",
+        "PastDue" => "Em atraso",
+        "Cancelled" => "Cancelado",
+        "Open" => "Em aberto",
+        "Paid" => "Paga",
+        "Void" => "Anulada",
         _ => value,
     };
 
@@ -92,9 +133,39 @@ public static class Labels
 
     public static string BadgeClass(string status) => status switch
     {
-        "Verified" or "Enabled" or "Completed" or "Active" => "text-bg-success",
-        "Pending" or "Submitted" or "InProgress" => "text-bg-warning",
-        "Rejected" or "Suspended" or "Revoked" or "Disabled" or "Declined" => "text-bg-danger",
+        "Verified" or "Enabled" or "Completed" or "Active" or "Paid" => "text-bg-success",
+        "Trial" => "text-bg-info",
+        "Pending" or "Submitted" or "InProgress" or "PastDue" or "Open" => "text-bg-warning",
+        "Rejected" or "Suspended" or "Revoked" or "Disabled" or "Declined" or "Cancelled" => "text-bg-danger",
         _ => "text-bg-secondary",
     };
+}
+
+/// <summary>Billing labels and amounts (cents, BRL) for display.</summary>
+public static class BillingLabels
+{
+    public static readonly IReadOnlyList<string> Modules = ["Training", "Nutrition", "Therapies"];
+
+    public static readonly IReadOnlyList<string> Statuses = ["Trial", "Active", "PastDue", "Suspended", "Cancelled"];
+
+    private static readonly System.Globalization.CultureInfo Brazil = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+
+    public static string Module(string value) => value switch
+    {
+        "Training" => "Treino",
+        "Nutrition" => "Nutrição",
+        "Therapies" => "Terapias",
+        _ => value,
+    };
+
+    public static string Money(long cents) => (cents / 100m).ToString("C", Brazil);
+
+    public static string Kind(string value) => value switch
+    {
+        "Organization" => "Organização",
+        "SoloPractice" => "Consultório individual",
+        _ => value,
+    };
+
+    public static string Date(DateTimeOffset value) => value.ToLocalTime().ToString("dd/MM/yyyy", Brazil);
 }

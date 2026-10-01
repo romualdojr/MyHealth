@@ -23,6 +23,8 @@ public enum NotificationType
     TherapyProgressReported = 17,
     TherapyConsentChanged = 18,
     TherapyCarePlanReviewed = 19,
+    InvoiceIssued = 20,
+    SubscriptionStatusChanged = 21,
 }
 
 /// <summary>Push/e-mail delivery state (the notification row is its own outbox entry).</summary>

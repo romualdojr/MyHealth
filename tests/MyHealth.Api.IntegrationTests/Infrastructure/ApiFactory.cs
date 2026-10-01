@@ -67,6 +67,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         // Tests run the notification dispatcher themselves, so delivery is deterministic.
         builder.UseSetting("Notifications:DispatcherEnabled", "false");
+        builder.UseSetting("Billing:CycleEnabled", "false");
+
+        // Every test signs in from the same address, so the production limit (20 per minute) would throttle the suite.
+        builder.UseSetting("RateLimiting:AuthenticationPerMinute", "1000");
 
         builder.ConfigureServices(services =>
         {

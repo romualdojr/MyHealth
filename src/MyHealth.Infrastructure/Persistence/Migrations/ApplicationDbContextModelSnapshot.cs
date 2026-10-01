@@ -442,6 +442,251 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.ToTable("physical_assessments", "myhealth");
                 });
 
+            modelBuilder.Entity("MyHealth.Domain.Billing.Invoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<DateTimeOffset>("DueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_at");
+
+                    b.Property<DateTimeOffset>("IssuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("issued_at");
+
+                    b.Property<string>("Lines")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("lines");
+
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paid_at");
+
+                    b.Property<string>("PaymentReference")
+                        .HasMaxLength(1100)
+                        .HasColumnType("character varying(1100)")
+                        .HasColumnName("payment_reference");
+
+                    b.Property<DateTimeOffset>("PeriodEnd")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("period_end");
+
+                    b.Property<DateTimeOffset>("PeriodStart")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("period_start");
+
+                    b.Property<Guid?>("RecordedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subscription_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<long>("TotalCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("total_cents");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("void_reason");
+
+                    b.Property<DateTimeOffset?>("VoidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("voided_at");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_billing_invoices");
+
+                    b.HasIndex("SubscriptionId", "Status")
+                        .HasDatabaseName("ix_billing_invoices_subscription_id_status");
+
+                    b.HasIndex("TenantId", "PeriodStart")
+                        .HasDatabaseName("ix_billing_invoices_tenant_id_period_start");
+
+                    b.ToTable("billing_invoices", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Billing.ModulePrice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("EffectiveFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_from");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("module");
+
+                    b.Property<long>("MonthlyAmountCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("monthly_amount_cents");
+
+                    b.Property<DateTimeOffset>("SetAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("set_at");
+
+                    b.Property<Guid?>("SetBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("set_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_billing_module_prices");
+
+                    b.HasIndex("Module", "EffectiveFrom")
+                        .HasDatabaseName("ix_billing_module_prices_module_effective_from");
+
+                    b.ToTable("billing_module_prices", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Billing.PaymentEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invoice_id");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("outcome");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("provider");
+
+                    b.Property<string>("ProviderEventId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("provider_event_id");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_billing_payment_events");
+
+                    b.HasIndex("Provider", "ProviderEventId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_billing_payment_events_provider_provider_event_id");
+
+                    b.ToTable("billing_payment_events", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Billing.TenantSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("DueDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("due_days");
+
+                    b.Property<int>("GraceDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("grace_days");
+
+                    b.Property<string>("History")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("history");
+
+                    b.PrimitiveCollection<int[]>("Modules")
+                        .IsRequired()
+                        .HasColumnType("integer[]")
+                        .HasColumnName("modules");
+
+                    b.Property<DateTimeOffset>("NextInvoiceAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_invoice_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status");
+
+                    b.Property<bool>("SuspendedByOperator")
+                        .HasColumnType("boolean")
+                        .HasColumnName("suspended_by_operator");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("TrialEndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("trial_ends_at");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_billing_subscriptions");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_billing_subscriptions_tenant_id");
+
+                    b.HasIndex("Status", "NextInvoiceAt")
+                        .HasDatabaseName("ix_billing_subscriptions_status_next_invoice_at");
+
+                    b.ToTable("billing_subscriptions", "myhealth");
+                });
+
             modelBuilder.Entity("MyHealth.Domain.CareRelationships.CareRelationship", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2932,6 +3177,79 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_physical_assessments_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Billing.Invoice", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Billing.TenantSubscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_billing_invoices_tenant_subscriptions_subscription_id");
+
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_billing_invoices_tenants_tenant_id");
+
+                    b.OwnsOne("MyHealth.Domain.Billing.ProviderCharge", "Charge", b1 =>
+                        {
+                            b1.Property<Guid>("InvoiceId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("id");
+
+                            b1.Property<string>("ChargeId")
+                                .IsRequired()
+                                .HasMaxLength(128)
+                                .HasColumnType("character varying(128)")
+                                .HasColumnName("charge_id");
+
+                            b1.Property<string>("CheckoutUrl")
+                                .HasMaxLength(2048)
+                                .HasColumnType("character varying(2048)")
+                                .HasColumnName("charge_checkout_url");
+
+                            b1.Property<DateTimeOffset>("ExpiresAt")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("charge_expires_at");
+
+                            b1.Property<string>("PixCopyPaste")
+                                .HasMaxLength(1024)
+                                .HasColumnType("character varying(1024)")
+                                .HasColumnName("charge_pix_copy_paste");
+
+                            b1.Property<string>("Provider")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("character varying(32)")
+                                .HasColumnName("charge_provider");
+
+                            b1.HasKey("InvoiceId");
+
+                            b1.HasIndex("Provider", "ChargeId")
+                                .HasDatabaseName("ix_billing_invoices_charge_provider_charge_id");
+
+                            b1.ToTable("billing_invoices", "myhealth");
+
+                            b1.WithOwner()
+                                .HasForeignKey("InvoiceId")
+                                .HasConstraintName("fk_billing_invoices_billing_invoices_id");
+                        });
+
+                    b.Navigation("Charge");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Billing.TenantSubscription", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithOne()
+                        .HasForeignKey("MyHealth.Domain.Billing.TenantSubscription", "TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_billing_subscriptions_tenants_tenant_id");
                 });
 
             modelBuilder.Entity("MyHealth.Domain.CareRelationships.CareRelationship", b =>

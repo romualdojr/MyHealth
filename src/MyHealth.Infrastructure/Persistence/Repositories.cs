@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using MyHealth.Domain.Abstractions;
 using MyHealth.Domain.Assessments;
+using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
@@ -58,6 +59,12 @@ internal sealed class TenantMembershipRepository(ApplicationDbContext db) : Repo
 
     public Task<int> CountActiveAdministratorsAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
         Db.TenantMemberships.CountAsync(m => m.TenantId == tenantId && m.Status == MembershipStatus.Active && m.IsAdministrator, cancellationToken);
+
+    public async Task<IReadOnlyList<Guid>> ListActiveAdministratorIdsAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
+        await Db.TenantMemberships
+            .Where(m => m.TenantId == tenantId && m.Status == MembershipStatus.Active && m.IsAdministrator && m.UserId != null)
+            .Select(m => m.UserId!.Value)
+            .ToListAsync(cancellationToken);
 }
 
 internal sealed class CareRelationshipRepository(ApplicationDbContext db) : Repository<CareRelationship>(db), ICareRelationshipRepository
@@ -217,3 +224,36 @@ internal sealed class TherapySessionRepository(ApplicationDbContext db) : Reposi
 }
 
 internal sealed class TherapyCarePlanRepository(ApplicationDbContext db) : Repository<TherapyCarePlan>(db), ITherapyCarePlanRepository;
+
+internal sealed class ModulePriceRepository(ApplicationDbContext db) : Repository<ModulePrice>(db), IModulePriceRepository
+{
+    public async Task<IReadOnlyDictionary<BillingModule, long>> GetCurrentAsync(DateTimeOffset at, CancellationToken cancellationToken = default)
+    {
+        var prices = await Db.ModulePrices.Where(p => p.EffectiveFrom <= at).ToListAsync(cancellationToken);
+        return prices.GroupBy(p => p.Module).ToDictionary(g => g.Key, g => g.MaxBy(p => p.EffectiveFrom)!.MonthlyAmountCents);
+    }
+}
+
+internal sealed class TenantSubscriptionRepository(ApplicationDbContext db) : Repository<TenantSubscription>(db), ITenantSubscriptionRepository
+{
+    public Task<TenantSubscription?> GetByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
+        Db.TenantSubscriptions.FirstOrDefaultAsync(s => s.TenantId == tenantId, cancellationToken);
+
+    public async Task<IReadOnlyList<TenantSubscription>> ListBillableAsync(CancellationToken cancellationToken = default) =>
+        await Db.TenantSubscriptions.Where(s => s.Status != SubscriptionStatus.Cancelled).ToListAsync(cancellationToken);
+}
+
+internal sealed class InvoiceRepository(ApplicationDbContext db) : Repository<Invoice>(db), IInvoiceRepository
+{
+    public async Task<IReadOnlyList<Invoice>> ListOpenAsync(Guid subscriptionId, CancellationToken cancellationToken = default) =>
+        await Db.Invoices.Where(i => i.SubscriptionId == subscriptionId && i.Status == InvoiceStatus.Open).ToListAsync(cancellationToken);
+
+    public Task<Invoice?> GetByChargeAsync(string provider, string chargeId, CancellationToken cancellationToken = default) =>
+        Db.Invoices.FirstOrDefaultAsync(i => i.Charge != null && i.Charge.Provider == provider && i.Charge.ChargeId == chargeId, cancellationToken);
+}
+
+internal sealed class PaymentEventRepository(ApplicationDbContext db) : Repository<PaymentEvent>(db), IPaymentEventRepository
+{
+    public Task<bool> ExistsAsync(string provider, string providerEventId, CancellationToken cancellationToken = default) =>
+        Db.PaymentEvents.AnyAsync(e => e.Provider == provider && e.ProviderEventId == providerEventId, cancellationToken);
+}

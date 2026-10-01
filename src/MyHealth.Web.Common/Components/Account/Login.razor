@@ -1,14 +1,15 @@
 @page "/login"
 @attribute [ExcludeFromInteractiveRouting]
 @attribute [AllowAnonymous]
-@layout Layout.AuthLayout
+@layout AuthLayout
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Authentication.Cookies
 @inject SignInService SignIn
 @inject NavigationManager Navigation
+@inject PortalOptions Portal
 
-<PageTitle>Entrar · MyHealth</PageTitle>
+<PageTitle>Entrar · @Portal.Name</PageTitle>
 
 <div class="card shadow-sm">
     <div class="card-body p-4">
@@ -49,7 +50,7 @@
 </div>
 
 <p class="text-body-secondary small text-center mt-3">
-    Painel para profissionais, organizações e operadores. Clientes usam o aplicativo.
+    @Portal.Tagline
 </p>
 
 @code {
@@ -73,6 +74,9 @@
         var result = await SignIn.SignInAsync(Input.Email, Input.Password, Input.Code, HttpContext.RequestAborted);
         switch (result.Outcome)
         {
+            case SignInOutcome.Succeeded when Portal.OperatorsOnly && !result.Principal!.IsInRole(SessionClaims.AdministratorRole):
+                _message = "Acesso restrito aos operadores da plataforma.";
+                break;
             case SignInOutcome.Succeeded:
                 await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, result.Principal!);
                 Navigation.NavigateTo(ReturnUrls.Sanitize(ReturnUrl), forceLoad: true);

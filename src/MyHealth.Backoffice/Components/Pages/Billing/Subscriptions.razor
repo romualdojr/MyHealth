@@ -1,0 +1,72 @@
+@page "/billing/tenants"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Assinaturas · Back office</PageTitle>
+
+<h1 class="h3">Assinaturas</h1>
+<p class="text-body-secondary">Quem paga a MyHealth: cada organização ou consultório individual, seus módulos e a situação dos pagamentos.</p>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <button class="btn btn-sm @(Status is null ? "btn-primary" : "btn-outline-primary")" @onclick="() => Filter(null)">Todas</button>
+    @foreach (var status in BillingLabels.Statuses)
+    {
+        <button class="btn btn-sm @(Status == status ? "btn-primary" : "btn-outline-primary")" @onclick="() => Filter(status)">@Labels.Status(status)</button>
+    }
+</div>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_items is null)
+{
+    <Loading />
+}
+else if (_items.Count == 0)
+{
+    <p class="text-body-secondary">Nenhuma assinatura nesta situação.</p>
+}
+else
+{
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr><th>Organização</th><th>Situação</th><th>Módulos</th><th class="text-end">Mensalidade</th><th class="text-end">Em aberto</th><th class="text-end">Vencido</th><th>Próxima fatura</th><th>Último pagamento</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var t in _items)
+            {
+                <tr>
+                    <td>
+                        <a href="billing/tenants/@t.TenantId">@t.Name</a>
+                        <span class="d-block small text-body-secondary">@BillingLabels.Kind(t.Kind)</span>
+                    </td>
+                    <td><StatusBadge Status="@t.Status" /></td>
+                    <td class="small">@string.Join(", ", t.Modules.Select(BillingLabels.Module))</td>
+                    <td class="text-end">@BillingLabels.Money(t.MonthlyAmountCents)</td>
+                    <td class="text-end">@BillingLabels.Money(t.OpenAmountCents)</td>
+                    <td class="text-end @(t.OverdueAmountCents > 0 ? "text-danger fw-semibold" : string.Empty)">@BillingLabels.Money(t.OverdueAmountCents)</td>
+                    <td>@(t.Status == "Trial" ? $"fim do teste {BillingLabels.Date(t.TrialEndsAt)}" : BillingLabels.Date(t.NextInvoiceAt))</td>
+                    <td>@(t.LastPaidAt is { } paid ? BillingLabels.Date(paid) : "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? Status { get; set; }
+
+    private List<TenantBillingItem>? _items;
+    private ApiProblem? _problem;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _items = null;
+        var result = await Api.GetAsync<List<TenantBillingItem>>(Status is null ? "admin/billing/tenants" : $"admin/billing/tenants?status={Uri.EscapeDataString(Status)}");
+        _items = result.Value ?? [];
+        _problem = result.Problem;
+    }
+
+    private void Filter(string? status) => Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("status", status));
+}

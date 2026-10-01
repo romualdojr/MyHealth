@@ -153,6 +153,8 @@ public interface ITenantMembershipRepository : IRepository<TenantMembership, Gui
     Task<bool> ExistsOpenAsync(Guid tenantId, string email, CancellationToken cancellationToken = default);
 
     Task<int> CountActiveAdministratorsAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Guid>> ListActiveAdministratorIdsAsync(Guid tenantId, CancellationToken cancellationToken = default);
 }
 
 public static class MembershipErrors

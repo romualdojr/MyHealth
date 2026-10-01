@@ -7,8 +7,10 @@ using MyHealth.Application.Abstractions.Administration;
 using MyHealth.Application.Abstractions.Auditing;
 using MyHealth.Application.Abstractions.Authentication;
 using MyHealth.Application.Abstractions.Data;
+using MyHealth.Application.Abstractions.Payments;
 using MyHealth.Domain.Abstractions;
 using MyHealth.Domain.Assessments;
+using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
@@ -24,6 +26,7 @@ using MyHealth.Domain.Users;
 using MyHealth.Infrastructure.Auditing;
 using MyHealth.Infrastructure.Identity;
 using MyHealth.Infrastructure.Notifications;
+using MyHealth.Infrastructure.Payments;
 using MyHealth.Infrastructure.Persistence;
 
 namespace MyHealth.Infrastructure;
@@ -77,6 +80,19 @@ public static class DependencyInjection
         services.AddScoped<ITherapyConsentRepository, TherapyConsentRepository>();
         services.AddScoped<ITherapySessionRepository, TherapySessionRepository>();
         services.AddScoped<ITherapyCarePlanRepository, TherapyCarePlanRepository>();
+        services.AddScoped<IModulePriceRepository, ModulePriceRepository>();
+        services.AddScoped<ITenantSubscriptionRepository, TenantSubscriptionRepository>();
+        services.AddScoped<IInvoiceRepository, InvoiceRepository>();
+        services.AddScoped<IPaymentEventRepository, PaymentEventRepository>();
+
+        // Payments (§8): a fake provider until one is chosen. A real one replaces both registrations; it simulates nothing.
+        services.AddSingleton<FakePaymentProvider>();
+        services.AddSingleton<IPaymentProvider>(sp => sp.GetRequiredService<FakePaymentProvider>());
+        services.AddSingleton<IPaymentSimulator>(sp => sp.GetRequiredService<FakePaymentProvider>());
+        if (builder.Configuration.GetValue("Billing:CycleEnabled", true))
+        {
+            services.AddHostedService<BillingCycleService>();
+        }
 
         // RNF-02: professionals and administrators need two-factor authentication. Turn off only for local development.
         services.AddSingleton(new SecurityPolicy(builder.Configuration.GetValue("Security:RequireTwoFactorForProfessionals", true)));

@@ -5,6 +5,7 @@ using MyHealth.Application.Abstractions.Messaging;
 using MyHealth.Application.Abstractions.Tenancy;
 using MyHealth.Application.CareRelationships;
 using MyHealth.Domain.Abstractions;
+using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
@@ -30,7 +31,7 @@ internal sealed class CreateTenantValidator : AbstractValidator<CreateTenantComm
 }
 
 internal sealed class CreateTenantHandler(
-    IUserContext user, IUserProfileRepository users, ITenantRepository tenants, ITenantMembershipRepository memberships,
+    IUserContext user, IUserProfileRepository users, ITenantRepository tenants, ITenantMembershipRepository memberships, ITenantSubscriptionRepository subscriptions,
     IAuditLog audit, IUnitOfWork unitOfWork, TimeProvider clock)
     : ICommandHandler<CreateTenantCommand, Guid>
 {
@@ -48,6 +49,9 @@ internal sealed class CreateTenantHandler(
 
         tenants.Add(tenant);
         memberships.Add(membership);
+
+        // Every organization starts with a trial of every module (billing); afterwards it pays for the ones it keeps.
+        subscriptions.Add(TenantSubscription.StartTrial(tenant.Id, command.Disciplines.Distinct().Select(BillingModules.For), now));
         audit.Record(AuditActions.Create, nameof(Tenant), tenant.Id, null, tenant.Id);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return tenant.Id;

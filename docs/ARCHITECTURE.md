@@ -7,8 +7,10 @@ MyHealth.ApiService      Minimal-API endpoints, auth, ProblemDetails, OpenAPI   
 MyHealth.Infrastructure  EF Core/PostgreSQL, Identity, repositories, audit, UoW     │ depend
 MyHealth.Application     CQRS commands/queries + handlers, validation, access rules │ inwards
 MyHealth.Domain          Aggregates, value objects, domain events, Result/Error     ◄┘
-MyHealth.AppHost         Aspire orchestration (PostgreSQL + pgAdmin + API + web dashboard)
-MyHealth.Web             Blazor web dashboard (professionals, organization admins, platform operators) — an API client only
+MyHealth.AppHost         Aspire orchestration (PostgreSQL + pgAdmin + API + web dashboard + back office)
+MyHealth.Web             Blazor web dashboard (professionals, organization admins) — an API client only
+MyHealth.Backoffice      Blazor back office for MyHealth's own operators (billing, verification, catalogs) — an API client only
+MyHealth.Web.Common      Razor class library shared by both: API client and session, sign-in, account pages, components
 ```
 
 The dependency rule is enforced by `tests/MyHealth.ArchitectureTests`.
@@ -80,23 +82,42 @@ Samples must be 20–300 bpm, inside the server's session interval, and outside 
 
 Saving workouts *to* Apple Health is a separate opt-in (`PUT /me/health-connections/apple-health/workout-saving`); the phone reports the saved HKWorkout with `PUT /workout-sessions/{id}/apple-health-workout`, and only one per session is accepted. The full iPhone contract is in `docs/initial_requirements/ios/README.md`.
 
-## Web dashboard (Phase 4, started)
+## Web dashboard and back office (Phase 4, started)
 
-`MyHealth.Web` is a Blazor (Interactive Server, no prerendering) app that talks to the API only over HTTP, like the
-phone apps will. It has no database and keeps its own copies of the response shapes it needs (`Api/ApiModels.cs`);
-`WebDashboardContractTests` reads every one of them from the real API, so drift fails the build.
+`MyHealth.Web` (professionals and organization administrators) and `MyHealth.Backoffice` (MyHealth's operators) are
+Blazor (Interactive Server, no prerendering) apps that talk to the API only over HTTP, like the phone apps will. Neither
+has a database. Both use `MyHealth.Web.Common`, which keeps copies of the response shapes they need
+(`Api/ApiModels.cs`); `WebDashboardContractTests` reads every one of them from the real API, so drift fails the build.
+The two apps have separate cookies; the back office refuses to sign in anyone without the operator role. It is a
+separate deployable so it can sit behind a VPN or IP allow list in production.
 
 | Concern | Decision |
 |---|---|
 | Sign-in | The static `/login` page calls `/auth/login` (bearer tokens, two-factor step included) and signs the person into the dashboard's own HTTP-only, SameSite=Strict cookie. The access and refresh tokens travel only inside that encrypted cookie and server memory, never to browser JavaScript. `ApiSession` refreshes the access token transparently; a failed refresh means signing in again. Return URLs are sanitized to local paths. |
 | Organization | `WorkspaceState` loads `/me` and keeps the selected organization per circuit (remembered in protected browser storage); `MyHealthApiClient` sends it as `X-Tenant-Id`. Pages reload on a switch (MT-07); the API re-checks the membership on every call. |
 | Authorization | Pages declare `[Authorize]`; platform pages require the operator role (taken from `/me`, or probed for operators without a personal profile). The API remains the authority: the UI only hides what the API would refuse. |
-| Screens so far | Home, two-factor setup; platform: professional verification, therapy qualifications, therapy modalities (legal gate, consent versions), LGPD requests, retention, audit, organizations, operators; organization: members, audit; trainer dashboard. Portuguese (RNF-07). |
+| Screens so far | Both: sign-in, two-factor setup. Dashboard: home, organization members, audit, plan and billing (pay with Pix), billing banner when past due or suspended, trainer dashboard. Back office: billing overview (MRR, open/overdue, recent payments, run cycle), subscriptions, subscription detail (modules, trial, invoice now, suspend/reactivate/cancel, simulate/record payment, void), module prices; professional verification, therapy qualifications, therapy modalities (legal gate, consent versions), LGPD requests, retention, audit, organizations, operators. Portuguese (RNF-07). |
+
+## Platform billing (who pays MyHealth)
+
+Organizations and solo practices — tenants — pay MyHealth, monthly and in advance, for the **modules** they use:
+Training (personal trainers), Nutrition (dietitians), Therapies (therapy practitioners). Clients never pay MyHealth.
+
+| Concern | Decision |
+|---|---|
+| Model | `ModulePrice` (per module, effective-dated, history kept), `TenantSubscription` (one per tenant: modules, status, trial end, next period, due/grace days, status history), `Invoice` (one per period, lines snapshotted at the prices in force when issued, owned provider charge), `PaymentEvent` (every provider event received, unique per provider + event id). |
+| Life cycle | A new tenant starts a 30-day **trial with every module**; its disciplines become its paid modules. The billing cycle (`BillingCycleService`, daily, also runnable from the back office) issues the invoice for each period that has started, then reconciles: an invoice past its due date (issue + 5 days) makes the subscription **past due** (a warning), past the 10-day grace period **suspended**; paying everything overdue makes it **active** again. An operator's suspension is lifted only by an operator. **Cancelled** is final. |
+| Enforcement | `ITenantContext` loads the subscription with the membership; `ICareAccess` refuses professional work with `Tenant.Suspended` (suspended/cancelled) or `Tenant.ModuleNotSubscribed` (after the trial, a discipline whose module is not paid). Tenant administration and `/tenant/billing` keep working, so a suspended tenant can still pay; clients keep access to their own data. A tenant without a subscription row counts as suspended (the migration backfills a trial for existing tenants). |
+| Payments | `IPaymentProvider` creates a charge (Pix copy-paste and/or checkout URL) and parses signed webhooks. The only implementation today is `FakePaymentProvider` (HMAC-SHA256 in `X-Fake-Signature`, secret `Payments:Fake:WebhookSecret`); operators can "simulate payment", which signs a real webhook body and runs it through the same pipeline. Webhooks are idempotent (RF-48), and an amount different from the invoice is recorded as `amount-mismatch`, not applied. Operators can also record offline payments or void an invoice, with a note. |
+| Notifications | Tenant administrators are notified of each new invoice and of past due / suspended / active / cancelled changes (outbox). |
+| Endpoints | Operators: `/admin/billing/*` (summary, prices, subscriptions, actions, invoices, run cycle). Tenant administrators: `GET /tenant/billing`, `POST /tenant/billing/invoices/{id}/charge`. Provider: `POST /payments/webhooks` (anonymous, signature-checked). |
+
+Prices are seeded as placeholders (Training R$ 99, Nutrition R$ 49, Therapies R$ 49) and are meant to be set in the back office.
 
 ## Running
 
 ```bash
-dotnet run --project src/MyHealth.AppHost        # PostgreSQL + API + web dashboard (webfrontend)
+dotnet run --project src/MyHealth.AppHost        # PostgreSQL + API + web dashboard (webfrontend) + back office (backoffice)
 ```
 
 API reference (Development): `/scalar/v1`. Migrations are applied on startup in Development.

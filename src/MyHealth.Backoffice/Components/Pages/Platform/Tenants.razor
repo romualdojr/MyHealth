@@ -21,7 +21,7 @@ else
             @foreach (var t in _items)
             {
                 <tr>
-                    <td>@t.Name</td>
+                    <td><a href="billing/tenants/@t.Id">@t.Name</a></td>
                     <td>@(t.Kind == "SoloPractice" ? "Consultório individual" : "Organização")</td>
                     <td>@t.ActiveMembers</td>
                     <td>@t.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>

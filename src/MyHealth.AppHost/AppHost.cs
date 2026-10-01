@@ -28,4 +28,11 @@ builder.AddProject<Projects.MyHealth_Web>("webfrontend")
     .WithReference(apiService)
     .WaitFor(apiService);
 
+// MyHealth's own operators (billing, verification, platform catalogs). Separate app and cookie from the dashboard;
+// in production it belongs behind the company VPN or an IP allow list.
+builder.AddProject<Projects.MyHealth_Backoffice>("backoffice")
+    .WithHttpHealthCheck("/health")
+    .WithReference(apiService)
+    .WaitFor(apiService);
+
 builder.Build().Run();

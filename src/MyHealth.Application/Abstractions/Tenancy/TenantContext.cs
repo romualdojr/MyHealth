@@ -1,15 +1,18 @@
 using MyHealth.Application.Abstractions.Auditing;
 using MyHealth.Application.Abstractions.Authentication;
 using MyHealth.Domain.Abstractions;
+using MyHealth.Domain.Billing;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
 
 namespace MyHealth.Application.Abstractions.Tenancy;
 
 /// <summary>The caller's confirmed, active membership in the tenant selected for this request.</summary>
-public sealed record ActiveMembership(Guid TenantId, Guid MembershipId, IReadOnlyCollection<Discipline> Disciplines, bool IsAdministrator)
+public sealed record ActiveMembership(
+    Guid TenantId, Guid MembershipId, IReadOnlyCollection<Discipline> Disciplines, bool IsAdministrator, TenantAccess Access)
 {
-    public bool Practices(Discipline discipline) => Disciplines.Contains(discipline);
+    /// <summary>Has the discipline here and the subscription allows it (not suspended, module subscribed).</summary>
+    public bool Practices(Discipline discipline) => Disciplines.Contains(discipline) && Access.Allows(discipline);
 }
 
 /// <summary>
@@ -29,7 +32,8 @@ public interface ITenantContext
     Task<Result<ActiveMembership?>> FindAsync(CancellationToken cancellationToken);
 }
 
-internal sealed class TenantContext(IUserContext user, ITenantMembershipRepository memberships, IAuditLog audit, SecurityPolicy security)
+internal sealed class TenantContext(
+    IUserContext user, ITenantMembershipRepository memberships, ITenantSubscriptionRepository subscriptions, IAuditLog audit, SecurityPolicy security)
     : ITenantContext
 {
     private Result<ActiveMembership?>? _resolved;
@@ -67,6 +71,30 @@ internal sealed class TenantContext(IUserContext user, ITenantMembershipReposito
             return SecurityErrors.TwoFactorRequired;
         }
 
-        return new ActiveMembership(membership.TenantId, membership.Id, membership.Disciplines, membership.IsAdministrator);
+        var subscription = await subscriptions.GetByTenantAsync(membership.TenantId, cancellationToken);
+        return new ActiveMembership(membership.TenantId, membership.Id, membership.Disciplines, membership.IsAdministrator, TenantAccess.From(subscription));
     }
+}
+
+/// <summary>
+/// What the tenant's subscription allows (§2 modules, billing suspension). Tenant administration (members, billing) is
+/// never blocked, so an administrator can always settle a suspended subscription; care work is.
+/// </summary>
+public sealed record TenantAccess(SubscriptionStatus Status, IReadOnlyCollection<BillingModule> Modules)
+{
+    /// <summary>A tenant without a subscription row is treated as suspended: billing must exist before care does.</summary>
+    public static readonly TenantAccess Missing = new(SubscriptionStatus.Suspended, []);
+
+    public bool BlocksProfessionals => Status is SubscriptionStatus.Suspended or SubscriptionStatus.Cancelled;
+
+    public static TenantAccess From(TenantSubscription? subscription) =>
+        subscription is null ? Missing : new TenantAccess(subscription.Status, subscription.Modules.ToList());
+
+    public bool Allows(Discipline discipline) => TenantSubscription.Permits(Status, Modules, discipline);
+
+    /// <summary>Why <paramref name="discipline"/> is not allowed, or <c>null</c> when it is.</summary>
+    public Error? Denial(Discipline discipline) =>
+        BlocksProfessionals ? BillingErrors.Suspended
+        : Allows(discipline) ? null
+        : BillingErrors.ModuleNotSubscribed(BillingModules.For(discipline));
 }

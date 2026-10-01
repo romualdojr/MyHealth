@@ -4,6 +4,7 @@ using MyHealth.Application.Abstractions.Data;
 using MyHealth.Application.Abstractions.Messaging;
 using MyHealth.Application.Notifications;
 using MyHealth.Domain.Abstractions;
+using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Professionals;
@@ -27,7 +28,8 @@ public sealed record MyProfessionalProfileItem(Guid Id, Discipline Discipline, s
 
 /// <summary>A tenant the caller can act for; send its id as <c>X-Tenant-Id</c> to work in it (MT-02).</summary>
 public sealed record MyMembershipItem(
-    Guid MembershipId, Guid TenantId, string TenantName, TenantKind Kind, IReadOnlyList<Discipline> Disciplines, bool IsAdministrator);
+    Guid MembershipId, Guid TenantId, string TenantName, TenantKind Kind, IReadOnlyList<Discipline> Disciplines, bool IsAdministrator,
+    SubscriptionStatus? SubscriptionStatus);
 
 public sealed record GetMeQuery : IQuery<MeResponse>;
 
@@ -49,15 +51,17 @@ internal sealed class GetMeHandler(IUserContext user, IReadDbContext db) : IQuer
         var memberships = await (
                 from m in db.TenantMemberships
                 join t in db.Tenants on m.TenantId equals t.Id
+                join s in db.TenantSubscriptions on t.Id equals s.TenantId into subscriptions
+                from s in subscriptions.DefaultIfEmpty()
                 where m.UserId == user.UserId && m.Status == MembershipStatus.Active
                 orderby t.Name
-                select new { Membership = m, t.Name, t.Kind })
+                select new { Membership = m, t.Name, t.Kind, Status = s == null ? (SubscriptionStatus?)null : s.Status })
             .ToListAsync(cancellationToken);
 
         return new MeResponse(
             profile.Id, profile.FullName, profile.Email, profile.TimeZoneId, user.IsAdministrator, professional,
             memberships.Select(m => new MyMembershipItem(
-                m.Membership.Id, m.Membership.TenantId, m.Name, m.Kind, m.Membership.Disciplines, m.Membership.IsAdministrator)).ToList());
+                m.Membership.Id, m.Membership.TenantId, m.Name, m.Kind, m.Membership.Disciplines, m.Membership.IsAdministrator, m.Status)).ToList());
     }
 }
 

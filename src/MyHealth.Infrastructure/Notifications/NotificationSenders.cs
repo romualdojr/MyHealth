@@ -69,6 +69,8 @@ internal static class NotificationTexts
             NotificationType.TherapyProgressReported => ("Retorno do cliente", "Um cliente contou como se sentiu após a sessão."),
             NotificationType.TherapyConsentChanged => ("Consentimento atualizado", "Um cliente atualizou um consentimento."),
             NotificationType.TherapyCarePlanReviewed => ("Plano de cuidado revisado", "Seu plano de cuidado foi revisado."),
+            NotificationType.InvoiceIssued => ("Nova fatura", "Há uma nova fatura do MyHealth para a sua organização."),
+            NotificationType.SubscriptionStatusChanged => ("Assinatura", "A situação da assinatura da sua organização mudou."),
             _ => ("MyHealth", "Você tem uma nova atualização."),
         };
 

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- Shared by the organization dashboard (MyHealth.Web) and the operators' back office (MyHealth.Backoffice):
+       the API client and session, sign-in, account pages and common components. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <Using Include="System.Net.Http.Json" />
+  </ItemGroup>
+
+</Project>

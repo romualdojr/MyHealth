@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using MyHealth.Web.Common.Api;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 
 namespace MyHealth.Web.Api;

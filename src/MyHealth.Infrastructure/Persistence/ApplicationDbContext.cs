@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using MyHealth.Application.Abstractions.Auditing;
 using MyHealth.Domain.Assessments;
+using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
@@ -78,6 +79,14 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<TherapySession> TherapySessions => Set<TherapySession>();
 
     public DbSet<TherapyCarePlan> TherapyCarePlans => Set<TherapyCarePlan>();
+
+    public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
+
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+
+    public DbSet<ModulePrice> ModulePrices => Set<ModulePrice>();
+
+    public DbSet<PaymentEvent> PaymentEvents => Set<PaymentEvent>();
 
     public DbSet<Notification> Notifications => Set<Notification>();
 

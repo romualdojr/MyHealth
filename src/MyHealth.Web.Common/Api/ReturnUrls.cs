@@ -1,4 +1,4 @@
-namespace MyHealth.Web.Api;
+namespace MyHealth.Web.Common.Api;
 
 public static class ReturnUrls
 {

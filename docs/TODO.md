@@ -12,7 +12,10 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] Retention period and legal basis per record type (§12.5, RNF-01) — the catalogue exists, values are empty.
 - [ ] Push and e-mail providers (§8) — delivery uses logging placeholders until chosen.
 - [ ] RPO/RTO targets (RNF-05); heart-rate upload cadence (§12.6).
-- [ ] Commercial model and who invoices the client (§12.1/12.2) — needed for billing and tenant suspension.
+- [x] Who pays MyHealth: organizations and solo practices, priced per module (2.9).
+- [ ] Real module prices, trial length, due and grace days (2.9 B1–B3) — placeholders are seeded.
+- [ ] Payment provider (Pix + card; e.g. Asaas, Pagar.me, Mercado Pago, Stripe) and NF-e/NFS-e issuing (2.9 B8).
+- [ ] Will professionals charge their own clients through MyHealth (RF-47 for clients)?
 - [ ] Onboarding: should a solo practice be created automatically for independent professionals (2.6)?
 - [ ] Confirm the RF-45/RF-46 numbering gap.
 
@@ -40,13 +43,24 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 ## Platform and multi-tenancy
 
 - [ ] RF-05 client reassignment between professionals of a tenant, with a transfer audit trail.
-- [ ] Tenant suspension (billing), per-tenant settings.
+- [x] Tenant suspension through platform billing (per-module subscriptions, invoices, fake payment provider, back office).
+- [ ] Per-tenant settings.
+
+## Platform billing — follow-ups
+
+- [ ] Real `IPaymentProvider` (charge creation, webhook signature, refunds/chargebacks) and the provider's sandbox in staging.
+- [ ] Self-service plan changes for tenant administrators (today operators change modules), with proration if wanted.
+- [ ] Card / recurring payments; dunning e-mails before the due date.
+- [ ] Review queue for `amount-mismatch` payment events in the back office.
+- [ ] Back office behind VPN or IP allow list in production; operator action audit view for billing.
+- [ ] Fiscal documents (NF-e/NFS-e) once the provider is chosen.
 - [ ] PostgreSQL row-level security as defence in depth behind the application checks.
 - [ ] Encryption at rest and tested backup/restore (RNF-02, RNF-05).
 
 ## Phase 4 — Clients and MVP release
 
 - [x] Web dashboard foundation (Blazor): sign-in with 2FA, token refresh, organization switcher, platform admin console (RF-50), organization members and audit, trainer dashboard, contract tests.
+- [x] Back office (separate Blazor app for operators) with the platform admin console and billing; shared `MyHealth.Web.Common` library.
 - [ ] Web: trainer workflow (clients, plan editor and publishing, workout sessions and feedback replies, heart-rate views).
 - [ ] Web: dietitian workflow (assessments, meal plan editor, food diary with comments) and therapist workflow (services, schedule, session record, consent status, care plans).
 - [ ] Web: invitation flows (clients and organizations), professional profile and onboarding, QR code for 2FA setup.
@@ -57,7 +71,7 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 ## Phase 5 — P1 features
 
 - [ ] RF-08 messaging, RF-09 calendar, RF-14 extra workouts, RF-15 periodisation, RF-16 offline, RF-22/RF-44 heart-rate zones,
-      RF-26 goals, RF-27 files, RF-31/32 nutrition goals and allergy warnings, RF-37 other modalities, RF-47/48/49 billing and reports.
+      RF-26 goals, RF-27 files, RF-31/32 nutrition goals and allergy warnings, RF-37 other modalities, RF-47/49 client billing and reports (RF-48 idempotent payment webhooks are done for platform billing).
 
 ## Phase 6 — P2
 

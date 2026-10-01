@@ -4,9 +4,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MyHealth.ApiService\MyHealth.ApiService.csproj" />
-    <!-- The web dashboard's API client and models, checked against the real API (WebDashboardContractTests). -->
-    <!-- Aliased: both web apps have a public Program class, and the API tests use the API's. -->
-    <ProjectReference Include="..\..\src\MyHealth.Web\MyHealth.Web.csproj" Aliases="web" />
+    <!-- The dashboards' shared API client and models (MyHealth.Web and MyHealth.Backoffice), checked against the real API (WebDashboardContractTests). -->
+    <!-- Aliased: its response records share names with the Application layer's. -->
+    <ProjectReference Include="..\..\src\MyHealth.Web.Common\MyHealth.Web.Common.csproj" Aliases="web" />
   </ItemGroup>
 
   <ItemGroup>

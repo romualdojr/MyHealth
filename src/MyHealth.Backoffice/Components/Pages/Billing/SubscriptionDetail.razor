@@ -1,0 +1,268 @@
+@page "/billing/tenants/{TenantId:guid}"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+
+<PageTitle>@(_detail?.Summary.Name ?? "Assinatura") · Back office</PageTitle>
+
+<p class="mb-2"><a href="billing/tenants">← Assinaturas</a></p>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_message is not null)
+{
+    <div class="alert alert-success">@_message</div>
+}
+
+@if (_detail is null)
+{
+    @if (_problem is null)
+    {
+        <Loading />
+    }
+}
+else
+{
+    var s = _detail.Summary;
+    var open = s.Status != "Cancelled";
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+        <h1 class="h3 m-0">@s.Name</h1>
+        <StatusBadge Status="@s.Status" />
+    </div>
+    <p class="text-body-secondary">
+        @BillingLabels.Kind(s.Kind) · cliente desde @BillingLabels.Date(s.CreatedAt) ·
+        administradores: @(_detail.AdministratorEmails.Count == 0 ? "nenhum" : string.Join(", ", _detail.AdministratorEmails))
+    </p>
+
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3"><Metric Label="Mensalidade" Text="@BillingLabels.Money(s.MonthlyAmountCents)" /></div>
+        <div class="col-6 col-lg-3"><Metric Label="Em aberto" Text="@BillingLabels.Money(s.OpenAmountCents)" /></div>
+        <div class="col-6 col-lg-3"><Metric Label="Vencido" Text="@BillingLabels.Money(s.OverdueAmountCents)" Value="@(s.OverdueAmountCents > 0 ? 1 : 0)" Warn="true" /></div>
+        <div class="col-6 col-lg-3">
+            <Metric Label="@(s.Status == "Trial" ? "Fim do teste" : "Próxima fatura")" Text="@BillingLabels.Date(s.Status == "Trial" ? s.TrialEndsAt : s.NextInvoiceAt)" />
+        </div>
+    </div>
+
+    <p>
+        <strong>Módulos contratados:</strong> @string.Join(", ", s.Modules.Select(BillingLabels.Module))
+        @if (s.Status == "Trial")
+        {
+            <span class="text-body-secondary small">(durante o teste todos os módulos ficam liberados)</span>
+        }
+    </p>
+
+    @if (open)
+    {
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button class="btn btn-sm btn-outline-primary" @onclick="() => Ask(Kind.Modules)">Alterar módulos</button>
+            @if (s.Status == "Trial")
+            {
+                <button class="btn btn-sm btn-outline-primary" @onclick="() => Ask(Kind.ExtendTrial)">Estender teste</button>
+            }
+            <button class="btn btn-sm btn-outline-primary" @onclick="IssueInvoiceAsync">
+                @(s.Status == "Trial" ? "Encerrar teste e emitir fatura" : "Emitir próxima fatura agora")
+            </button>
+            @if (s.Status == "Suspended")
+            {
+                <button class="btn btn-sm btn-success" @onclick="() => Ask(Kind.Reactivate)">Reativar</button>
+            }
+            else
+            {
+                <button class="btn btn-sm btn-outline-danger" @onclick="() => Ask(Kind.Suspend)">Suspender</button>
+            }
+            <button class="btn btn-sm btn-outline-danger" @onclick="() => Ask(Kind.Cancel)">Cancelar assinatura</button>
+        </div>
+    }
+
+    @if (_action is { } action)
+    {
+        @if (action.Kind == Kind.Modules)
+        {
+            <div class="mb-2">
+                @foreach (var module in BillingLabels.Modules)
+                {
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="module-@module" checked="@_modules.Contains(module)"
+                               @onchange="e => Toggle(module, (bool)e.Value!)" />
+                        <label class="form-check-label" for="module-@module">@BillingLabels.Module(module)</label>
+                    </div>
+                }
+            </div>
+        }
+        else if (action.Kind == Kind.ExtendTrial)
+        {
+            <div class="mb-2" style="max-width: 16rem;">
+                <label class="form-label small" for="trial-until">Novo fim do teste</label>
+                <input id="trial-until" type="date" class="form-control form-control-sm" @bind="_trialUntil" />
+            </div>
+        }
+
+        <ReasonForm Title="@action.Title" Description="@action.Description" Tone="@action.Tone" ConfirmText="@action.Confirm"
+                    Label="@(action.Kind is Kind.RecordPayment or Kind.Void ? "Observação" : "Motivo")" OnConfirm="ConfirmAsync" OnCancel="() => _action = null" />
+    }
+
+    <h2 class="h5 mt-4">Faturas</h2>
+    @if (_detail.Invoices.Count == 0)
+    {
+        <p class="text-body-secondary">Nenhuma fatura emitida.</p>
+    }
+    else
+    {
+        <table class="table table-sm align-middle">
+            <thead><tr><th>Período</th><th>Itens</th><th class="text-end">Total</th><th>Vencimento</th><th>Situação</th><th>Pagamento</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var i in _detail.Invoices)
+                {
+                    <tr>
+                        <td class="text-nowrap">@BillingLabels.Date(i.PeriodStart) – @BillingLabels.Date(i.PeriodEnd)</td>
+                        <td class="small">@string.Join(", ", i.Lines.Select(l => $"{BillingLabels.Module(l.Module)} {BillingLabels.Money(l.AmountCents)}"))</td>
+                        <td class="text-end">@BillingLabels.Money(i.TotalCents)</td>
+                        <td class="@(i.IsOverdue ? "text-danger fw-semibold" : string.Empty)">@BillingLabels.Date(i.DueAt)</td>
+                        <td><StatusBadge Status="@i.Status" /></td>
+                        <td class="small text-body-secondary">
+                            @if (i.PaidAt is { } paid)
+                            {
+                                @($"{BillingLabels.Date(paid)} · {i.PaymentReference}")
+                            }
+                            else if (i.VoidReason is not null)
+                            {
+                                @i.VoidReason
+                            }
+                        </td>
+                        <td class="text-end text-nowrap">
+                            @if (i.Status == "Open")
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" title="Confirma o pagamento pelo provedor fake, como faria o webhook real"
+                                        @onclick="() => SimulateAsync(i)">Simular pagamento</button>
+                                <button class="btn btn-sm btn-outline-success ms-1" @onclick="() => Ask(Kind.RecordPayment, i)">Baixa manual</button>
+                                <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => Ask(Kind.Void, i)">Anular</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <h2 class="h5 mt-4">Histórico</h2>
+    <ul class="list-unstyled small">
+        @foreach (var change in _detail.History.Reverse())
+        {
+            <li class="mb-1">
+                <span class="text-body-secondary">@change.At.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                <StatusBadge Status="@change.Status" />
+                @change.Reason
+                @if (change.By is null)
+                {
+                    <span class="text-body-secondary">(automático)</span>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter]
+    public Guid TenantId { get; set; }
+
+    private enum Kind { Modules, ExtendTrial, Suspend, Reactivate, Cancel, RecordPayment, Void }
+
+    private sealed record PendingAction(Kind Kind, string Title, string? Description, string Confirm, string Tone, InvoiceResponse? Invoice);
+
+    private TenantBillingDetail? _detail;
+    private ApiProblem? _problem;
+    private string? _message;
+    private PendingAction? _action;
+    private HashSet<string> _modules = [];
+    private DateTime _trialUntil;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Api.GetAsync<TenantBillingDetail>($"admin/billing/tenants/{TenantId}");
+        _detail = result.Value;
+        _problem = result.Problem;
+    }
+
+    private void Ask(Kind kind, InvoiceResponse? invoice = null)
+    {
+        _message = null;
+        _modules = [.. _detail!.Summary.Modules];
+        _trialUntil = _detail.Summary.TrialEndsAt.ToLocalTime().Date.AddDays(15);
+        var total = invoice is null ? null : BillingLabels.Money(invoice.TotalCents);
+        _action = kind switch
+        {
+            Kind.Modules => new(kind, "Alterar módulos contratados", "Vale a partir da próxima fatura.", "Salvar módulos", "primary", null),
+            Kind.ExtendTrial => new(kind, "Estender o período de teste", null, "Estender", "primary", null),
+            Kind.Suspend => new(kind, "Suspender a organização",
+                "Os profissionais deixam de atender pela organização; os administradores continuam vendo e pagando as faturas. Pagar não reativa uma suspensão manual.",
+                "Suspender", "danger", null),
+            Kind.Reactivate => new(kind, "Reativar a organização", null, "Reativar", "success", null),
+            Kind.Cancel => new(kind, "Cancelar a assinatura", "Definitivo: a organização deixa de funcionar e não é mais cobrada. Os clientes mantêm seus dados.",
+                "Cancelar assinatura", "danger", null),
+            Kind.RecordPayment => new(kind, $"Dar baixa manual em {total}", "Para pagamentos recebidos fora do provedor (transferência, acordo).", "Dar baixa", "success", invoice),
+            _ => new(kind, $"Anular a fatura de {total}", null, "Anular fatura", "danger", invoice),
+        };
+    }
+
+    private void Toggle(string module, bool selected)
+    {
+        if (selected)
+        {
+            _modules.Add(module);
+        }
+        else
+        {
+            _modules.Remove(module);
+        }
+    }
+
+    private async Task ConfirmAsync(string? text)
+    {
+        var action = _action!;
+        var path = $"admin/billing/tenants/{TenantId}";
+        var result = action.Kind switch
+        {
+            Kind.Modules => await Api.PutAsync($"{path}/modules", new { modules = BillingLabels.Modules.Where(_modules.Contains).ToArray(), reason = text }),
+            Kind.ExtendTrial => await Api.PostAsync($"{path}/trial", new { until = new DateTimeOffset(_trialUntil.Date.AddDays(1).AddTicks(-1)), reason = text }),
+            Kind.Suspend => await Api.PostAsync($"{path}/suspend", new { reason = text }),
+            Kind.Reactivate => await Api.PostAsync($"{path}/reactivate", new { reason = text }),
+            Kind.Cancel => await Api.PostAsync($"{path}/cancel", new { reason = text }),
+            Kind.RecordPayment => await Api.PostAsync($"admin/billing/invoices/{action.Invoice!.Id}/record-payment", new { note = text }),
+            _ => await Api.PostAsync($"admin/billing/invoices/{action.Invoice!.Id}/void", new { note = text }),
+        };
+
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _action = null;
+            _message = "Alteração registrada.";
+            await LoadAsync();
+        }
+    }
+
+    private async Task IssueInvoiceAsync()
+    {
+        _message = null;
+        var result = await Api.PostAsync("admin/billing/tenants/" + TenantId + "/invoices");
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _message = "Fatura emitida; os administradores da organização foram notificados.";
+            await LoadAsync();
+        }
+    }
+
+    private async Task SimulateAsync(InvoiceResponse invoice)
+    {
+        _message = null;
+        var result = await Api.PostAsync<WebhookResult>($"admin/billing/invoices/{invoice.Id}/simulate-payment", null);
+        _problem = result.Problem;
+        if (result.Value is { } outcome)
+        {
+            _message = outcome.Outcome == "applied" ? "Pagamento confirmado pelo provedor fake." : $"Provedor fake: {outcome.Outcome}.";
+            await LoadAsync();
+        }
+    }
+}

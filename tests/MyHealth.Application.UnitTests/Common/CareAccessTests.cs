@@ -2,6 +2,7 @@ using MyHealth.Application.Abstractions.Authentication;
 using MyHealth.Application.Abstractions.Tenancy;
 using MyHealth.Application.Common;
 using MyHealth.Domain.Abstractions;
+using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
@@ -13,14 +14,24 @@ public sealed class CareAccessTests
     private readonly IProfessionalProfileRepository _professionals = Substitute.For<IProfessionalProfileRepository>();
     private readonly ICareRelationshipRepository _relationships = Substitute.For<ICareRelationshipRepository>();
     private readonly ITenantMembershipRepository _memberships = Substitute.For<ITenantMembershipRepository>();
+    private readonly ITenantSubscriptionRepository _subscriptions = Subscriptions();
     private readonly Abstractions.Auditing.IAuditLog _audit = Fixtures.AuditLog();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    /// <summary>The fixture tenant is in its trial, so billing never gets in the way unless a test says so.</summary>
+    private static ITenantSubscriptionRepository Subscriptions()
+    {
+        var subscriptions = Substitute.For<ITenantSubscriptionRepository>();
+        subscriptions.GetByTenantAsync(Fixtures.TenantId, Arg.Any<CancellationToken>())
+            .Returns(TenantSubscription.StartTrial(Fixtures.TenantId, BillingModules.All, Fixtures.Now));
+        return subscriptions;
+    }
+
     private CareAccess AccessFor(Guid userId, Guid? tenantId = null)
     {
         var user = Fixtures.UserContext(userId, requestedTenantId: tenantId ?? Fixtures.TenantId);
-        return new CareAccess(user, new TenantContext(user, _memberships, _audit, SecurityPolicy.Strict), _professionals, _relationships, _audit);
+        return new CareAccess(user, new TenantContext(user, _memberships, _subscriptions, _audit, SecurityPolicy.Strict), _professionals, _relationships, _audit);
     }
 
     /// <summary>Makes <paramref name="userId"/> an active member of the fixture tenant.</summary>
@@ -36,7 +47,7 @@ public sealed class CareAccessTests
     {
         var userId = Guid.CreateVersion7();
         var user = Fixtures.UserContext(userId);
-        var access = new CareAccess(user, new TenantContext(user, _memberships, _audit, SecurityPolicy.Strict), _professionals, _relationships, _audit);
+        var access = new CareAccess(user, new TenantContext(user, _memberships, _subscriptions, _audit, SecurityPolicy.Strict), _professionals, _relationships, _audit);
 
         var result = await access.GetCurrentProfessionalAsync(Discipline.PersonalTrainer, requireVerified: false, Ct);
 
@@ -194,7 +205,7 @@ public sealed class CareAccessTests
         var userId = Guid.CreateVersion7();
         MemberOf(userId, Discipline.PersonalTrainer);
         var user = Fixtures.UserContext(userId, requestedTenantId: Fixtures.TenantId);
-        var tenant = new TenantContext(user, _memberships, _audit, SecurityPolicy.Strict);
+        var tenant = new TenantContext(user, _memberships, _subscriptions, _audit, SecurityPolicy.Strict);
 
         (await tenant.RequireAsync(Ct)).IsSuccess.ShouldBeTrue();
         (await tenant.FindAsync(Ct)).Value!.TenantId.ShouldBe(Fixtures.TenantId);
@@ -207,7 +218,7 @@ public sealed class CareAccessTests
     {
         var user = Fixtures.UserContext(Guid.CreateVersion7());
 
-        Result<ActiveMembership?> found = await new TenantContext(user, _memberships, _audit, SecurityPolicy.Strict).FindAsync(Ct);
+        Result<ActiveMembership?> found = await new TenantContext(user, _memberships, _subscriptions, _audit, SecurityPolicy.Strict).FindAsync(Ct);
 
         found.IsSuccess.ShouldBeTrue();
         found.Value.ShouldBeNull();
@@ -220,7 +231,7 @@ public sealed class CareAccessTests
         MemberOf(userId, Discipline.PersonalTrainer);
         var user = Fixtures.UserContext(userId, requestedTenantId: Fixtures.TenantId, twoFactor: false);
 
-        var result = await new TenantContext(user, _memberships, _audit, SecurityPolicy.Strict).RequireAsync(Ct);
+        var result = await new TenantContext(user, _memberships, _subscriptions, _audit, SecurityPolicy.Strict).RequireAsync(Ct);
 
         result.Error.ShouldBe(SecurityErrors.TwoFactorRequired);
     }
@@ -230,7 +241,7 @@ public sealed class CareAccessTests
     {
         var user = Fixtures.UserContext(Guid.CreateVersion7(), twoFactor: false);
 
-        var found = await new TenantContext(user, _memberships, _audit, SecurityPolicy.Strict).FindAsync(Ct);
+        var found = await new TenantContext(user, _memberships, _subscriptions, _audit, SecurityPolicy.Strict).FindAsync(Ct);
 
         found.IsSuccess.ShouldBeTrue();
         await user.DidNotReceive().HasTwoFactorAsync(Arg.Any<CancellationToken>());
@@ -243,7 +254,7 @@ public sealed class CareAccessTests
         MemberOf(userId, Discipline.PersonalTrainer);
         var user = Fixtures.UserContext(userId, requestedTenantId: Fixtures.TenantId, twoFactor: false);
 
-        var result = await new TenantContext(user, _memberships, _audit, new SecurityPolicy(RequireTwoFactorForProfessionals: false)).RequireAsync(Ct);
+        var result = await new TenantContext(user, _memberships, _subscriptions, _audit, new SecurityPolicy(RequireTwoFactorForProfessionals: false)).RequireAsync(Ct);
 
         result.IsSuccess.ShouldBeTrue();
     }

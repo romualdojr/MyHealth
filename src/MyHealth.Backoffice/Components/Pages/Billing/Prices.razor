@@ -1,0 +1,90 @@
+@page "/billing/prices"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+
+<PageTitle>Preços dos módulos · Back office</PageTitle>
+
+<h1 class="h3">Preços dos módulos</h1>
+<p class="text-body-secondary">
+    Valor mensal de cada módulo. Uma organização paga a soma dos módulos que contratou. Um novo preço vale a partir da data escolhida, nas faturas
+    emitidas depois dela; faturas já emitidas mantêm o valor original.
+</p>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_message is not null)
+{
+    <div class="alert alert-success">@_message</div>
+}
+
+@if (_items is null)
+{
+    <Loading />
+}
+else
+{
+    <table class="table align-middle">
+        <thead><tr><th>Módulo</th><th class="text-end">Preço atual</th><th>Desde</th><th>Agendado</th><th style="width: 22rem;">Novo preço</th></tr></thead>
+        <tbody>
+            @foreach (var p in _items)
+            {
+                var scheduled = p.History.Where(h => h.EffectiveFrom > DateTimeOffset.UtcNow).OrderBy(h => h.EffectiveFrom).ToList();
+                <tr>
+                    <td class="fw-semibold">@BillingLabels.Module(p.Module)</td>
+                    <td class="text-end">@(p.MonthlyAmountCents is { } cents ? BillingLabels.Money(cents) : "sem preço")</td>
+                    <td>@(p.EffectiveFrom is { } from ? BillingLabels.Date(from) : "—")</td>
+                    <td class="small">@string.Join("; ", scheduled.Select(h => $"{BillingLabels.Money(h.MonthlyAmountCents)} em {BillingLabels.Date(h.EffectiveFrom)}"))</td>
+                    <td>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">R$</span>
+                            <input type="number" min="0" step="0.01" class="form-control" placeholder="0,00" @bind="_drafts[p.Module].Amount" />
+                            <input type="date" class="form-control" title="Vale a partir de (vazio: agora)" @bind="_drafts[p.Module].From" />
+                            <button class="btn btn-primary" disabled="@(_drafts[p.Module].Amount is null)" @onclick="() => SaveAsync(p.Module)">Salvar</button>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private sealed class Draft
+    {
+        public decimal? Amount { get; set; }
+
+        public DateTime? From { get; set; }
+    }
+
+    private List<ModulePriceItem>? _items;
+    private Dictionary<string, Draft> _drafts = [];
+    private ApiProblem? _problem;
+    private string? _message;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Api.GetAsync<List<ModulePriceItem>>("admin/billing/module-prices");
+        _items = result.Value ?? [];
+        _drafts = _items.ToDictionary(p => p.Module, _ => new Draft());
+        _problem = result.Problem;
+    }
+
+    private async Task SaveAsync(string module)
+    {
+        var draft = _drafts[module];
+        DateTimeOffset? effectiveFrom = draft.From is { } from && from.Date > DateTime.Today ? new DateTimeOffset(from.Date) : null;
+        var result = await Api.PutAsync($"admin/billing/module-prices/{module}", new
+        {
+            monthlyAmountCents = (long)Math.Round(draft.Amount!.Value * 100m, MidpointRounding.AwayFromZero), effectiveFrom,
+        });
+
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _message = $"Preço de {BillingLabels.Module(module)} atualizado.";
+            await LoadAsync();
+        }
+    }
+}

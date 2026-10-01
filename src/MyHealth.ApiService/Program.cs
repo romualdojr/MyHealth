@@ -26,13 +26,14 @@ builder.Services.AddSingleton<IAuthorizationHandler, TwoFactorRequirementHandler
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(AuthorizationPolicies.Administrator, policy => policy.RequireRole(Roles.Administrator).AddRequirements(new TwoFactorRequirement()));
 
-// Brute-force protection for login, registration and password reset.
+// Brute-force protection for login, registration and password reset (per client IP and minute).
+var authPermitLimit = builder.Configuration.GetValue("RateLimiting:AuthenticationPerMinute", 20);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy(RateLimitPolicies.Authentication, context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = authPermitLimit, Window = TimeSpan.FromMinutes(1) }));
 });
 
 var app = builder.Build();
@@ -69,6 +70,7 @@ authenticated.MapMyRecordsEndpoints();
 authenticated.MapAssessmentEndpoints();
 authenticated.MapNutritionEndpoints();
 authenticated.MapTherapyEndpoints();
+authenticated.MapBillingEndpoints(api);
 authenticated.MapAdminEndpoints();
 
 if (app.Configuration.GetValue("Database:InitializeOnStartup", app.Environment.IsDevelopment()))

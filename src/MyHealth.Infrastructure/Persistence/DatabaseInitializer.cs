@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MyHealth.Domain.Billing;
 using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Infrastructure.Identity;
@@ -29,6 +30,7 @@ public static class DatabaseInitializer
 
         await SeedExercisesAsync(db, provider.GetRequiredService<TimeProvider>(), cancellationToken);
         await SeedTherapyModalitiesAsync(db, provider.GetRequiredService<TimeProvider>(), cancellationToken);
+        await SeedModulePricesAsync(db, provider.GetRequiredService<TimeProvider>(), cancellationToken);
         await SeedAdministratorAsync(provider, logger);
     }
 
@@ -73,6 +75,23 @@ public static class DatabaseInitializer
             TherapyModality.Acupuncture, "Acupuntura", "Aguardando revisão jurídica e clínica antes da habilitação.", [],
             TherapyModality.AcupunctureDefaultRequiredFields, requiresConsent: true, clock.GetUtcNow());
         db.TherapyModalities.Add(acupuncture.Value);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Placeholder monthly prices so billing works out of the box (R$ 99 training, R$ 49 nutrition, R$ 49 therapies).
+    /// The real prices are a commercial decision (§12.2): operators set them in the back office.
+    /// </summary>
+    private static async Task SeedModulePricesAsync(ApplicationDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        if (await db.ModulePrices.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        var now = clock.GetUtcNow();
+        (BillingModule Module, long Cents)[] placeholders = [(BillingModule.Training, 9_900), (BillingModule.Nutrition, 4_900), (BillingModule.Therapies, 4_900)];
+        db.ModulePrices.AddRange(placeholders.Select(p => ModulePrice.Set(p.Module, p.Cents, now, null, now).Value));
         await db.SaveChangesAsync(cancellationToken);
     }
 

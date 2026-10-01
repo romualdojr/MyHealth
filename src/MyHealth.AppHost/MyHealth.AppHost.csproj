@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\MyHealth.ApiService\MyHealth.ApiService.csproj" />
     <ProjectReference Include="..\MyHealth.Web\MyHealth.Web.csproj" />
+    <ProjectReference Include="..\MyHealth.Backoffice\MyHealth.Backoffice.csproj" />
   </ItemGroup>
 
   <ItemGroup>

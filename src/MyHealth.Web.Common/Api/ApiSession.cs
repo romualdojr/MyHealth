@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 
-namespace MyHealth.Web.Api;
+namespace MyHealth.Web.Common.Api;
 
 /// <summary>
 /// The signed-in user's API credentials for one Blazor circuit. The tokens live only in the encrypted, HTTP-only auth
