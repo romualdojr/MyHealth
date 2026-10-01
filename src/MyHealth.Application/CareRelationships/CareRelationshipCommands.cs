@@ -2,6 +2,7 @@ using FluentValidation;
 using MyHealth.Application.Abstractions.Auditing;
 using MyHealth.Application.Abstractions.Authentication;
 using MyHealth.Application.Abstractions.Messaging;
+using MyHealth.Application.Abstractions.Tenancy;
 using MyHealth.Application.Common;
 using MyHealth.Domain.Abstractions;
 using MyHealth.Domain.CareRelationships;
@@ -33,13 +34,14 @@ internal sealed class InviteClientHandler(
             return professional.Error;
         }
 
+        var (membership, profile) = professional.Value;
         var email = UserProfile.NormalizeEmail(command.ClientEmail);
-        if (await relationships.ExistsOpenAsync(professional.Value.Id, email, cancellationToken))
+        if (await relationships.ExistsOpenAsync(membership.TenantId, profile.Id, email, cancellationToken))
         {
             return CareRelationshipErrors.DuplicateInvitation;
         }
 
-        var relationship = CareRelationship.Invite(professional.Value, email, clock.GetUtcNow());
+        var relationship = CareRelationship.Invite(membership.TenantId, profile, email, clock.GetUtcNow());
         if (relationship.IsFailure)
         {
             return relationship.Error;
@@ -98,16 +100,33 @@ internal sealed class EndRelationshipValidator : AbstractValidator<EndRelationsh
     public EndRelationshipValidator() => RuleFor(c => c.Reason).MaximumLength(1000);
 }
 
+/// <summary>The client may end a relationship at any time; the professional only while acting for its tenant.</summary>
 internal sealed class EndRelationshipHandler(
-    IUserContext user, ICareRelationshipRepository relationships, IAuditLog audit, IUnitOfWork unitOfWork, TimeProvider clock)
+    IUserContext user, ITenantContext tenant, ICareRelationshipRepository relationships, IAuditLog audit, IUnitOfWork unitOfWork,
+    TimeProvider clock)
     : ICommandHandler<EndRelationshipCommand>
 {
     public async Task<Result> Handle(EndRelationshipCommand command, CancellationToken cancellationToken)
     {
         var relationship = await relationships.GetByIdAsync(command.RelationshipId, cancellationToken);
-        if (relationship is null || (relationship.ClientId != user.UserId && relationship.ProfessionalUserId != user.UserId))
+        if (relationship is null)
         {
             return CareRelationshipErrors.NotFound;
+        }
+
+        if (relationship.ClientId != user.UserId)
+        {
+            var membership = await tenant.FindAsync(cancellationToken);
+            if (membership.IsFailure)
+            {
+                return membership.Error;
+            }
+
+            if (relationship.ProfessionalUserId != user.UserId || membership.Value?.TenantId != relationship.TenantId)
+            {
+                await audit.RecordDeniedAsync(nameof(CareRelationship), relationship.Id, membership.Value?.TenantId, cancellationToken);
+                return CareRelationshipErrors.NotFound;
+            }
         }
 
         var result = relationship.End(user.UserId, command.Reason, clock.GetUtcNow());
@@ -116,7 +135,7 @@ internal sealed class EndRelationshipHandler(
             return result;
         }
 
-        audit.Record(AuditActions.End, nameof(CareRelationship), relationship.Id, relationship.ClientId);
+        audit.Record(AuditActions.End, nameof(CareRelationship), relationship.Id, relationship.ClientId, relationship.TenantId);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return result;
     }
@@ -152,7 +171,9 @@ internal sealed class ChangeDataSharingHandler(
             return result;
         }
 
-        audit.Record(command.Shared ? AuditActions.Grant : AuditActions.Revoke, $"DataSharing.{command.Category}", relationship.Id, user.UserId);
+        audit.Record(
+            command.Shared ? AuditActions.Grant : AuditActions.Revoke, $"DataSharing.{command.Category}", relationship.Id, user.UserId,
+            relationship.TenantId);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return result;
     }

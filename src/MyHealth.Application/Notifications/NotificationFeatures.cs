@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using MyHealth.Application.Abstractions.Authentication;
 using MyHealth.Application.Abstractions.Data;
 using MyHealth.Application.Abstractions.Messaging;
+using MyHealth.Application.Abstractions.Tenancy;
 using MyHealth.Domain.Abstractions;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.Notifications;
@@ -11,16 +12,28 @@ using MyHealth.Domain.Training.Workouts;
 
 namespace MyHealth.Application.Notifications;
 
-public sealed record NotificationResponse(Guid Id, NotificationType Type, string ResourceType, Guid ResourceId, DateTimeOffset CreatedAt, DateTimeOffset? ReadAt);
+public sealed record NotificationResponse(
+    Guid Id, NotificationType Type, NotificationAudience Audience, Guid? TenantId, string ResourceType, Guid ResourceId, DateTimeOffset CreatedAt,
+    DateTimeOffset? ReadAt);
 
+/// <summary>
+/// Without a selected tenant: the caller's client and account notifications, across tenants (MT-10). With a selected
+/// tenant: the caller's professional notifications for that tenant only (MT-07), plus account notifications.
+/// </summary>
 public sealed record ListMyNotificationsQuery(bool UnreadOnly) : IQuery<IReadOnlyList<NotificationResponse>>;
 
-internal sealed class ListMyNotificationsHandler(IUserContext user, IReadDbContext db)
+internal sealed class ListMyNotificationsHandler(IUserContext user, ITenantContext tenant, IReadDbContext db)
     : IQueryHandler<ListMyNotificationsQuery, IReadOnlyList<NotificationResponse>>
 {
     public async Task<Result<IReadOnlyList<NotificationResponse>>> Handle(ListMyNotificationsQuery query, CancellationToken cancellationToken)
     {
-        var notifications = db.Notifications.Where(n => n.RecipientUserId == user.UserId);
+        var membership = await tenant.FindAsync(cancellationToken);
+        if (membership.IsFailure)
+        {
+            return membership.Error;
+        }
+
+        var notifications = NotificationScope.Visible(db.Notifications, user.UserId, membership.Value?.TenantId);
         if (query.UnreadOnly)
         {
             notifications = notifications.Where(n => n.ReadAt == null);
@@ -29,11 +42,21 @@ internal sealed class ListMyNotificationsHandler(IUserContext user, IReadDbConte
         var items = await notifications
             .OrderByDescending(n => n.CreatedAt)
             .Take(100)
-            .Select(n => new NotificationResponse(n.Id, n.Type, n.ResourceType, n.ResourceId, n.CreatedAt, n.ReadAt))
+            .Select(n => new NotificationResponse(n.Id, n.Type, n.Audience, n.TenantId, n.ResourceType, n.ResourceId, n.CreatedAt, n.ReadAt))
             .ToListAsync(cancellationToken);
 
         return items;
     }
+}
+
+internal static class NotificationScope
+{
+    public static IQueryable<Notification> Visible(IQueryable<Notification> notifications, Guid userId, Guid? activeTenantId) =>
+        activeTenantId is { } tenantId
+            ? notifications.Where(n => n.RecipientUserId == userId
+                                       && (n.Audience == NotificationAudience.Account
+                                           || (n.Audience == NotificationAudience.Professional && n.TenantId == tenantId)))
+            : notifications.Where(n => n.RecipientUserId == userId && n.Audience != NotificationAudience.Professional);
 }
 
 public sealed record MarkNotificationReadCommand(Guid NotificationId) : ICommand;
@@ -60,8 +83,8 @@ internal sealed class MarkNotificationReadHandler(IUserContext user, INotificati
 }
 
 /// <summary>
-/// Turns domain events into in-app notifications in the same transaction (RF-07). Push/e-mail delivery will be
-/// driven from these rows by an outbox processor in Phase 2.
+/// Turns domain events into in-app notifications in the same transaction (RF-07). Each one carries the tenant of the
+/// resource it points to. Push/e-mail delivery will be driven from these rows by an outbox processor in Phase 2.
 /// </summary>
 internal sealed class NotificationEventHandlers(INotificationRepository notifications) :
     IDomainEventHandler<TrainingPlanPublished>,
@@ -70,24 +93,26 @@ internal sealed class NotificationEventHandlers(INotificationRepository notifica
     IDomainEventHandler<CareRelationshipActivated>,
     IDomainEventHandler<ProfessionalVerified>
 {
-    public Task Handle(TrainingPlanPublished domainEvent, CancellationToken cancellationToken) =>
-        Notify(domainEvent.ClientId, NotificationType.TrainingPlanPublished, nameof(TrainingPlan), domainEvent.PlanId, domainEvent.OccurredAt);
+    public Task Handle(TrainingPlanPublished e, CancellationToken cancellationToken) =>
+        Add(Notification.ForClient(e.ClientId, e.TenantId, NotificationType.TrainingPlanPublished, nameof(TrainingPlan), e.PlanId, e.OccurredAt));
 
-    public Task Handle(FeedbackReplied domainEvent, CancellationToken cancellationToken) =>
-        Notify(domainEvent.ClientId, NotificationType.FeedbackReplied, nameof(WorkoutSession), domainEvent.WorkoutSessionId, domainEvent.OccurredAt);
+    public Task Handle(FeedbackReplied e, CancellationToken cancellationToken) =>
+        Add(Notification.ForClient(e.ClientId, e.TenantId, NotificationType.FeedbackReplied, nameof(WorkoutSession), e.WorkoutSessionId, e.OccurredAt));
 
-    public Task Handle(DiscomfortReported domainEvent, CancellationToken cancellationToken) =>
-        Notify(domainEvent.TrainerUserId, NotificationType.DiscomfortReported, nameof(WorkoutSession), domainEvent.WorkoutSessionId, domainEvent.OccurredAt);
+    public Task Handle(DiscomfortReported e, CancellationToken cancellationToken) =>
+        Add(Notification.ForProfessional(
+            e.TrainerUserId, e.TenantId, NotificationType.DiscomfortReported, nameof(WorkoutSession), e.WorkoutSessionId, e.OccurredAt));
 
-    public Task Handle(CareRelationshipActivated domainEvent, CancellationToken cancellationToken) =>
-        Notify(domainEvent.ProfessionalUserId, NotificationType.CareRelationshipActivated, nameof(CareRelationship), domainEvent.RelationshipId, domainEvent.OccurredAt);
+    public Task Handle(CareRelationshipActivated e, CancellationToken cancellationToken) =>
+        Add(Notification.ForProfessional(
+            e.ProfessionalUserId, e.TenantId, NotificationType.CareRelationshipActivated, nameof(CareRelationship), e.RelationshipId, e.OccurredAt));
 
-    public Task Handle(ProfessionalVerified domainEvent, CancellationToken cancellationToken) =>
-        Notify(domainEvent.UserId, NotificationType.ProfessionalVerified, nameof(ProfessionalProfile), domainEvent.ProfessionalProfileId, domainEvent.OccurredAt);
+    public Task Handle(ProfessionalVerified e, CancellationToken cancellationToken) =>
+        Add(Notification.ForAccount(e.UserId, NotificationType.ProfessionalVerified, nameof(ProfessionalProfile), e.ProfessionalProfileId, e.OccurredAt));
 
-    private Task Notify(Guid recipient, NotificationType type, string resourceType, Guid resourceId, DateTimeOffset now)
+    private Task Add(Notification notification)
     {
-        notifications.Add(Notification.Create(recipient, type, resourceType, resourceId, now));
+        notifications.Add(notification);
         return Task.CompletedTask;
     }
 }

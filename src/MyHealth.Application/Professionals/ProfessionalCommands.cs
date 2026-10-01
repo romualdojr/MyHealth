@@ -114,7 +114,7 @@ internal sealed class VerifyProfessionalHandler(
             return result;
         }
 
-        audit.Record(AuditActions.Verify, nameof(ProfessionalProfile), profile.Id, profile.UserId);
+        audit.Record(AuditActions.Verify, nameof(ProfessionalProfile), profile.Id, profile.UserId, tenantId: null);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return result;
     }
@@ -145,7 +145,7 @@ internal sealed class RejectProfessionalHandler(
             return result;
         }
 
-        audit.Record(AuditActions.Reject, nameof(ProfessionalProfile), profile.Id, profile.UserId);
+        audit.Record(AuditActions.Reject, nameof(ProfessionalProfile), profile.Id, profile.UserId, tenantId: null);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return result;
     }

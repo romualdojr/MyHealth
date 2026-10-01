@@ -40,7 +40,7 @@ It is weaker on *operational detail*: several P0 items depend on P1 items, a few
 
 | # | Topic | Assumption used by the API |
 |---|---|---|
-| A1 | Market (§12.1) | Independent professionals first; the model is tenancy-ready (organisations are RF-05, P1). |
+| A1 | Market (§12.1) | ~~Independent professionals first; organisations later.~~ Superseded by §4.1.1 (SaaS): every professional works inside a tenant from day one — see 2.6. |
 | A2 | Invitations (RF-01) | A verified professional invites by e-mail; the client accepts after signing up with that e-mail. |
 | A3 | Verification (RF-04) | An administrator verifies registration (e.g. CREF/CRN) manually; only *verified* professionals can invite, publish or provide care. Changing the registration resets verification. |
 | A4 | Feedback (RF-19) | Perceived exertion (1–10) is required to complete; discomfort and comments are optional. |
@@ -80,8 +80,35 @@ Still open (product decision, not blocking): expected upload cadence during work
 
 ### 2.5 Deferred findings (outside the current iPhone focus)
 
-Findings 2.1 #1–#10, assumptions A1–A6 and the risks in 2.3 stand as written; they will be revisited when their phase
+Findings 2.1 #1–#10, assumptions A2–A6 and the risks in 2.3 stand as written; they will be revisited when their phase
 starts (training-core refinements, nutrition, therapies, privacy export).
+
+### 2.6 Multi-tenant SaaS (§4.1.1, MT-01 → MT-10) — findings and resolutions ✅
+
+The requirements now make tenancy P0 (RF-05 moved from P1). The Phase 1 API was **not** multi-tenant: it isolated
+data per professional and per client only, with no organization concept. Gaps found and how they were resolved
+(details in `docs/ARCHITECTURE.md` → *Multi-tenancy*):
+
+| # | Gap in the Phase 1 API | Resolution |
+|---|---|---|
+| T1 | No tenant or membership model; professional roles were global (MT-01/02). | `Tenant` + `TenantMembership` (disciplines, tenant-admin flag, invite → accept, revoke). `POST /tenants` creates one with the caller as administrator. Credentials (`ProfessionalProfile`) stay global and are verified once. |
+| T2 | No record carried a tenant id; the API could not tell which organization owned a plan, session or relationship (MT-04). | `tenant_id` (+ FK) on relationships, plans, versions, sessions, heart rate, custom exercises; nullable on notifications and audit. Inherited along plan → version → session → heart rate, never taken from input. |
+| T3 | No active-tenant context; queries filtered by user only (MT-02/05/07). | `X-Tenant-Id` selects the tenant, honoured only for an active membership (`ITenantContext`). `ICareAccess` and every professional query/command filter by tenant and profile. |
+| T4 | A professional with a heart-rate grant could list heart rate from **every** workout of the client, including workouts prescribed elsewhere (MT-06). | Shared heart-rate reads are limited to workouts of the relationship's tenant. |
+| T5 | Custom exercises were readable by anyone with the id. | Custom exercises belong to a tenant; readable by its members and by its clients; other tenants get 404 and cannot prescribe them. |
+| T6 | One "Administrator" role mixed platform operation with organization management (MT-05, RF-50). | Platform administrator (credential verification, tenant list, cross-tenant audit, no tenant access) vs. tenant administrator (members, tenant audit, no clinical access). |
+| T7 | Nothing happened to access when a professional left an organization (MT-08). | Revoking the membership ends their relationships in that tenant in the same transaction; records stay. Last administrator cannot be removed. |
+| T8 | Cross-tenant attempts were not audited (MT-09). | `deny` audit entries (tenant id, no subject) for unknown-tenant headers and known ids from another tenant. Covered by `MultiTenancyTests` (acceptance tests 14 and 15). |
+| T9 | Notifications had no tenant, so a professional saw every organization's alerts together (MT-07). | Notifications carry tenant and audience; professional ones are listed only in their tenant's context, client ones in the client view. |
+
+Open points for the business/product (not blocking):
+
+- **RF-05 "each independent professional *receives* a dedicated organization":** the API lets the professional create
+  it (`POST /tenants`, kind `SoloPractice`) instead of creating one automatically with the profile, because someone
+  joining a clinic should not get an unused solo practice. Confirm the onboarding flow.
+- **RF-05 reassignment and transfer audit trail** (moving a client between professionals of a tenant) is not yet built.
+- **MT-07/MT-09 files, exports, background jobs:** those features do not exist yet; they must use the same tenant checks.
+- **Tenant suspension** (unpaid subscription) depends on billing (§12.2).
 
 ## 3. Development phases
 
@@ -94,7 +121,7 @@ The phases below re-cut §10 so that every phase ends with a demonstrable, testa
 | **2 — Assessments, Nutrition, Privacy** | RF-23/24/25 (health history, physical assessments, My Progress), RF-28/29/30 (nutrition assessment, versioned meal plan, food diary), RNF-04 data export + LGPD request workflow, RF-50 admin console endpoints, MFA *enforcement* for professionals/admins, push/e-mail notification delivery (outbox). | Acceptance tests 6, 7 (nutrition part), 9 pass. |
 | **3 — Therapies** *(after legal review)* | RF-33/34/35/36 (service catalogue, acupuncture record, procedure consent, appointments). | Acceptance tests 7 (therapy part), 8 pass. |
 | **4 — Clients & MVP release** | iOS app (integrating `docs/initial_requirements/ios`), Android app, professional web dashboard, accessibility (RNF-07), performance (RNF-06), backup/restore test, RPO/RTO. | Every role has an end-to-end journey; acceptance tests 10, 12 on device; data-isolation tests pass. **MVP launch.** |
-| **5 — P1 features** | RF-05 organisations, RF-08 messaging, RF-09 calendar, RF-14 extra workouts, RF-15 periodisation, RF-16 offline, RF-22 aerobic zones, RF-26 goals, RF-27 files, RF-31/32 nutrition goals, RF-37 other modalities, RF-44 HR zones, RF-47/48/49 billing and reports. | Financial reconciliation and resilient sync tested. |
+| **5 — P1 features** | RF-08 messaging, RF-09 calendar, RF-14 extra workouts, RF-15 periodisation, RF-16 offline, RF-22 aerobic zones, RF-26 goals, RF-27 files, RF-31/32 nutrition goals, RF-37 other modalities, RF-44 HR zones, RF-47/48/49 billing and reports. | Financial reconciliation and resilient sync tested. |
 | **6 — P2** | Advanced HealthKit analysis — only after data-quality validation and Anvisa/RNF-10 assessment. | Regulatory sign-off. |
 
 ### 3.1 Phase 1 acceptance mapping (API)
@@ -109,10 +136,12 @@ The phases below re-cut §10 so that every phase ends with a demonstrable, testa
 | 11 — retries do not duplicate; mean/max from accepted points | `HeartRateTests` |
 | 12 — denied write → no Health workout; with write exactly one | `IphoneIntegrationTests` (API side; on-device part in Phase 4) |
 | 13 — late samples / failed upload reconcile without reverting completion | `WorkoutHeartRateTests` (domain), `HeartRateTests`, `IphoneIntegrationTests` |
+| 14 — professional in two tenants switches context; known ids from the other fail | `MultiTenancyTests` |
+| 15 — client of two organizations sees both; neither sees the other's records | `MultiTenancyTests` |
 
 ## 4. Open decisions for the business (carry-over from §12)
 
-1. Market and tenancy (independent vs. clinics) — affects RF-05 and billing.
+1. Initial market (independent vs. clinics) — now only affects onboarding and billing; both use the same tenant model.
 2. Who pays and who invoices the client.
 3. Nutrition MVP depth (recommend: diary + prescribed plan, no nutrient database).
 4. Therapy modalities at launch and the qualification-verification procedure.

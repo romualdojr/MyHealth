@@ -87,9 +87,16 @@ public sealed class WorkoutHeartRate : AggregateRoot<Guid>
     private readonly List<HeartRateSample> _samples = [];
     private readonly List<HeartRateSync> _syncs = [];
 
-    private WorkoutHeartRate(Guid workoutSessionId, Guid clientId) : base(workoutSessionId) => ClientId = clientId;
+    private WorkoutHeartRate(Guid workoutSessionId, Guid tenantId, Guid clientId) : base(workoutSessionId)
+    {
+        TenantId = tenantId;
+        ClientId = clientId;
+    }
 
     private WorkoutHeartRate() { }
+
+    /// <summary>The workout's tenant (MT-06): only that tenant's professionals can ever be shown these samples.</summary>
+    public Guid TenantId { get; private set; }
 
     public Guid ClientId { get; private set; }
 
@@ -110,7 +117,7 @@ public sealed class WorkoutHeartRate : AggregateRoot<Guid>
 
     public IReadOnlyCollection<HeartRateSync> Syncs => _syncs.AsReadOnly();
 
-    public static WorkoutHeartRate Create(Guid workoutSessionId, Guid clientId) => new(workoutSessionId, clientId);
+    public static WorkoutHeartRate Create(Guid workoutSessionId, Guid tenantId, Guid clientId) => new(workoutSessionId, tenantId, clientId);
 
     /// <param name="report">The phone's current snapshot.</param>
     /// <param name="window">Workout interval and authorized period.</param>

@@ -28,6 +28,9 @@ public sealed class WorkoutSession : AggregateRoot<Guid>
 
     private WorkoutSession() { }
 
+    /// <summary>Inherited from the plan version; heart-rate data of this session inherits it in turn (MT-06).</summary>
+    public Guid TenantId { get; private set; }
+
     public Guid ClientId { get; private set; }
 
     public Guid TrainingPlanId { get; private set; }
@@ -108,6 +111,7 @@ public sealed class WorkoutSession : AggregateRoot<Guid>
 
         var session = new WorkoutSession(id)
         {
+            TenantId = version.TenantId,
             ClientId = clientId,
             TrainingPlanId = version.TrainingPlanId,
             PlanVersionId = version.Id,
@@ -264,10 +268,10 @@ public sealed class WorkoutSession : AggregateRoot<Guid>
         LocalDate = TimeZones.LocalDate(completedAt, TimeZoneId);
         Feedback = feedback;
 
-        Raise(new WorkoutCompleted(Id, ClientId, TrainerUserId, LocalDate.Value, now));
+        Raise(new WorkoutCompleted(Id, TenantId, ClientId, TrainerUserId, LocalDate.Value, now));
         if (feedback.ReportedDiscomfort)
         {
-            Raise(new DiscomfortReported(Id, ClientId, TrainerUserId, now));
+            Raise(new DiscomfortReported(Id, TenantId, ClientId, TrainerUserId, now));
         }
 
         return Result.Success();
@@ -286,7 +290,7 @@ public sealed class WorkoutSession : AggregateRoot<Guid>
         }
 
         Reply = new FeedbackReply(message.Trim(), trainerProfileId, now);
-        Raise(new FeedbackReplied(Id, ClientId, now));
+        Raise(new FeedbackReplied(Id, TenantId, ClientId, now));
         return Result.Success();
     }
 
@@ -329,10 +333,11 @@ public sealed class WorkoutSession : AggregateRoot<Guid>
     }
 }
 
-public sealed record WorkoutCompleted(Guid WorkoutSessionId, Guid ClientId, Guid TrainerUserId, DateOnly LocalDate, DateTimeOffset OccurredAt)
+public sealed record WorkoutCompleted(
+    Guid WorkoutSessionId, Guid TenantId, Guid ClientId, Guid TrainerUserId, DateOnly LocalDate, DateTimeOffset OccurredAt)
     : DomainEvent(OccurredAt);
 
-public sealed record DiscomfortReported(Guid WorkoutSessionId, Guid ClientId, Guid TrainerUserId, DateTimeOffset OccurredAt)
+public sealed record DiscomfortReported(Guid WorkoutSessionId, Guid TenantId, Guid ClientId, Guid TrainerUserId, DateTimeOffset OccurredAt)
     : DomainEvent(OccurredAt);
 
-public sealed record FeedbackReplied(Guid WorkoutSessionId, Guid ClientId, DateTimeOffset OccurredAt) : DomainEvent(OccurredAt);
+public sealed record FeedbackReplied(Guid WorkoutSessionId, Guid TenantId, Guid ClientId, DateTimeOffset OccurredAt) : DomainEvent(OccurredAt);

@@ -9,10 +9,10 @@ using MyHealth.Domain.Abstractions;
 namespace MyHealth.Application.Auditing;
 
 public sealed record AuditEntryResponse(
-    Guid Id, DateTimeOffset OccurredAt, Guid ActorUserId, string Action, string ResourceType, Guid ResourceId, Guid? SubjectUserId);
+    Guid Id, DateTimeOffset OccurredAt, Guid ActorUserId, string Action, string ResourceType, Guid ResourceId, Guid? SubjectUserId, Guid? TenantId);
 
-/// <summary>Administrators audit who accessed what — metadata only, no clinical content (RF-50, RNF-03).</summary>
-public sealed record ListAuditEntriesQuery(Guid? SubjectUserId, Guid? ActorUserId, int Page = 1, int PageSize = 100)
+/// <summary>Platform operators audit who accessed what — metadata only, no clinical content (RF-50, RNF-03).</summary>
+public sealed record ListAuditEntriesQuery(Guid? SubjectUserId, Guid? ActorUserId, Guid? TenantId = null, int Page = 1, int PageSize = 100)
     : IQuery<PagedResponse<AuditEntryResponse>>;
 
 internal sealed class ListAuditEntriesValidator : AbstractValidator<ListAuditEntriesQuery>
@@ -29,12 +29,26 @@ internal sealed class ListAuditEntriesHandler(IReadDbContext db) : IQueryHandler
     public async Task<Result<PagedResponse<AuditEntryResponse>>> Handle(ListAuditEntriesQuery query, CancellationToken cancellationToken)
     {
         var entries = db.AuditEntries.AsQueryable();
-        if (query.SubjectUserId is { } subject)
+        if (query.TenantId is { } tenantId)
+        {
+            entries = entries.Where(e => e.TenantId == tenantId);
+        }
+
+        return await AuditPaging.PageAsync(entries, query.SubjectUserId, query.ActorUserId, query.Page, query.PageSize, cancellationToken);
+    }
+}
+
+internal static class AuditPaging
+{
+    public static async Task<PagedResponse<AuditEntryResponse>> PageAsync(
+        IQueryable<AuditEntry> entries, Guid? subjectUserId, Guid? actorUserId, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        if (subjectUserId is { } subject)
         {
             entries = entries.Where(e => e.SubjectUserId == subject);
         }
 
-        if (query.ActorUserId is { } actor)
+        if (actorUserId is { } actor)
         {
             entries = entries.Where(e => e.ActorUserId == actor);
         }
@@ -42,11 +56,11 @@ internal sealed class ListAuditEntriesHandler(IReadDbContext db) : IQueryHandler
         var total = await entries.CountAsync(cancellationToken);
         var items = await entries
             .OrderByDescending(e => e.OccurredAt)
-            .Skip((query.Page - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .Select(e => new AuditEntryResponse(e.Id, e.OccurredAt, e.ActorUserId, e.Action, e.ResourceType, e.ResourceId, e.SubjectUserId))
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(e => new AuditEntryResponse(e.Id, e.OccurredAt, e.ActorUserId, e.Action, e.ResourceType, e.ResourceId, e.SubjectUserId, e.TenantId))
             .ToListAsync(cancellationToken);
 
-        return new PagedResponse<AuditEntryResponse>(items, query.Page, query.PageSize, total);
+        return new PagedResponse<AuditEntryResponse>(items, page, pageSize, total);
     }
 }

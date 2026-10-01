@@ -17,7 +17,9 @@ builder.Services.AddApplication();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-builder.Services.AddOpenApi(options => options.AddDocumentTransformer<BearerSecuritySchemeTransformer>());
+builder.Services.AddOpenApi(options => options
+    .AddDocumentTransformer<BearerSecuritySchemeTransformer>()
+    .AddOperationTransformer<TenantHeaderOperationTransformer>());
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(AuthorizationPolicies.Administrator, policy => policy.RequireRole(Roles.Administrator));
@@ -54,6 +56,7 @@ api.MapGroup("/auth").WithTags("Auth").RequireRateLimiting(RateLimitPolicies.Aut
 
 var authenticated = api.MapGroup(string.Empty).RequireAuthorization();
 authenticated.MapMeEndpoints();
+authenticated.MapTenantEndpoints();
 authenticated.MapProfessionalEndpoints();
 authenticated.MapCareRelationshipEndpoints();
 authenticated.MapExerciseEndpoints();

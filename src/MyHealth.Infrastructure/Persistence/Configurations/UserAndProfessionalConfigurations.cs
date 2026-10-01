@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.Professionals;
+using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Users;
 
 namespace MyHealth.Infrastructure.Persistence.Configurations;
@@ -58,8 +59,10 @@ internal sealed class CareRelationshipConfiguration : IEntityTypeConfiguration<C
         builder.HasMany(r => r.Grants).WithOne().HasForeignKey("care_relationship_id").OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(r => r.Grants).UsePropertyAccessMode(PropertyAccessMode.Field).AutoInclude();
 
-        builder.HasIndex(r => new { r.ProfessionalUserId, r.Discipline, r.ClientId, r.Status });
-        builder.HasIndex(r => new { r.ProfessionalProfileId, r.InviteeEmail, r.Status });
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(r => r.TenantId).OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(r => new { r.TenantId, r.ProfessionalUserId, r.Discipline, r.ClientId, r.Status });
+        builder.HasIndex(r => new { r.TenantId, r.ProfessionalProfileId, r.InviteeEmail, r.Status });
         builder.HasIndex(r => new { r.ClientId, r.Status });
     }
 }

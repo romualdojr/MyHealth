@@ -8,7 +8,7 @@ public sealed class TrainingPlanTests
     [Fact]
     public void Only_verified_trainers_create_plans()
     {
-        var result = TrainingPlan.Create(TestData.Professional(verified: false), Guid.CreateVersion7(), TestData.Details(), TestData.Now);
+        var result = TrainingPlan.Create(TestData.TenantId, TestData.Professional(verified: false), Guid.CreateVersion7(), TestData.Details(), TestData.Now);
 
         result.Error.ShouldBe(ProfessionalErrors.NotVerified);
     }
@@ -16,7 +16,7 @@ public sealed class TrainingPlanTests
     [Fact]
     public void Dietitians_cannot_create_training_plans()
     {
-        var result = TrainingPlan.Create(TestData.Professional(Discipline.Dietitian), Guid.CreateVersion7(), TestData.Details(), TestData.Now);
+        var result = TrainingPlan.Create(TestData.TenantId, TestData.Professional(Discipline.Dietitian), Guid.CreateVersion7(), TestData.Details(), TestData.Now);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("Professional.MissingProfile");
@@ -27,14 +27,14 @@ public sealed class TrainingPlanTests
     {
         var details = TestData.Details() with { EndDate = new DateOnly(2026, 9, 1) };
 
-        TrainingPlan.Create(TestData.Professional(), Guid.CreateVersion7(), details, TestData.Now).Error.ShouldBe(PlanErrors.InvalidDates);
+        TrainingPlan.Create(TestData.TenantId, TestData.Professional(), Guid.CreateVersion7(), details, TestData.Now).Error.ShouldBe(PlanErrors.InvalidDates);
     }
 
     [Fact]
     public void Publishing_an_empty_plan_fails()
     {
         var trainer = TestData.Professional();
-        var plan = TrainingPlan.Create(trainer, Guid.CreateVersion7(), TestData.Details(), TestData.Now).Value;
+        var plan = TrainingPlan.Create(TestData.TenantId, trainer, Guid.CreateVersion7(), TestData.Details(), TestData.Now).Value;
 
         plan.Publish(trainer, "v1", TestData.Now).Error.ShouldBe(PlanErrors.NoSessions);
     }
@@ -43,7 +43,7 @@ public sealed class TrainingPlanTests
     public void Strength_session_without_exercises_cannot_be_published()
     {
         var trainer = TestData.Professional();
-        var plan = TrainingPlan.Create(trainer, Guid.CreateVersion7(), TestData.Details(), TestData.Now).Value;
+        var plan = TrainingPlan.Create(TestData.TenantId, trainer, Guid.CreateVersion7(), TestData.Details(), TestData.Now).Value;
         plan.UpdateDraft(new PlanContent([new PlannedSession(Guid.CreateVersion7(), "A", SessionKind.Strength, 1, null, [], null)]), TestData.Now);
 
         plan.Publish(trainer, "v1", TestData.Now).Error.Code.ShouldBe("TrainingPlan.IncompleteSession");
@@ -119,7 +119,7 @@ public sealed class TrainingPlanTests
     public void Duplicate_session_ids_are_rejected()
     {
         var trainer = TestData.Professional();
-        var plan = TrainingPlan.Create(trainer, Guid.CreateVersion7(), TestData.Details(), TestData.Now).Value;
+        var plan = TrainingPlan.Create(TestData.TenantId, trainer, Guid.CreateVersion7(), TestData.Details(), TestData.Now).Value;
         var session = TestData.StrengthSession();
 
         plan.UpdateDraft(new PlanContent([session, session]), TestData.Now).Error.Code.ShouldBe("TrainingPlan.DuplicateIds");

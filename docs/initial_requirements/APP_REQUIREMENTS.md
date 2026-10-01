@@ -38,7 +38,24 @@ MFIT's public website describes client management, health history questionnaires
 | RF-02 | P0 | Client-professional relationship with `pending/active/ended` states; ending a relationship stops new access while retaining records for the applicable period. |
 | RF-03 | P0 | Permissions by role and purpose. Trainers edit workouts; dietitians edit meal plans; practitioners edit their own care records; clients view their own data; administrators do not automatically receive clinical access. |
 | RF-04 | P0 | Professional profile with public name, photo, practice area, licensing or registration where applicable, credentials, and verification status before publishing prescriptions or providing care. |
-| RF-05 | P1 | Organizations and teams with multiple professionals and clients, invitations, reassignment, and a transfer audit trail. |
+| RF-05 | P0 | Organizations and teams with multiple professionals and clients, invitations, reassignment, and a transfer audit trail. Each independent professional receives a dedicated organization (tenant). |
+
+#### 4.1.1 Multi-Tenant Access Model
+
+The **tenant is the service organization**, such as a clinic, training team, or an independent professional's practice. A person has one account identity and may hold memberships in multiple tenants. The same client may work with professionals from different tenants without creating duplicate login accounts. Tenant membership alone does not grant access to a client's care records; a current client-professional relationship and the appropriate purpose-specific permission are also required.
+
+| ID | Priority | Requirement and minimum acceptance criteria |
+|---|---|---|
+| MT-01 | P0 | Create a tenant for every service organization, including a solo practice. Each tenant has its own professionals, client relationships, plans, billing settings, and configuration. |
+| MT-02 | P0 | Keep account identity global, but store professional roles as tenant-scoped memberships. A professional who belongs to two tenants chooses an active tenant; every action records that tenant and membership. |
+| MT-03 | P0 | A client may have relationships with several professionals in one or more tenants. Each relationship has a role, status, effective dates, and permitted data categories. Ending one relationship must not affect unrelated relationships. |
+| MT-04 | P0 | Every workout plan, execution, assessment, meal plan, therapy record, invoice, file, and related audit event carries a tenant ID plus client and author IDs. The API resolves tenant context from authenticated membership and checks the resource's tenant ID on every read and write. Client-supplied tenant IDs alone never authorize access. |
+| MT-05 | P0 | Professionals see only clients assigned to them within the active tenant and only data needed for their role and purpose. Tenant administrators can manage memberships and billing but do not receive clinical content by default. |
+| MT-06 | P0 | Heart-rate samples associated with a workout inherit that workout's tenant context. HealthKit permission authorizes access on the client's iPhone; separate in-app sharing permission controls which tenant and professionals can see the imported data. A tenant cannot browse data from another tenant's workout. |
+| MT-07 | P0 | Switching active tenants clears tenant-specific cached data and refreshes authorization context. Search, exports, notifications, files, background jobs, and API queries must enforce the same tenant boundary. |
+| MT-08 | P0 | When a professional leaves a tenant, revoke membership and future access immediately. Existing tenant care records remain under the organization's retention policy, with authorship and access history preserved. |
+| MT-09 | P0 | Automated isolation tests attempt cross-tenant reads and writes with known resource IDs, including direct API calls, file URLs, exports, and HealthKit workout uploads. All unauthorized attempts are rejected and audited without revealing the resource's content. |
+| MT-10 | P0 | The client's own dashboard may combine their records from multiple tenants, labeling each record by organization and responsible professional. This client view does not grant any professional cross-tenant access or automatically share records between organizations. |
 
 ### 4.2 Home and Communication
 
@@ -194,7 +211,7 @@ Integration documentation: [HealthKit authorization](https://developer.apple.com
 
 | Phase | Scope and completion condition |
 |---|---|
-| **MVP — P0** | Accounts and relationships; client dashboard; exercise library and versioned prescriptions; correct execution and attendance; basic assessments; feedback and progress; nutrition plan and diary; therapy scheduling, records, and consent; HealthKit reading, heart-rate upload to the API, and optional workout saving to Apple Health; granular permissions, audit, and export. Complete when each role has a demonstrable end-to-end journey and data-isolation tests pass. |
+| **MVP — P0** | Tenant creation and isolation; accounts, memberships, and client-professional relationships; client dashboard; exercise library and versioned prescriptions; correct execution and attendance; basic assessments; feedback and progress; nutrition plan and diary; therapy scheduling, records, and consent; HealthKit reading, heart-rate upload to the API, and optional workout saving to Apple Health; granular permissions, audit, and export. Complete when each role has a demonstrable end-to-end journey and cross-tenant isolation tests pass. |
 | **Phase 2 — P1** | Messaging, broader scheduling, extra workouts, periodization, goals, offline support, billing, reports, and workout zones. Complete when financial reconciliation and resilient synchronization have been tested. |
 | **Phase 3 — P2** | Advanced HealthKit data analysis only after data-quality validation and regulatory review. |
 
@@ -213,10 +230,12 @@ Integration documentation: [HealthKit authorization](https://developer.apple.com
 11. Heart-rate samples arrive during a workout: the screen and API associate each with the correct session; retries do not duplicate points; mean, maximum, and progression reflect accepted points.
 12. A client finishes a workout and denies Apple Health write access: API completion succeeds and no Health workout is created. With write access, exactly one workout is saved with the correct interval.
 13. New samples appear in Apple Health after a workout or connectivity fails during upload: pending data is reconciled without duplicating the session or reverting its completed state.
+14. A professional with memberships in two tenants switches context: only the selected tenant's clients, files, notifications, and records appear; known IDs and file URLs from the other tenant fail authorization.
+15. A client linked to two organizations sees both relationships in their own view; professionals in either organization cannot see the other's records without a separate permitted sharing flow.
 
 ## 12. Business Decisions Before Implementation
 
-1. Initial market: independent professionals, clinics or teams, or both; this determines billing, multi-user management, and isolation.
+1. Initial market: independent professionals, clinics or teams, or both; all use the same tenant isolation model, while the initial market determines onboarding and billing flows.
 2. Commercial model: charge professionals, clients, per module, or per organization; decide who invoices the client.
 3. Nutrition MVP depth: a simple diary and prescribed plan (proposed) versus full nutrient calculation with a food database.
 4. Launch therapy modalities beyond acupuncture and the qualification-verification process.

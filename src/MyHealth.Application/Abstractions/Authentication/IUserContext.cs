@@ -7,5 +7,13 @@ public interface IUserContext
 
     string Email { get; }
 
+    /// <summary>Platform operator (support/verification). Grants no tenant or clinical access.</summary>
     bool IsAdministrator { get; }
+
+    /// <summary>
+    /// The tenant the caller asked to act for (the <c>X-Tenant-Id</c> header), or <c>null</c> when none was sent.
+    /// This is only a selector: it authorizes nothing until <see cref="Tenancy.ITenantContext"/> confirms a membership.
+    /// An unparsable value is reported as <see cref="Guid.Empty"/>, which never matches a membership.
+    /// </summary>
+    Guid? RequestedTenantId { get; }
 }

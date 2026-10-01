@@ -5,17 +5,22 @@ using MyHealth.Domain.Users;
 namespace MyHealth.Domain.CareRelationships;
 
 /// <summary>
-/// The link between one client and one professional profile (pending → active → ended).
-/// Access to a client's data always derives from an active relationship plus, where needed, an active grant.
+/// The link between one client and one professional profile inside one tenant (pending → active → ended).
+/// Access to a client's data always derives from an active relationship plus, where needed, an active grant. The same
+/// client and professional may hold separate relationships in different tenants; each one is independent (MT-03).
 /// </summary>
 public sealed class CareRelationship : AggregateRoot<Guid>
 {
+    public const string ProfessionalLeftReason = "The professional left the organization.";
+
     private readonly List<DataSharingGrant> _grants = [];
 
     private CareRelationship(
-        Guid id, Guid professionalProfileId, Guid professionalUserId, Discipline discipline, string inviteeEmail, DateTimeOffset invitedAt)
+        Guid id, Guid tenantId, Guid professionalProfileId, Guid professionalUserId, Discipline discipline, string inviteeEmail,
+        DateTimeOffset invitedAt)
         : base(id)
     {
+        TenantId = tenantId;
         ProfessionalProfileId = professionalProfileId;
         ProfessionalUserId = professionalUserId;
         Discipline = discipline;
@@ -25,6 +30,9 @@ public sealed class CareRelationship : AggregateRoot<Guid>
     }
 
     private CareRelationship() { }
+
+    /// <summary>The organization the professional acts for; every record created through this relationship carries it.</summary>
+    public Guid TenantId { get; private set; }
 
     public Guid ProfessionalProfileId { get; private set; }
 
@@ -52,15 +60,20 @@ public sealed class CareRelationship : AggregateRoot<Guid>
 
     public bool IsActive => Status == RelationshipStatus.Active;
 
-    public static Result<CareRelationship> Invite(ProfessionalProfile professional, string inviteeEmail, DateTimeOffset now)
+    public static Result<CareRelationship> Invite(Guid tenantId, ProfessionalProfile professional, string inviteeEmail, DateTimeOffset now)
     {
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("A care relationship always belongs to a tenant.", nameof(tenantId));
+        }
+
         if (!professional.IsVerified)
         {
             return ProfessionalErrors.NotVerified;
         }
 
         return new CareRelationship(
-            Guid.CreateVersion7(now), professional.Id, professional.UserId, professional.Discipline,
+            Guid.CreateVersion7(now), tenantId, professional.Id, professional.UserId, professional.Discipline,
             UserProfile.NormalizeEmail(inviteeEmail), now);
     }
 
@@ -84,7 +97,7 @@ public sealed class CareRelationship : AggregateRoot<Guid>
         ClientId = client.Id;
         Status = RelationshipStatus.Active;
         RespondedAt = now;
-        Raise(new CareRelationshipActivated(Id, client.Id, ProfessionalUserId, now));
+        Raise(new CareRelationshipActivated(Id, TenantId, client.Id, ProfessionalUserId, now));
         return Result.Success();
     }
 
@@ -113,22 +126,14 @@ public sealed class CareRelationship : AggregateRoot<Guid>
             return CareRelationshipErrors.NotParticipant;
         }
 
-        if (Status is not (RelationshipStatus.Active or RelationshipStatus.Pending))
-        {
-            return CareRelationshipErrors.AlreadyClosed;
-        }
-
-        foreach (var grant in _grants.Where(g => g.IsActive))
-        {
-            grant.Revoke(now);
-        }
-
-        Status = RelationshipStatus.Ended;
-        EndedAt = now;
-        EndedBy = actorUserId;
-        EndReason = reason;
-        return Result.Success();
+        return Close(actorUserId, reason, now);
     }
+
+    /// <summary>
+    /// Ends the relationship because the professional no longer belongs to the tenant (MT-08). The actor is whoever
+    /// revoked the membership, usually not a participant.
+    /// </summary>
+    public Result EndBecauseMembershipRevoked(Guid revokedBy, DateTimeOffset now) => Close(revokedBy, ProfessionalLeftReason, now);
 
     public Result Grant(Guid actorUserId, DataCategory category, DateTimeOffset now)
     {
@@ -166,6 +171,25 @@ public sealed class CareRelationship : AggregateRoot<Guid>
     public bool HasActiveGrant(DataCategory category) =>
         IsActive && _grants.Any(g => g.IsActive && g.Category == category);
 
+    private Result Close(Guid actorUserId, string? reason, DateTimeOffset now)
+    {
+        if (Status is not (RelationshipStatus.Active or RelationshipStatus.Pending))
+        {
+            return CareRelationshipErrors.AlreadyClosed;
+        }
+
+        foreach (var grant in _grants.Where(g => g.IsActive))
+        {
+            grant.Revoke(now);
+        }
+
+        Status = RelationshipStatus.Ended;
+        EndedAt = now;
+        EndedBy = actorUserId;
+        EndReason = reason;
+        return Result.Success();
+    }
+
     private Result EnsureClientCanManageSharing(Guid actorUserId)
     {
         if (actorUserId != ClientId)
@@ -177,7 +201,7 @@ public sealed class CareRelationship : AggregateRoot<Guid>
     }
 }
 
-public sealed record CareRelationshipActivated(Guid RelationshipId, Guid ClientId, Guid ProfessionalUserId, DateTimeOffset OccurredAt)
+public sealed record CareRelationshipActivated(Guid RelationshipId, Guid TenantId, Guid ClientId, Guid ProfessionalUserId, DateTimeOffset OccurredAt)
     : DomainEvent(OccurredAt);
 
 public static class CareRelationshipErrors

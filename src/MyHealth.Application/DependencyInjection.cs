@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using MyHealth.Application.Abstractions.Behaviors;
 using MyHealth.Application.Abstractions.Messaging;
+using MyHealth.Application.Abstractions.Tenancy;
 using MyHealth.Application.Common;
 
 namespace MyHealth.Application;
@@ -27,6 +28,7 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly, includeInternalTypes: true);
 
+        services.AddScoped<ITenantContext, TenantContext>();
         services.AddScoped<ICareAccess, CareAccess>();
 
         return services;

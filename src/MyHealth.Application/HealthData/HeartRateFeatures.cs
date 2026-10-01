@@ -88,7 +88,7 @@ internal sealed class SyncWorkoutHeartRateHandler(
         var heartRate = await heartRates.GetByIdAsync(session.Id, cancellationToken);
         if (heartRate is null)
         {
-            heartRate = WorkoutHeartRate.Create(session.Id, session.ClientId);
+            heartRate = WorkoutHeartRate.Create(session.Id, session.TenantId, session.ClientId);
             heartRates.Add(heartRate);
         }
 
@@ -104,7 +104,7 @@ internal sealed class SyncWorkoutHeartRateHandler(
             claimed,
             now);
 
-        audit.Record(AuditActions.Import, nameof(WorkoutHeartRate), session.Id, session.ClientId);
+        audit.Record(AuditActions.Import, nameof(WorkoutHeartRate), session.Id, session.ClientId, session.TenantId);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new HeartRateSyncResponse(
@@ -162,7 +162,8 @@ internal sealed class GetWorkoutHeartRateHandler(IUserContext user, IReadDbConte
 
 /// <summary>
 /// A professional reads heart rate shared through an active relationship and an active grant, while the client's
-/// Apple Health connection is not revoked. Every read is audited.
+/// Apple Health connection is not revoked. Only workouts of the relationship's tenant are visible (MT-06): a grant in
+/// one organization never exposes workouts performed for another. Every read is audited.
 /// </summary>
 public sealed record GetSharedWorkoutHeartRateQuery(Guid RelationshipId, Guid SessionId) : IQuery<WorkoutHeartRateResponse>;
 
@@ -178,12 +179,17 @@ internal sealed class GetSharedWorkoutHeartRateHandler(ICareAccess access, IRead
         }
 
         var heartRate = await HeartRateMapping.LoadAsync(db, query.SessionId, cancellationToken);
-        if (heartRate is null || heartRate.ClientId != relationship.Value.ClientId)
+        if (heartRate is null || heartRate.ClientId != relationship.Value.ClientId || heartRate.TenantId != relationship.Value.TenantId)
         {
+            if (heartRate is not null)
+            {
+                await audit.RecordDeniedAsync(nameof(WorkoutHeartRate), heartRate.Id, relationship.Value.TenantId, cancellationToken);
+            }
+
             return HealthDataErrors.NotFound;
         }
 
-        await audit.RecordReadAsync(nameof(WorkoutHeartRate), heartRate.Id, heartRate.ClientId, cancellationToken);
+        await audit.RecordReadAsync(nameof(WorkoutHeartRate), heartRate.Id, heartRate.ClientId, heartRate.TenantId, cancellationToken);
         return HeartRateMapping.ToResponse(heartRate);
     }
 }
@@ -207,13 +213,14 @@ internal sealed class ListSharedHeartRateSessionsHandler(ICareAccess access, IRe
         var items = await (
                 from h in db.WorkoutHeartRates
                 join s in db.WorkoutSessions on h.Id equals s.Id
-                where h.ClientId == relationship.Value.ClientId
+                where h.ClientId == relationship.Value.ClientId && h.TenantId == relationship.Value.TenantId
                 orderby s.StartedAt descending
                 select new SharedHeartRateSessionItem(s.Id, s.PlannedSessionName, s.StartedAt, s.CompletedAt, h.IsFinalized, h.Summary))
             .Take(200)
             .ToListAsync(cancellationToken);
 
-        await audit.RecordReadAsync("WorkoutHeartRate.List", relationship.Value.Id, relationship.Value.ClientId, cancellationToken);
+        await audit.RecordReadAsync(
+            "WorkoutHeartRate.List", relationship.Value.Id, relationship.Value.ClientId, relationship.Value.TenantId, cancellationToken);
         return items;
     }
 }

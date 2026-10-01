@@ -10,6 +10,7 @@ internal static class TestData
 {
     public static readonly DateTimeOffset Now = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
     public const string SaoPaulo = "America/Sao_Paulo";
+    public static readonly Guid TenantId = Guid.CreateVersion7();
 
     public static UserProfile Client(string email = "client@example.com") =>
         UserProfile.Create(Guid.CreateVersion7(), "Ana Souza", email, SaoPaulo, Now).Value;
@@ -29,7 +30,7 @@ internal static class TestData
 
     public static CareRelationship ActiveRelationship(ProfessionalProfile professional, UserProfile client)
     {
-        var relationship = CareRelationship.Invite(professional, client.Email, Now).Value;
+        var relationship = CareRelationship.Invite(TenantId, professional, client.Email, Now).Value;
         relationship.Accept(client, Now);
         relationship.ClearDomainEvents();
         return relationship;
@@ -50,7 +51,7 @@ internal static class TestData
 
     public static (TrainingPlan Plan, TrainingPlanVersion Version) PublishedPlan(ProfessionalProfile trainer, UserProfile client, params PlannedSession[] sessions)
     {
-        var plan = TrainingPlan.Create(trainer, client.Id, Details(), Now).Value;
+        var plan = TrainingPlan.Create(TenantId, trainer, client.Id, Details(), Now).Value;
         plan.UpdateDraft(new PlanContent(sessions.Length == 0 ? [StrengthSession()] : sessions), Now);
         var version = plan.Publish(trainer, "Versão inicial", Now).Value;
         plan.ClearDomainEvents();

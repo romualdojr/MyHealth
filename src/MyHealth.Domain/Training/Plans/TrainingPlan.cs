@@ -25,9 +25,11 @@ public sealed record PlanDetails(
 /// </summary>
 public sealed class TrainingPlan : AggregateRoot<Guid>
 {
-    private TrainingPlan(Guid id, Guid clientId, ProfessionalProfile trainer, PlanDetails details, PlanContent draft, DateTimeOffset now)
+    private TrainingPlan(
+        Guid id, Guid tenantId, Guid clientId, ProfessionalProfile trainer, PlanDetails details, PlanContent draft, DateTimeOffset now)
         : base(id)
     {
+        TenantId = tenantId;
         ClientId = clientId;
         TrainerProfileId = trainer.Id;
         TrainerUserId = trainer.UserId;
@@ -40,6 +42,9 @@ public sealed class TrainingPlan : AggregateRoot<Guid>
     }
 
     private TrainingPlan() { }
+
+    /// <summary>The organization the plan was prescribed in. Versions and executions inherit it.</summary>
+    public Guid TenantId { get; private set; }
 
     public Guid ClientId { get; private set; }
 
@@ -65,8 +70,13 @@ public sealed class TrainingPlan : AggregateRoot<Guid>
 
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    public static Result<TrainingPlan> Create(ProfessionalProfile trainer, Guid clientId, PlanDetails details, DateTimeOffset now)
+    public static Result<TrainingPlan> Create(Guid tenantId, ProfessionalProfile trainer, Guid clientId, PlanDetails details, DateTimeOffset now)
     {
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("A training plan always belongs to a tenant.", nameof(tenantId));
+        }
+
         var check = EnsureTrainer(trainer);
         if (check.IsFailure)
         {
@@ -79,7 +89,7 @@ public sealed class TrainingPlan : AggregateRoot<Guid>
             return validDetails.Error;
         }
 
-        return new TrainingPlan(Guid.CreateVersion7(now), clientId, trainer, details, PlanContent.Empty, now);
+        return new TrainingPlan(Guid.CreateVersion7(now), tenantId, clientId, trainer, details, PlanContent.Empty, now);
     }
 
     public bool IsOwnedBy(Guid trainerProfileId) => TrainerProfileId == trainerProfileId;
@@ -154,7 +164,7 @@ public sealed class TrainingPlan : AggregateRoot<Guid>
         Status = PlanStatus.Published;
         HasUnpublishedChanges = false;
         UpdatedAt = now;
-        Raise(new TrainingPlanPublished(Id, version.Id, version.VersionNumber, ClientId, now));
+        Raise(new TrainingPlanPublished(Id, TenantId, version.Id, version.VersionNumber, ClientId, now));
         return version;
     }
 
@@ -170,7 +180,9 @@ public sealed class TrainingPlan : AggregateRoot<Guid>
         return Result.Success();
     }
 
-    /// <summary>Starts a new draft from this plan's current draft. The source plan and its history are untouched.</summary>
+    /// <summary>
+    /// Starts a new draft from this plan's current draft, in the same tenant. The source plan and its history are untouched.
+    /// </summary>
     public Result<TrainingPlan> CopyAsDraft(ProfessionalProfile trainer, Guid clientId, string? newName, DateTimeOffset now)
     {
         if (!IsOwnedBy(trainer.Id))
@@ -178,7 +190,7 @@ public sealed class TrainingPlan : AggregateRoot<Guid>
             return PlanErrors.NotOwner;
         }
 
-        var copy = Create(trainer, clientId, Details with { Name = newName ?? Details.Name }, now);
+        var copy = Create(TenantId, trainer, clientId, Details with { Name = newName ?? Details.Name }, now);
         if (copy.IsFailure)
         {
             return copy;
@@ -216,5 +228,5 @@ public sealed class TrainingPlan : AggregateRoot<Guid>
     }
 }
 
-public sealed record TrainingPlanPublished(Guid PlanId, Guid VersionId, int VersionNumber, Guid ClientId, DateTimeOffset OccurredAt)
+public sealed record TrainingPlanPublished(Guid PlanId, Guid TenantId, Guid VersionId, int VersionNumber, Guid ClientId, DateTimeOffset OccurredAt)
     : DomainEvent(OccurredAt);

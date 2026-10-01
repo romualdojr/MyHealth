@@ -1,4 +1,5 @@
 using FluentValidation;
+using MyHealth.Application.Abstractions.Auditing;
 using MyHealth.Application.Abstractions.Authentication;
 using MyHealth.Application.Abstractions.Messaging;
 using MyHealth.Application.Common;
@@ -228,7 +229,7 @@ internal sealed class ReplyToFeedbackValidator : AbstractValidator<ReplyToFeedba
 }
 
 internal sealed class ReplyToFeedbackHandler(
-    ICareAccess access, IWorkoutSessionRepository sessions, IUnitOfWork unitOfWork, TimeProvider clock)
+    ICareAccess access, IWorkoutSessionRepository sessions, IAuditLog audit, IUnitOfWork unitOfWork, TimeProvider clock)
     : ICommandHandler<ReplyToFeedbackCommand>
 {
     public async Task<Result> Handle(ReplyToFeedbackCommand command, CancellationToken cancellationToken)
@@ -240,8 +241,13 @@ internal sealed class ReplyToFeedbackHandler(
         }
 
         var session = await sessions.GetByIdAsync(command.SessionId, cancellationToken);
-        if (session is null || session.TrainerProfileId != trainer.Value.Id)
+        if (session is null || session.TrainerProfileId != trainer.Value.Profile.Id || session.TenantId != trainer.Value.TenantId)
         {
+            if (session is not null)
+            {
+                await audit.RecordDeniedAsync(nameof(WorkoutSession), session.Id, trainer.Value.TenantId, cancellationToken);
+            }
+
             return WorkoutErrors.NotFound;
         }
 
@@ -251,7 +257,7 @@ internal sealed class ReplyToFeedbackHandler(
             return relationship.Error;
         }
 
-        var result = session.ReplyToFeedback(trainer.Value.Id, command.Message, clock.GetUtcNow());
+        var result = session.ReplyToFeedback(trainer.Value.Profile.Id, command.Message, clock.GetUtcNow());
         if (result.IsSuccess)
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);

@@ -3,6 +3,7 @@ using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
 using MyHealth.Domain.Professionals;
+using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
@@ -16,6 +17,10 @@ namespace MyHealth.Application.Abstractions.Data;
 /// </summary>
 public interface IReadDbContext
 {
+    IQueryable<Tenant> Tenants { get; }
+
+    IQueryable<TenantMembership> TenantMemberships { get; }
+
     IQueryable<UserProfile> UserProfiles { get; }
 
     IQueryable<ProfessionalProfile> ProfessionalProfiles { get; }

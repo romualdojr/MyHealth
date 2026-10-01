@@ -8,7 +8,7 @@ public sealed class CareRelationshipTests
     [Fact]
     public void Unverified_professional_cannot_invite()
     {
-        var result = CareRelationship.Invite(TestData.Professional(verified: false), "client@example.com", TestData.Now);
+        var result = CareRelationship.Invite(TestData.TenantId, TestData.Professional(verified: false), "client@example.com", TestData.Now);
 
         result.Error.ShouldBe(ProfessionalErrors.NotVerified);
     }
@@ -17,7 +17,7 @@ public sealed class CareRelationshipTests
     public void Invitee_accepts_and_relationship_becomes_active()
     {
         var client = TestData.Client();
-        var relationship = CareRelationship.Invite(TestData.Professional(), " Client@Example.com ", TestData.Now).Value;
+        var relationship = CareRelationship.Invite(TestData.TenantId, TestData.Professional(), " Client@Example.com ", TestData.Now).Value;
 
         var result = relationship.Accept(client, TestData.Now);
 
@@ -30,7 +30,7 @@ public sealed class CareRelationshipTests
     [Fact]
     public void Someone_else_cannot_accept_the_invitation()
     {
-        var relationship = CareRelationship.Invite(TestData.Professional(), "client@example.com", TestData.Now).Value;
+        var relationship = CareRelationship.Invite(TestData.TenantId, TestData.Professional(), "client@example.com", TestData.Now).Value;
 
         var result = relationship.Accept(TestData.Client("intruder@example.com"), TestData.Now);
 

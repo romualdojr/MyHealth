@@ -12,7 +12,7 @@ public sealed class WorkoutHeartRateTests
     private static HeartRateReading Reading(int minute, double bpm = 120, Guid? id = null, string source = "Apple Watch") =>
         new(id ?? Guid.CreateVersion7(), Start.AddMinutes(minute), bpm, source, "Watch");
 
-    private static WorkoutHeartRate NewRecord() => WorkoutHeartRate.Create(Guid.CreateVersion7(), Guid.CreateVersion7());
+    private static WorkoutHeartRate NewRecord() => WorkoutHeartRate.Create(Guid.CreateVersion7(), TestData.TenantId, Guid.CreateVersion7());
 
     [Fact]
     public void Retried_report_does_not_duplicate_samples()

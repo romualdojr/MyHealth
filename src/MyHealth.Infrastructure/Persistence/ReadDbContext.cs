@@ -5,6 +5,7 @@ using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
 using MyHealth.Domain.Professionals;
+using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
@@ -15,6 +16,10 @@ namespace MyHealth.Infrastructure.Persistence;
 /// <summary>No-tracking view over the same database for query handlers.</summary>
 internal sealed class ReadDbContext(ApplicationDbContext db) : IReadDbContext
 {
+    public IQueryable<Tenant> Tenants => db.Tenants.AsNoTracking();
+
+    public IQueryable<TenantMembership> TenantMemberships => db.TenantMemberships.AsNoTracking();
+
     public IQueryable<UserProfile> UserProfiles => db.UserProfiles.AsNoTracking();
 
     public IQueryable<ProfessionalProfile> ProfessionalProfiles => db.ProfessionalProfiles.AsNoTracking();

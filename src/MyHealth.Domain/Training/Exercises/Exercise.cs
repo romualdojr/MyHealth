@@ -3,13 +3,15 @@ using MyHealth.Domain.Abstractions;
 namespace MyHealth.Domain.Training.Exercises;
 
 /// <summary>
-/// A library entry. System entries have no owner; professionals may add their own. Every change bumps
+/// A library entry. System entries have no tenant and no owner and are visible everywhere; professionals may add their
+/// own, which belong to the tenant they were created in and are visible only to it. Every change bumps
 /// <see cref="Version"/>, and plans keep the version they were written against.
 /// </summary>
 public sealed class Exercise : AggregateRoot<Guid>
 {
-    private Exercise(Guid id, Guid? ownerProfileId, DateTimeOffset createdAt) : base(id)
+    private Exercise(Guid id, Guid? tenantId, Guid? ownerProfileId, DateTimeOffset createdAt) : base(id)
     {
+        TenantId = tenantId;
         OwnerProfileId = ownerProfileId;
         CreatedAt = createdAt;
         UpdatedAt = createdAt;
@@ -17,6 +19,9 @@ public sealed class Exercise : AggregateRoot<Guid>
     }
 
     private Exercise() { }
+
+    /// <summary>The tenant whose library contains it, or <c>null</c> for curated system entries.</summary>
+    public Guid? TenantId { get; private set; }
 
     /// <summary>The professional profile that created it, or <c>null</c> for curated system entries.</summary>
     public Guid? OwnerProfileId { get; private set; }
@@ -47,9 +52,19 @@ public sealed class Exercise : AggregateRoot<Guid>
 
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    public static Exercise Create(Guid? ownerProfileId, ExerciseDetails details, DateTimeOffset now)
+    /// <summary>A curated entry available to every tenant.</summary>
+    public static Exercise CreateSystem(ExerciseDetails details, DateTimeOffset now) => Build(null, null, details, now);
+
+    /// <summary>A professional's own entry, part of the given tenant's library.</summary>
+    public static Exercise CreateCustom(Guid tenantId, Guid ownerProfileId, ExerciseDetails details, DateTimeOffset now) =>
+        Build(tenantId, ownerProfileId, details, now);
+
+    /// <summary>System entries, plus entries of the given tenant.</summary>
+    public bool IsAvailableIn(Guid? tenantId) => TenantId is null || TenantId == tenantId;
+
+    private static Exercise Build(Guid? tenantId, Guid? ownerProfileId, ExerciseDetails details, DateTimeOffset now)
     {
-        var exercise = new Exercise(Guid.CreateVersion7(now), ownerProfileId, now);
+        var exercise = new Exercise(Guid.CreateVersion7(now), tenantId, ownerProfileId, now);
         exercise.Apply(details);
         return exercise;
     }

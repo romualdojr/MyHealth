@@ -1,8 +1,10 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using MyHealth.Application.Abstractions.Auditing;
 using MyHealth.Application.Abstractions.Authentication;
 using MyHealth.Application.Abstractions.Data;
 using MyHealth.Application.Abstractions.Messaging;
+using MyHealth.Application.Abstractions.Tenancy;
 using MyHealth.Application.Common;
 using MyHealth.Application.Users;
 using MyHealth.Domain.Abstractions;
@@ -19,6 +21,7 @@ public sealed record SetLogResponse(
 
 public sealed record WorkoutSessionResponse(
     Guid Id,
+    Guid TenantId,
     Guid ClientId,
     Guid TrainingPlanId,
     int PlanVersionNumber,
@@ -36,13 +39,23 @@ public sealed record WorkoutSessionResponse(
     FeedbackReply? Reply,
     ExternalWorkoutExport? AppleHealthWorkout);
 
-/// <summary>Readable by the client, or by the responsible trainer while the relationship is active.</summary>
+/// <summary>
+/// Readable by the client, or by the responsible trainer while acting for the session's tenant with an active
+/// relationship there. Anyone else gets "not found", and the attempt is audited (MT-09).
+/// </summary>
 public sealed record GetWorkoutSessionQuery(Guid SessionId) : IQuery<WorkoutSessionResponse>;
 
-internal sealed class GetWorkoutSessionHandler(IReadDbContext db, IUserContext user) : IQueryHandler<GetWorkoutSessionQuery, WorkoutSessionResponse>
+internal sealed class GetWorkoutSessionHandler(IReadDbContext db, IUserContext user, ITenantContext tenant, IAuditLog audit)
+    : IQueryHandler<GetWorkoutSessionQuery, WorkoutSessionResponse>
 {
     public async Task<Result<WorkoutSessionResponse>> Handle(GetWorkoutSessionQuery query, CancellationToken cancellationToken)
     {
+        var membership = await tenant.FindAsync(cancellationToken);
+        if (membership.IsFailure)
+        {
+            return membership.Error;
+        }
+
         var session = await db.WorkoutSessions
             .Include(s => s.Sets)
             .Include(s => s.Pauses)
@@ -53,18 +66,32 @@ internal sealed class GetWorkoutSessionHandler(IReadDbContext db, IUserContext u
             return WorkoutErrors.NotFound;
         }
 
-        var allowed = session.ClientId == user.UserId
-                      || (session.TrainerUserId == user.UserId && await db.CareRelationships.AnyAsync(
-                          r => r.ProfessionalProfileId == session.TrainerProfileId && r.ClientId == session.ClientId
-                               && r.Status == RelationshipStatus.Active,
-                          cancellationToken));
+        if (session.ClientId == user.UserId)
+        {
+            return WorkoutMapping.ToResponse(session);
+        }
 
-        return allowed ? WorkoutMapping.ToResponse(session) : WorkoutErrors.NotFound;
+        var activeTenantId = membership.Value?.TenantId;
+        var allowed = session.TrainerUserId == user.UserId
+                      && session.TenantId == activeTenantId
+                      && membership.Value!.Practices(Discipline.PersonalTrainer)
+                      && await db.CareRelationships.AnyAsync(
+                          r => r.TenantId == session.TenantId && r.ProfessionalProfileId == session.TrainerProfileId
+                               && r.ClientId == session.ClientId && r.Status == RelationshipStatus.Active,
+                          cancellationToken);
+
+        if (!allowed)
+        {
+            await audit.RecordDeniedAsync(nameof(WorkoutSession), session.Id, activeTenantId, cancellationToken);
+            return WorkoutErrors.NotFound;
+        }
+
+        return WorkoutMapping.ToResponse(session);
     }
 }
 
 public sealed record WorkoutSessionListItem(
-    Guid Id, Guid TrainingPlanId, int PlanVersionNumber, string PlannedSessionName, SessionKind Kind, WorkoutStatus Status,
+    Guid Id, Guid TenantId, Guid TrainingPlanId, int PlanVersionNumber, string PlannedSessionName, SessionKind Kind, WorkoutStatus Status,
     DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, DateOnly? LocalDate, int? PerceivedExertion, bool ReportedDiscomfort, bool HasReply);
 
 public sealed record ListMyWorkoutSessionsQuery(DateTimeOffset? From, DateTimeOffset? To) : IQuery<IReadOnlyList<WorkoutSessionListItem>>;
@@ -201,25 +228,26 @@ internal sealed class GetTrainerDashboardHandler(IReadDbContext db, ICareAccess 
             return trainer.Error;
         }
 
-        var trainerId = trainer.Value.Id;
+        var trainerId = trainer.Value.Profile.Id;
+        var tenantId = trainer.Value.TenantId;
         var since = clock.GetUtcNow().AddDays(-7);
 
         var clients = await (
                 from r in db.CareRelationships
                 join c in db.UserProfiles on r.ClientId equals c.Id
-                where r.ProfessionalProfileId == trainerId && r.Status == RelationshipStatus.Active
+                where r.TenantId == tenantId && r.ProfessionalProfileId == trainerId && r.Status == RelationshipStatus.Active
                 select new { ClientId = c.Id, c.FullName, RelationshipId = r.Id })
             .ToListAsync(cancellationToken);
 
         var clientIds = clients.Select(c => c.ClientId).ToList();
 
         var activePlans = await db.TrainingPlans
-            .Where(p => p.TrainerProfileId == trainerId && clientIds.Contains(p.ClientId) && p.Status == PlanStatus.Published)
+            .Where(p => p.TenantId == tenantId && p.TrainerProfileId == trainerId && clientIds.Contains(p.ClientId) && p.Status == PlanStatus.Published)
             .Select(p => new { p.ClientId, p.Details.Name, p.Details.SuggestedSessionsPerWeek, p.UpdatedAt })
             .ToListAsync(cancellationToken);
 
         var completed = await db.WorkoutSessions
-            .Where(s => s.TrainerProfileId == trainerId && clientIds.Contains(s.ClientId) && s.Status == WorkoutStatus.Completed)
+            .Where(s => s.TenantId == tenantId && s.TrainerProfileId == trainerId && clientIds.Contains(s.ClientId) && s.Status == WorkoutStatus.Completed)
             .Select(s => new { s.ClientId, s.CompletedAt, HasReply = s.Reply != null, Discomfort = s.Feedback!.ReportedDiscomfort })
             .ToListAsync(cancellationToken);
 
@@ -245,7 +273,10 @@ internal sealed class GetTrainerDashboardHandler(IReadDbContext db, ICareAccess 
     }
 }
 
-/// <summary>Sessions of a client performed on this trainer's plans. Other professionals' data is never included.</summary>
+/// <summary>
+/// Sessions of a client performed on this trainer's plans in the active tenant. Other professionals' and other tenants'
+/// data is never included.
+/// </summary>
 public sealed record ListClientWorkoutSessionsQuery(Guid ClientId, DateTimeOffset? From, DateTimeOffset? To) : IQuery<IReadOnlyList<WorkoutSessionListItem>>;
 
 internal sealed class ListClientWorkoutSessionsHandler(IReadDbContext db, ICareAccess access)
@@ -265,7 +296,8 @@ internal sealed class ListClientWorkoutSessionsHandler(IReadDbContext db, ICareA
             return relationship.Error;
         }
 
-        var sessions = db.WorkoutSessions.Where(s => s.ClientId == query.ClientId && s.TrainerProfileId == trainer.Value.Id);
+        var sessions = db.WorkoutSessions.Where(
+            s => s.ClientId == query.ClientId && s.TrainerProfileId == trainer.Value.Profile.Id && s.TenantId == trainer.Value.TenantId);
         return Result.Success(await WorkoutMapping.ListAsync(sessions, query.From, query.To, cancellationToken));
     }
 }
@@ -289,7 +321,7 @@ internal static class WorkoutMapping
             .OrderByDescending(s => s.StartedAt)
             .Take(200)
             .Select(s => new WorkoutSessionListItem(
-                s.Id, s.TrainingPlanId, s.PlanVersionNumber, s.PlannedSessionName, s.Kind, s.Status, s.StartedAt, s.CompletedAt, s.LocalDate,
+                s.Id, s.TenantId, s.TrainingPlanId, s.PlanVersionNumber, s.PlannedSessionName, s.Kind, s.Status, s.StartedAt, s.CompletedAt, s.LocalDate,
                 s.Feedback == null ? null : s.Feedback.PerceivedExertion,
                 s.Feedback != null && s.Feedback.ReportedDiscomfort,
                 s.Reply != null))
@@ -298,7 +330,7 @@ internal static class WorkoutMapping
 
     public static WorkoutSessionResponse ToResponse(WorkoutSession s) =>
         new(
-            s.Id, s.ClientId, s.TrainingPlanId, s.PlanVersionNumber, s.PlannedSessionId, s.PlannedSessionName, s.Kind, s.Status, s.StartedAt,
+            s.Id, s.TenantId, s.ClientId, s.TrainingPlanId, s.PlanVersionNumber, s.PlannedSessionId, s.PlannedSessionName, s.Kind, s.Status, s.StartedAt,
             s.CompletedAt, s.AbandonedAt, s.LocalDate, (int?)s.ActiveDuration()?.TotalSeconds,
             s.Sets.OrderBy(x => x.LoggedAt).Select(x => new SetLogResponse(
                 x.Id, x.ExerciseId, x.PlannedExerciseId, x.SetNumber, x.Repetitions, x.LoadKg, x.DurationSeconds, x.DistanceMeters, x.Difficulty,

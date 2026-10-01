@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
@@ -19,6 +20,8 @@ internal sealed class ExerciseConfiguration : IEntityTypeConfiguration<Exercise>
         builder.Property(e => e.Precautions).HasMaxLength(4000);
         builder.Property(e => e.MediaUrl).HasMaxLength(2048);
         builder.Property(e => e.MediaCaption).HasMaxLength(4000);
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(e => e.TenantId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(e => e.TenantId);
         builder.HasIndex(e => e.OwnerProfileId);
         builder.HasIndex(e => e.Name);
     }
@@ -34,7 +37,8 @@ internal sealed class TrainingPlanConfiguration : IEntityTypeConfiguration<Train
         builder.ComplexProperty(p => p.Details, PlanDetailsMapping.Configure);
         builder.Property(p => p.Draft).HasJsonConversion();
         builder.Property<uint>("version").IsRowVersion();
-        builder.HasIndex(p => new { p.TrainerProfileId, p.ClientId });
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(p => p.TenantId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(p => new { p.TenantId, p.TrainerProfileId, p.ClientId });
         builder.HasIndex(p => new { p.ClientId, p.Status });
     }
 }
@@ -51,6 +55,7 @@ internal sealed class TrainingPlanVersionConfiguration : IEntityTypeConfiguratio
         builder.Property(v => v.ChangeDescription).HasMaxLength(1000).IsRequired();
         builder.HasIndex(v => new { v.TrainingPlanId, v.VersionNumber }).IsUnique();
         builder.HasOne<TrainingPlan>().WithMany().HasForeignKey(v => v.TrainingPlanId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(v => v.TenantId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -107,8 +112,9 @@ internal sealed class WorkoutSessionConfiguration : IEntityTypeConfiguration<Wor
         builder.Navigation(s => s.Pauses).UsePropertyAccessMode(PropertyAccessMode.Field).AutoInclude();
 
         builder.HasOne<TrainingPlanVersion>().WithMany().HasForeignKey(s => s.PlanVersionId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(s => s.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(s => new { s.ClientId, s.Status, s.LocalDate });
-        builder.HasIndex(s => new { s.TrainerProfileId, s.ClientId });
+        builder.HasIndex(s => new { s.TenantId, s.TrainerProfileId, s.ClientId });
         builder.HasIndex(s => s.TrainingPlanId);
     }
 }

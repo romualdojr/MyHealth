@@ -9,6 +9,7 @@ using MyHealth.Domain.Training.Plans;
 
 namespace MyHealth.Application.TrainingPlans;
 
+/// <summary>Creates a draft in the active tenant for a client the trainer is linked to in that tenant.</summary>
 public sealed record CreateTrainingPlanCommand(Guid ClientId, PlanDetailsInput Details) : ICommand<Guid>;
 
 internal sealed class CreateTrainingPlanValidator : AbstractValidator<CreateTrainingPlanCommand>
@@ -38,7 +39,7 @@ internal sealed class CreateTrainingPlanHandler(
             return relationship.Error;
         }
 
-        var plan = TrainingPlan.Create(trainer.Value, command.ClientId, command.Details.ToDetails(), clock.GetUtcNow());
+        var plan = TrainingPlan.Create(trainer.Value.TenantId, trainer.Value.Profile, command.ClientId, command.Details.ToDetails(), clock.GetUtcNow());
         if (plan.IsFailure)
         {
             return plan.Error;
@@ -58,12 +59,12 @@ internal sealed class UpdateTrainingPlanDetailsValidator : AbstractValidator<Upd
 }
 
 internal sealed class UpdateTrainingPlanDetailsHandler(
-    ICareAccess access, ITrainingPlanRepository plans, IUnitOfWork unitOfWork, TimeProvider clock)
+    ICareAccess access, ITrainingPlanRepository plans, IAuditLog audit, IUnitOfWork unitOfWork, TimeProvider clock)
     : ICommandHandler<UpdateTrainingPlanDetailsCommand>
 {
     public async Task<Result> Handle(UpdateTrainingPlanDetailsCommand command, CancellationToken cancellationToken)
     {
-        var plan = await TrainerPlanLoader.LoadOwnedAsync(access, plans, command.PlanId, cancellationToken);
+        var plan = await TrainerPlanLoader.LoadOwnedAsync(access, plans, audit, command.PlanId, cancellationToken);
         if (plan.IsFailure)
         {
             return plan.Error;
@@ -79,7 +80,7 @@ internal sealed class UpdateTrainingPlanDetailsHandler(
     }
 }
 
-/// <summary>Replaces the draft sessions. Exercise names and versions are snapshotted from the library.</summary>
+/// <summary>Replaces the draft sessions. Exercise names and versions are snapshotted from the tenant's library.</summary>
 public sealed record UpdateTrainingPlanSessionsCommand(Guid PlanId, IReadOnlyList<PlannedSessionInput> Sessions) : ICommand;
 
 internal sealed class UpdateTrainingPlanSessionsValidator : AbstractValidator<UpdateTrainingPlanSessionsCommand>
@@ -92,18 +93,18 @@ internal sealed class UpdateTrainingPlanSessionsValidator : AbstractValidator<Up
 }
 
 internal sealed class UpdateTrainingPlanSessionsHandler(
-    ICareAccess access, ITrainingPlanRepository plans, IExerciseRepository exercises, IUnitOfWork unitOfWork, TimeProvider clock)
+    ICareAccess access, ITrainingPlanRepository plans, IExerciseRepository exercises, IAuditLog audit, IUnitOfWork unitOfWork, TimeProvider clock)
     : ICommandHandler<UpdateTrainingPlanSessionsCommand>
 {
     public async Task<Result> Handle(UpdateTrainingPlanSessionsCommand command, CancellationToken cancellationToken)
     {
-        var loaded = await TrainerPlanLoader.LoadOwnedAsync(access, plans, command.PlanId, cancellationToken);
+        var loaded = await TrainerPlanLoader.LoadOwnedAsync(access, plans, audit, command.PlanId, cancellationToken);
         if (loaded.IsFailure)
         {
             return loaded.Error;
         }
 
-        var (trainer, plan) = loaded.Value;
+        var (_, plan) = loaded.Value;
         var now = clock.GetUtcNow();
 
         var referencedIds = command.Sessions
@@ -111,8 +112,10 @@ internal sealed class UpdateTrainingPlanSessionsHandler(
             .SelectMany(e => (e.AlternativeExerciseIds ?? []).Prepend(e.ExerciseId))
             .Distinct()
             .ToList();
+
+        // Another tenant's exercises are reported as unknown, exactly like ids that do not exist.
         var library = (await exercises.GetByIdsAsync(referencedIds, cancellationToken))
-            .Where(e => !e.IsArchived && (e.OwnerProfileId is null || e.OwnerProfileId == trainer.Id))
+            .Where(e => !e.IsArchived && e.IsAvailableIn(plan.TenantId))
             .ToDictionary(e => e.Id);
 
         var unknown = referencedIds.Where(id => !library.ContainsKey(id)).ToList();
@@ -168,7 +171,7 @@ internal sealed class PublishTrainingPlanHandler(
 {
     public async Task<Result<PublishedVersionResponse>> Handle(PublishTrainingPlanCommand command, CancellationToken cancellationToken)
     {
-        var loaded = await TrainerPlanLoader.LoadOwnedAsync(access, plans, command.PlanId, cancellationToken);
+        var loaded = await TrainerPlanLoader.LoadOwnedAsync(access, plans, audit, command.PlanId, cancellationToken);
         if (loaded.IsFailure)
         {
             return loaded.Error;
@@ -181,14 +184,14 @@ internal sealed class PublishTrainingPlanHandler(
             return relationship.Error;
         }
 
-        var version = plan.Publish(trainer, command.ChangeDescription, clock.GetUtcNow());
+        var version = plan.Publish(trainer.Profile, command.ChangeDescription, clock.GetUtcNow());
         if (version.IsFailure)
         {
             return version.Error;
         }
 
         versions.Add(version.Value);
-        audit.Record(AuditActions.Publish, nameof(TrainingPlanVersion), version.Value.Id, plan.ClientId);
+        audit.Record(AuditActions.Publish, nameof(TrainingPlanVersion), version.Value.Id, plan.ClientId, plan.TenantId);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return new PublishedVersionResponse(version.Value.Id, version.Value.VersionNumber, version.Value.PublishedAt);
     }
@@ -196,12 +199,13 @@ internal sealed class PublishTrainingPlanHandler(
 
 public sealed record EndTrainingPlanCommand(Guid PlanId) : ICommand;
 
-internal sealed class EndTrainingPlanHandler(ICareAccess access, ITrainingPlanRepository plans, IUnitOfWork unitOfWork, TimeProvider clock)
+internal sealed class EndTrainingPlanHandler(
+    ICareAccess access, ITrainingPlanRepository plans, IAuditLog audit, IUnitOfWork unitOfWork, TimeProvider clock)
     : ICommandHandler<EndTrainingPlanCommand>
 {
     public async Task<Result> Handle(EndTrainingPlanCommand command, CancellationToken cancellationToken)
     {
-        var loaded = await TrainerPlanLoader.LoadOwnedAsync(access, plans, command.PlanId, cancellationToken);
+        var loaded = await TrainerPlanLoader.LoadOwnedAsync(access, plans, audit, command.PlanId, cancellationToken);
         if (loaded.IsFailure)
         {
             return loaded.Error;
@@ -217,7 +221,10 @@ internal sealed class EndTrainingPlanHandler(ICareAccess access, ITrainingPlanRe
     }
 }
 
-/// <summary>Copies a plan as a new draft for the same or another client (RF-10). History of the source is untouched.</summary>
+/// <summary>
+/// Copies a plan as a new draft for the same or another client of the same tenant (RF-10). History of the source is
+/// untouched, and a plan can never be copied into another organization.
+/// </summary>
 public sealed record CopyTrainingPlanCommand(Guid PlanId, Guid TargetClientId, string? NewName) : ICommand<Guid>;
 
 internal sealed class CopyTrainingPlanValidator : AbstractValidator<CopyTrainingPlanCommand>
@@ -229,12 +236,13 @@ internal sealed class CopyTrainingPlanValidator : AbstractValidator<CopyTraining
     }
 }
 
-internal sealed class CopyTrainingPlanHandler(ICareAccess access, ITrainingPlanRepository plans, IUnitOfWork unitOfWork, TimeProvider clock)
+internal sealed class CopyTrainingPlanHandler(
+    ICareAccess access, ITrainingPlanRepository plans, IAuditLog audit, IUnitOfWork unitOfWork, TimeProvider clock)
     : ICommandHandler<CopyTrainingPlanCommand, Guid>
 {
     public async Task<Result<Guid>> Handle(CopyTrainingPlanCommand command, CancellationToken cancellationToken)
     {
-        var loaded = await TrainerPlanLoader.LoadOwnedAsync(access, plans, command.PlanId, cancellationToken);
+        var loaded = await TrainerPlanLoader.LoadOwnedAsync(access, plans, audit, command.PlanId, cancellationToken);
         if (loaded.IsFailure)
         {
             return loaded.Error;
@@ -247,7 +255,7 @@ internal sealed class CopyTrainingPlanHandler(ICareAccess access, ITrainingPlanR
             return relationship.Error;
         }
 
-        var copy = plan.CopyAsDraft(trainer, command.TargetClientId, command.NewName, clock.GetUtcNow());
+        var copy = plan.CopyAsDraft(trainer.Profile, command.TargetClientId, command.NewName, clock.GetUtcNow());
         if (copy.IsFailure)
         {
             return copy.Error;
@@ -261,9 +269,12 @@ internal sealed class CopyTrainingPlanHandler(ICareAccess access, ITrainingPlanR
 
 internal static class TrainerPlanLoader
 {
-    /// <summary>Loads a plan only if it belongs to the calling trainer; otherwise reports it as not found.</summary>
-    public static async Task<Result<(ProfessionalProfile Trainer, TrainingPlan Plan)>> LoadOwnedAsync(
-        ICareAccess access, ITrainingPlanRepository plans, Guid planId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Loads a plan only if it belongs to the calling trainer in the active tenant; otherwise reports it as not found.
+    /// A known id outside that scope is audited as a denied attempt (MT-09).
+    /// </summary>
+    public static async Task<Result<(ActingProfessional Trainer, TrainingPlan Plan)>> LoadOwnedAsync(
+        ICareAccess access, ITrainingPlanRepository plans, IAuditLog audit, Guid planId, CancellationToken cancellationToken)
     {
         var trainer = await access.GetCurrentProfessionalAsync(Discipline.PersonalTrainer, requireVerified: true, cancellationToken);
         if (trainer.IsFailure)
@@ -272,8 +283,13 @@ internal static class TrainerPlanLoader
         }
 
         var plan = await plans.GetByIdAsync(planId, cancellationToken);
-        if (plan is null || !plan.IsOwnedBy(trainer.Value.Id))
+        if (plan is null || !plan.IsOwnedBy(trainer.Value.Profile.Id) || plan.TenantId != trainer.Value.TenantId)
         {
+            if (plan is not null)
+            {
+                await audit.RecordDeniedAsync(nameof(TrainingPlan), planId, trainer.Value.TenantId, cancellationToken);
+            }
+
             return PlanErrors.NotFound;
         }
 

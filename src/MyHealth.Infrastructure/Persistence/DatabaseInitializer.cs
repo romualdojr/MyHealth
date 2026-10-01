@@ -32,7 +32,7 @@ public static class DatabaseInitializer
 
     private static async Task SeedExercisesAsync(ApplicationDbContext db, TimeProvider clock, CancellationToken cancellationToken)
     {
-        if (await db.Exercises.AnyAsync(e => e.OwnerProfileId == null, cancellationToken))
+        if (await db.Exercises.AnyAsync(e => e.TenantId == null, cancellationToken))
         {
             return;
         }
@@ -52,7 +52,7 @@ public static class DatabaseInitializer
             new("Bicicleta ergométrica", "Pedalada em bicicleta estacionária.", ["cardiorrespiratorio"], ["bicicleta"], "aeróbico", null, null, null),
         ];
 
-        db.Exercises.AddRange(library.Select(details => Exercise.Create(null, details, now)));
+        db.Exercises.AddRange(library.Select(details => Exercise.CreateSystem(details, now)));
         await db.SaveChangesAsync(cancellationToken);
     }
 

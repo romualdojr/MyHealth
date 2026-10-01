@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MyHealth.Application.Abstractions.Auditing;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
+using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Workouts;
 
 namespace MyHealth.Infrastructure.Persistence.Configurations;
@@ -65,7 +66,9 @@ internal sealed class WorkoutHeartRateConfiguration : IEntityTypeConfiguration<W
         builder.HasMany(h => h.Syncs).WithOne().HasForeignKey("workout_heart_rate_id").OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(h => h.Syncs).UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(h => h.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(h => h.ClientId);
+        builder.HasIndex(h => new { h.TenantId, h.ClientId });
     }
 }
 
@@ -106,7 +109,7 @@ internal sealed class NotificationConfiguration : IEntityTypeConfiguration<Notif
         builder.HasKey(n => n.Id);
         builder.Property(n => n.Id).ValueGeneratedNever();
         builder.Property(n => n.ResourceType).HasMaxLength(100).IsRequired();
-        builder.HasIndex(n => new { n.RecipientUserId, n.CreatedAt });
+        builder.HasIndex(n => new { n.RecipientUserId, n.Audience, n.TenantId, n.CreatedAt });
     }
 }
 
@@ -121,5 +124,8 @@ internal sealed class AuditEntryConfiguration : IEntityTypeConfiguration<AuditEn
         builder.Property(a => a.ResourceType).HasMaxLength(100).IsRequired();
         builder.HasIndex(a => new { a.SubjectUserId, a.OccurredAt });
         builder.HasIndex(a => new { a.ActorUserId, a.OccurredAt });
+
+        // No foreign key: denied attempts may name a tenant that does not exist.
+        builder.HasIndex(a => new { a.TenantId, a.OccurredAt });
     }
 }

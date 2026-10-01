@@ -12,7 +12,7 @@ public sealed class IphoneContractTests
     private static HeartRateReading Reading(int second, double bpm = 120, bool userEntered = false) =>
         new(Guid.CreateVersion7(), Start.AddSeconds(second), bpm, "Apple Watch", null, userEntered);
 
-    private static WorkoutHeartRate NewRecord() => WorkoutHeartRate.Create(Guid.CreateVersion7(), Guid.CreateVersion7());
+    private static WorkoutHeartRate NewRecord() => WorkoutHeartRate.Create(Guid.CreateVersion7(), TestData.TenantId, Guid.CreateVersion7());
 
     [Fact]
     public void Samples_recorded_while_import_was_paused_are_never_imported()

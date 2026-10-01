@@ -93,4 +93,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     }
 }
 
-public sealed record TestUser(Guid Id, string Email, HttpClient Http);
+public sealed record TestUser(Guid Id, string Email, HttpClient Http)
+{
+    /// <summary>The tenant currently selected on <see cref="Http"/>, if any.</summary>
+    public Guid? TenantId =>
+        Http.DefaultRequestHeaders.TryGetValues(MyHealth.Infrastructure.Identity.TenantHeader.Name, out var values) ? Guid.Parse(values.Single()) : null;
+}

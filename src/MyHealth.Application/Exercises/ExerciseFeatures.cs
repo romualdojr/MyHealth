@@ -1,9 +1,12 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using MyHealth.Application.Abstractions.Authentication;
 using MyHealth.Application.Abstractions.Data;
 using MyHealth.Application.Abstractions.Messaging;
+using MyHealth.Application.Abstractions.Tenancy;
 using MyHealth.Application.Common;
 using MyHealth.Domain.Abstractions;
+using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Training.Exercises;
 
@@ -41,7 +44,7 @@ internal sealed class ExerciseInputValidator : AbstractValidator<ExerciseInput>
     }
 }
 
-/// <summary>A verified trainer adds a custom exercise to the library (RF-12).</summary>
+/// <summary>A verified trainer adds a custom exercise to the active tenant's library (RF-12).</summary>
 public sealed record CreateExerciseCommand(ExerciseInput Exercise) : ICommand<Guid>;
 
 internal sealed class CreateExerciseValidator : AbstractValidator<CreateExerciseCommand>
@@ -60,7 +63,7 @@ internal sealed class CreateExerciseHandler(ICareAccess access, IExerciseReposit
             return trainer.Error;
         }
 
-        var exercise = Exercise.Create(trainer.Value.Id, command.Exercise.ToDetails(), clock.GetUtcNow());
+        var exercise = Exercise.CreateCustom(trainer.Value.TenantId, trainer.Value.Profile.Id, command.Exercise.ToDetails(), clock.GetUtcNow());
         exercises.Add(exercise);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return exercise.Id;
@@ -86,12 +89,12 @@ internal sealed class UpdateExerciseHandler(ICareAccess access, IExerciseReposit
         }
 
         var exercise = await exercises.GetByIdAsync(command.ExerciseId, cancellationToken);
-        if (exercise is null)
+        if (exercise is null || !exercise.IsAvailableIn(trainer.Value.TenantId))
         {
             return ExerciseErrors.NotFound;
         }
 
-        var result = exercise.Update(trainer.Value.Id, command.Exercise.ToDetails(), clock.GetUtcNow());
+        var result = exercise.Update(trainer.Value.Profile.Id, command.Exercise.ToDetails(), clock.GetUtcNow());
         if (result.IsSuccess)
         {
             await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -126,16 +129,20 @@ internal sealed class SearchExercisesValidator : AbstractValidator<SearchExercis
     }
 }
 
-/// <summary>Searches the curated library plus the caller's own exercises (when the caller is a trainer).</summary>
-internal sealed class SearchExercisesHandler(IReadDbContext db, ICareAccess access)
+/// <summary>Searches the curated library plus the selected tenant's own exercises (when a tenant is selected).</summary>
+internal sealed class SearchExercisesHandler(IReadDbContext db, ITenantContext tenant)
     : IQueryHandler<SearchExercisesQuery, PagedResponse<ExerciseResponse>>
 {
     public async Task<Result<PagedResponse<ExerciseResponse>>> Handle(SearchExercisesQuery query, CancellationToken cancellationToken)
     {
-        var trainer = await access.GetCurrentProfessionalAsync(Discipline.PersonalTrainer, requireVerified: false, cancellationToken);
-        Guid? ownerId = trainer.IsSuccess ? trainer.Value.Id : null;
+        var membership = await tenant.FindAsync(cancellationToken);
+        if (membership.IsFailure)
+        {
+            return membership.Error;
+        }
 
-        var exercises = db.Exercises.Where(e => !e.IsArchived && (e.OwnerProfileId == null || e.OwnerProfileId == ownerId));
+        var tenantId = membership.Value?.TenantId;
+        var exercises = db.Exercises.Where(e => !e.IsArchived && (e.TenantId == null || e.TenantId == tenantId));
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -177,17 +184,35 @@ internal sealed class SearchExercisesHandler(IReadDbContext db, ICareAccess acce
 
 public sealed record GetExerciseQuery(Guid ExerciseId) : IQuery<ExerciseResponse>;
 
-internal sealed class GetExerciseHandler(IReadDbContext db) : IQueryHandler<GetExerciseQuery, ExerciseResponse>
+/// <summary>
+/// Curated exercises are public. A tenant's own exercise is readable by that tenant's members (with the tenant selected)
+/// and by clients with an active relationship in that tenant, who need it to perform their workouts.
+/// </summary>
+internal sealed class GetExerciseHandler(IReadDbContext db, IUserContext user, ITenantContext tenant) : IQueryHandler<GetExerciseQuery, ExerciseResponse>
 {
     public async Task<Result<ExerciseResponse>> Handle(GetExerciseQuery query, CancellationToken cancellationToken)
     {
-        var exercise = await db.Exercises
-            .Where(e => e.Id == query.ExerciseId)
-            .Select(e => new ExerciseResponse(
-                e.Id, e.Name, e.Description, e.MuscleGroups, e.Equipment, e.Purpose, e.Precautions, e.MediaUrl, e.MediaCaption,
-                e.Version, e.OwnerProfileId != null))
-            .FirstOrDefaultAsync(cancellationToken);
+        var membership = await tenant.FindAsync(cancellationToken);
+        if (membership.IsFailure)
+        {
+            return membership.Error;
+        }
 
-        return exercise is null ? ExerciseErrors.NotFound : exercise;
+        var exercise = await db.Exercises.FirstOrDefaultAsync(e => e.Id == query.ExerciseId, cancellationToken);
+        if (exercise is null)
+        {
+            return ExerciseErrors.NotFound;
+        }
+
+        var allowed = exercise.TenantId is not { } owner
+                      || owner == membership.Value?.TenantId
+                      || await db.CareRelationships.AnyAsync(
+                          r => r.TenantId == owner && r.ClientId == user.UserId && r.Status == RelationshipStatus.Active, cancellationToken);
+
+        return allowed
+            ? new ExerciseResponse(
+                exercise.Id, exercise.Name, exercise.Description, exercise.MuscleGroups, exercise.Equipment, exercise.Purpose, exercise.Precautions,
+                exercise.MediaUrl, exercise.MediaCaption, exercise.Version, exercise.OwnerProfileId != null)
+            : ExerciseErrors.NotFound;
     }
 }

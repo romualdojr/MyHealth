@@ -67,7 +67,7 @@ internal sealed class ChangeHealthConnectionHandler(
 
         audit.Record(
             command.Action == HealthConnectionAction.Connect ? AuditActions.Grant : AuditActions.Revoke,
-            $"HealthConnection.{command.Action}", connection.Id, user.UserId);
+            $"HealthConnection.{command.Action}", connection.Id, user.UserId, tenantId: null);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return result;
     }
@@ -99,7 +99,8 @@ internal sealed class SetAppleHealthWorkoutSavingHandler(
         }
 
         connection.SetWorkoutSaving(command.Enabled, now);
-        audit.Record(command.Enabled ? AuditActions.Grant : AuditActions.Revoke, "HealthConnection.WorkoutSaving", connection.Id, user.UserId);
+        audit.Record(
+            command.Enabled ? AuditActions.Grant : AuditActions.Revoke, "HealthConnection.WorkoutSaving", connection.Id, user.UserId, tenantId: null);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
@@ -143,7 +144,9 @@ internal sealed class RecordAppleHealthWorkoutHandler(
 
 public sealed record HealthConnectionChangeItem(HealthConnectionStatus Status, DateTimeOffset ChangedAt);
 
-public sealed record HeartRateRecipient(Guid RelationshipId, string ProfessionalName, Discipline Discipline, DateTimeOffset SharedSince);
+/// <summary>A professional receiving heart rate, and the organization they receive it in (only that tenant's workouts, MT-06).</summary>
+public sealed record HeartRateRecipient(
+    Guid RelationshipId, Guid TenantId, string OrganizationName, string ProfessionalName, Discipline Discipline, DateTimeOffset SharedSince);
 
 public sealed record ExcludedPeriod(DateTimeOffset From, DateTimeOffset? To);
 
@@ -180,9 +183,10 @@ internal sealed class GetHealthConnectionHandler(IUserContext user, IReadDbConte
                     from r in db.CareRelationships
                     from g in r.Grants
                     join p in db.ProfessionalProfiles on r.ProfessionalProfileId equals p.Id
+                    join t in db.Tenants on r.TenantId equals t.Id
                     where r.ClientId == user.UserId && r.Status == RelationshipStatus.Active
                           && g.Category == DataCategory.HeartRate && g.RevokedAt == null
-                    select new HeartRateRecipient(r.Id, p.DisplayName, p.Discipline, g.GrantedAt))
+                    select new HeartRateRecipient(r.Id, r.TenantId, t.Name, p.DisplayName, p.Discipline, g.GrantedAt))
                 .ToListAsync(cancellationToken);
 
         return new HealthConnectionResponse(

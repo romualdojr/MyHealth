@@ -11,6 +11,8 @@ public sealed class TrainingPlanVersion : AggregateRoot<Guid>
 
     public Guid TrainingPlanId { get; private set; }
 
+    public Guid TenantId { get; private set; }
+
     public Guid ClientId { get; private set; }
 
     public Guid TrainerProfileId { get; private set; }
@@ -31,6 +33,7 @@ public sealed class TrainingPlanVersion : AggregateRoot<Guid>
         new(Guid.CreateVersion7(now))
         {
             TrainingPlanId = plan.Id,
+            TenantId = plan.TenantId,
             ClientId = plan.ClientId,
             TrainerProfileId = plan.TrainerProfileId,
             TrainerUserId = plan.TrainerUserId,

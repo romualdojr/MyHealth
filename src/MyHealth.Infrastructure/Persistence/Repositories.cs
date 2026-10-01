@@ -4,6 +4,7 @@ using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
 using MyHealth.Domain.Professionals;
+using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
@@ -34,19 +35,48 @@ internal sealed class ProfessionalProfileRepository(ApplicationDbContext db) : R
         Db.ProfessionalProfiles.FirstOrDefaultAsync(p => p.UserId == userId && p.Discipline == discipline, cancellationToken);
 }
 
+internal sealed class TenantRepository(ApplicationDbContext db) : Repository<Tenant>(db), ITenantRepository;
+
+internal sealed class TenantMembershipRepository(ApplicationDbContext db) : Repository<TenantMembership>(db), ITenantMembershipRepository
+{
+    public Task<TenantMembership?> GetActiveAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default) =>
+        Db.TenantMemberships.FirstOrDefaultAsync(
+            m => m.TenantId == tenantId && m.UserId == userId && m.Status == MembershipStatus.Active, cancellationToken);
+
+    public Task<bool> ExistsOpenAsync(Guid tenantId, string email, CancellationToken cancellationToken = default) =>
+        (from m in Db.TenantMemberships
+         join u in Db.UserProfiles on m.UserId equals u.Id into users
+         from u in users.DefaultIfEmpty()
+         where m.TenantId == tenantId
+               && ((m.Status == MembershipStatus.Pending && m.InviteeEmail == email)
+                   || (m.Status == MembershipStatus.Active && (m.InviteeEmail == email || (u != null && u.Email == email))))
+         select m.Id).AnyAsync(cancellationToken);
+
+    public Task<int> CountActiveAdministratorsAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
+        Db.TenantMemberships.CountAsync(m => m.TenantId == tenantId && m.Status == MembershipStatus.Active && m.IsAdministrator, cancellationToken);
+}
+
 internal sealed class CareRelationshipRepository(ApplicationDbContext db) : Repository<CareRelationship>(db), ICareRelationshipRepository
 {
-    public Task<bool> ExistsOpenAsync(Guid professionalProfileId, string inviteeEmail, CancellationToken cancellationToken = default) =>
+    public Task<bool> ExistsOpenAsync(Guid tenantId, Guid professionalProfileId, string inviteeEmail, CancellationToken cancellationToken = default) =>
         Db.CareRelationships.AnyAsync(
-            r => r.ProfessionalProfileId == professionalProfileId && r.InviteeEmail == inviteeEmail
+            r => r.TenantId == tenantId && r.ProfessionalProfileId == professionalProfileId && r.InviteeEmail == inviteeEmail
                  && (r.Status == RelationshipStatus.Pending || r.Status == RelationshipStatus.Active),
             cancellationToken);
 
-    public Task<CareRelationship?> GetActiveAsync(Guid professionalUserId, Discipline discipline, Guid clientId, CancellationToken cancellationToken = default) =>
+    public Task<CareRelationship?> GetActiveAsync(
+        Guid tenantId, Guid professionalUserId, Discipline discipline, Guid clientId, CancellationToken cancellationToken = default) =>
         Db.CareRelationships.FirstOrDefaultAsync(
-            r => r.ProfessionalUserId == professionalUserId && r.Discipline == discipline && r.ClientId == clientId
+            r => r.TenantId == tenantId && r.ProfessionalUserId == professionalUserId && r.Discipline == discipline && r.ClientId == clientId
                  && r.Status == RelationshipStatus.Active,
             cancellationToken);
+
+    public async Task<IReadOnlyList<CareRelationship>> ListOpenForProfessionalAsync(
+        Guid tenantId, Guid professionalUserId, CancellationToken cancellationToken = default) =>
+        await Db.CareRelationships
+            .Where(r => r.TenantId == tenantId && r.ProfessionalUserId == professionalUserId
+                        && (r.Status == RelationshipStatus.Pending || r.Status == RelationshipStatus.Active))
+            .ToListAsync(cancellationToken);
 }
 
 internal sealed class ExerciseRepository(ApplicationDbContext db) : Repository<Exercise>(db), IExerciseRepository

@@ -5,7 +5,9 @@ using MyHealth.Application.Common;
 using MyHealth.Application.TrainingPlans;
 using MyHealth.Application.Workouts;
 using MyHealth.Domain.Professionals;
+using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Plans;
+using MyHealth.Infrastructure.Identity;
 
 namespace MyHealth.Api.IntegrationTests.Infrastructure;
 
@@ -25,7 +27,12 @@ public sealed class Scenario(ApiFactory factory)
         return user;
     }
 
-    public async Task<(TestUser User, Guid ProfileId)> ProfessionalAsync(string name = "trainer", Discipline discipline = Discipline.PersonalTrainer, bool verified = true)
+    /// <summary>
+    /// A professional with a verified profile and their own solo-practice tenant, already selected on their HTTP client.
+    /// Pass <paramref name="ownTenant"/> = false for someone who will only join other tenants.
+    /// </summary>
+    public async Task<(TestUser User, Guid ProfileId)> ProfessionalAsync(
+        string name = "trainer", Discipline discipline = Discipline.PersonalTrainer, bool verified = true, bool ownTenant = true)
     {
         var user = await ClientAsync(name);
         var response = await user.Http.PostAsJsonAsync("/api/v1/professional-profiles", new
@@ -42,7 +49,42 @@ public sealed class Scenario(ApiFactory factory)
             await EnsureSuccess(await admin.Http.PostAsJsonAsync($"/api/v1/admin/professional-profiles/{profileId}/verify", new { notes = "ok" }, Ct));
         }
 
+        if (ownTenant)
+        {
+            UseTenant(user, await CreateTenantAsync(user, $"{name} Pro", TenantKind.SoloPractice, discipline));
+        }
+
         return (user, profileId);
+    }
+
+    /// <summary>Creates a tenant with <paramref name="owner"/> as its administrator. Does not select it.</summary>
+    public async Task<Guid> CreateTenantAsync(TestUser owner, string name, TenantKind kind, params Discipline[] disciplines)
+    {
+        var response = await owner.Http.PostAsJsonAsync(
+            "/api/v1/tenants", new { name, kind = kind.ToString(), disciplines = disciplines.Select(d => d.ToString()).ToArray() }, Ct);
+        return (await Read<IdResponse>(response)).Id;
+    }
+
+    /// <summary>Selects the tenant the user acts for, as the app would after the user picks an organization (MT-02).</summary>
+    public static void UseTenant(TestUser user, Guid? tenantId)
+    {
+        user.Http.DefaultRequestHeaders.Remove(TenantHeader.Name);
+        if (tenantId is { } id)
+        {
+            user.Http.DefaultRequestHeaders.Add(TenantHeader.Name, id.ToString());
+        }
+    }
+
+    /// <summary>The tenant administrator (with their tenant selected) invites <paramref name="member"/>, who accepts.</summary>
+    public async Task<Guid> AddMemberAsync(TestUser administrator, TestUser member, params Discipline[] disciplines)
+    {
+        var invite = await administrator.Http.PostAsJsonAsync("/api/v1/tenant/memberships/invitations", new
+        {
+            email = member.Email, disciplines = disciplines.Select(d => d.ToString()).ToArray(), isAdministrator = false,
+        }, Ct);
+        var membershipId = (await Read<IdResponse>(invite)).Id;
+        await EnsureSuccess(await member.Http.PostAsync($"/api/v1/tenant-invitations/{membershipId}/accept", null, Ct));
+        return membershipId;
     }
 
     public async Task<Guid> LinkAsync(TestUser professional, TestUser client, Discipline discipline = Discipline.PersonalTrainer)

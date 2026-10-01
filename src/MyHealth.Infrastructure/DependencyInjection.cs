@@ -11,6 +11,7 @@ using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
 using MyHealth.Domain.Professionals;
+using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
@@ -42,6 +43,8 @@ public static class DependencyInjection
         services.AddScoped<IReadDbContext, ReadDbContext>();
         services.AddScoped<IAuditLog, AuditLog>();
 
+        services.AddScoped<ITenantRepository, TenantRepository>();
+        services.AddScoped<ITenantMembershipRepository, TenantMembershipRepository>();
         services.AddScoped<IUserProfileRepository, UserProfileRepository>();
         services.AddScoped<IProfessionalProfileRepository, ProfessionalProfileRepository>();
         services.AddScoped<ICareRelationshipRepository, CareRelationshipRepository>();

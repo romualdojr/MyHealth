@@ -13,13 +13,16 @@ internal static class Fixtures
 {
     public static readonly DateTimeOffset Now = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
 
+    public static readonly Guid TenantId = Guid.CreateVersion7();
+
     public static FakeTimeProvider Clock() => new(Now);
 
-    public static IUserContext UserContext(Guid userId, string email = "user@example.com")
+    public static IUserContext UserContext(Guid userId, string email = "user@example.com", Guid? requestedTenantId = null)
     {
         var user = Substitute.For<IUserContext>();
         user.UserId.Returns(userId);
         user.Email.Returns(email);
+        user.RequestedTenantId.Returns(requestedTenantId);
         return user;
     }
 
@@ -44,7 +47,7 @@ internal static class Fixtures
 
     public static CareRelationship ActiveRelationship(ProfessionalProfile professional, UserProfile client)
     {
-        var relationship = CareRelationship.Invite(professional, client.Email, Now).Value;
+        var relationship = CareRelationship.Invite(TenantId, professional, client.Email, Now).Value;
         relationship.Accept(client, Now);
         return relationship;
     }
@@ -52,7 +55,7 @@ internal static class Fixtures
     public static TrainingPlanVersion PublishedVersion(ProfessionalProfile trainer, Guid clientId, out TrainingPlan plan)
     {
         plan = TrainingPlan.Create(
-            trainer, clientId, new PlanDetails("A", "Força", TrainingLevel.Beginner, new DateOnly(2026, 10, 1), null, 3, null), Now).Value;
+            TenantId, trainer, clientId, new PlanDetails("A", "Força", TrainingLevel.Beginner, new DateOnly(2026, 10, 1), null, 3, null), Now).Value;
         plan.UpdateDraft(new PlanContent(
         [
             new PlannedSession(Guid.CreateVersion7(), "Treino A", SessionKind.Strength, 1, null,

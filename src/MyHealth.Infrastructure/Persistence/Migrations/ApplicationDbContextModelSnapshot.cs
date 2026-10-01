@@ -220,6 +220,10 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("subject_user_id");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
                     b.HasKey("Id")
                         .HasName("pk_audit_entries");
 
@@ -228,6 +232,9 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SubjectUserId", "OccurredAt")
                         .HasDatabaseName("ix_audit_entries_subject_user_id_occurred_at");
+
+                    b.HasIndex("TenantId", "OccurredAt")
+                        .HasDatabaseName("ix_audit_entries_tenant_id_occurred_at");
 
                     b.ToTable("audit_entries", "myhealth");
                 });
@@ -289,6 +296,10 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("status");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
                     b.Property<uint>("version")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -301,11 +312,11 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.HasIndex("ClientId", "Status")
                         .HasDatabaseName("ix_care_relationships_client_id_status");
 
-                    b.HasIndex("ProfessionalProfileId", "InviteeEmail", "Status")
-                        .HasDatabaseName("ix_care_relationships_professional_profile_id_invitee_email_st");
+                    b.HasIndex("TenantId", "ProfessionalProfileId", "InviteeEmail", "Status")
+                        .HasDatabaseName("ix_care_relationships_tenant_id_professional_profile_id_invite");
 
-                    b.HasIndex("ProfessionalUserId", "Discipline", "ClientId", "Status")
-                        .HasDatabaseName("ix_care_relationships_professional_user_id_discipline_client_i");
+                    b.HasIndex("TenantId", "ProfessionalUserId", "Discipline", "ClientId", "Status")
+                        .HasDatabaseName("ix_care_relationships_tenant_id_professional_user_id_disciplin");
 
                     b.ToTable("care_relationships", "myhealth");
                 });
@@ -571,6 +582,10 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("revision");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
                     b.Property<uint>("version")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -583,6 +598,9 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.HasIndex("ClientId")
                         .HasDatabaseName("ix_workout_heart_rates_client_id");
 
+                    b.HasIndex("TenantId", "ClientId")
+                        .HasDatabaseName("ix_workout_heart_rates_tenant_id_client_id");
+
                     b.ToTable("workout_heart_rates", "myhealth");
                 });
 
@@ -591,6 +609,12 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("audience");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -614,6 +638,10 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("resource_type");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -623,8 +651,8 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_notifications");
 
-                    b.HasIndex("RecipientUserId", "CreatedAt")
-                        .HasDatabaseName("ix_notifications_recipient_user_id_created_at");
+                    b.HasIndex("RecipientUserId", "Audience", "TenantId", "CreatedAt")
+                        .HasDatabaseName("ix_notifications_recipient_user_id_audience_tenant_id_created_");
 
                     b.ToTable("notifications", "myhealth");
                 });
@@ -720,6 +748,121 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.ToTable("professional_profiles", "myhealth");
                 });
 
+            modelBuilder.Entity("MyHealth.Domain.Tenants.Tenant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tenants");
+
+                    b.ToTable("tenants", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Tenants.TenantMembership", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Disciplines")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("disciplines");
+
+                    b.Property<DateTimeOffset>("InvitedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invited_at");
+
+                    b.Property<Guid>("InvitedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invited_by");
+
+                    b.Property<string>("InviteeEmail")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("invitee_email");
+
+                    b.Property<bool>("IsAdministrator")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_administrator");
+
+                    b.Property<DateTimeOffset?>("JoinedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("joined_at");
+
+                    b.Property<string>("RevokeReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("revoke_reason");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid?>("RevokedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revoked_by");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tenant_memberships");
+
+                    b.HasIndex("TenantId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tenant_memberships_tenant_id_user_id")
+                        .HasFilter("status = 'Active'");
+
+                    b.HasIndex("UserId", "Status")
+                        .HasDatabaseName("ix_tenant_memberships_user_id_status");
+
+                    b.HasIndex("TenantId", "InviteeEmail", "Status")
+                        .HasDatabaseName("ix_tenant_memberships_tenant_id_invitee_email_status");
+
+                    b.ToTable("tenant_memberships", "myhealth");
+                });
+
             modelBuilder.Entity("MyHealth.Domain.Training.Exercises.Exercise", b =>
                 {
                     b.Property<Guid>("Id")
@@ -780,6 +923,10 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("purpose");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -796,6 +943,9 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OwnerProfileId")
                         .HasDatabaseName("ix_exercises_owner_profile_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_exercises_tenant_id");
 
                     b.ToTable("exercises", "myhealth");
                 });
@@ -840,6 +990,10 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
 
                     b.Property<Guid>("TrainerProfileId")
                         .HasColumnType("uuid")
@@ -905,8 +1059,8 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.HasIndex("ClientId", "Status")
                         .HasDatabaseName("ix_training_plans_client_id_status");
 
-                    b.HasIndex("TrainerProfileId", "ClientId")
-                        .HasDatabaseName("ix_training_plans_trainer_profile_id_client_id");
+                    b.HasIndex("TenantId", "TrainerProfileId", "ClientId")
+                        .HasDatabaseName("ix_training_plans_tenant_id_trainer_profile_id_client_id");
 
                     b.ToTable("training_plans", "myhealth");
                 });
@@ -935,6 +1089,10 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("PublishedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("published_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
 
                     b.Property<Guid>("TrainerProfileId")
                         .HasColumnType("uuid")
@@ -994,6 +1152,9 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_training_plan_versions");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_training_plan_versions_tenant_id");
 
                     b.HasIndex("TrainingPlanId", "VersionNumber")
                         .IsUnique()
@@ -1155,6 +1316,10 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("status");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
                     b.Property<string>("TimeZoneId")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -1188,11 +1353,11 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.HasIndex("TrainingPlanId")
                         .HasDatabaseName("ix_workout_sessions_training_plan_id");
 
-                    b.HasIndex("TrainerProfileId", "ClientId")
-                        .HasDatabaseName("ix_workout_sessions_trainer_profile_id_client_id");
-
                     b.HasIndex("ClientId", "Status", "LocalDate")
                         .HasDatabaseName("ix_workout_sessions_client_id_status_local_date");
+
+                    b.HasIndex("TenantId", "TrainerProfileId", "ClientId")
+                        .HasDatabaseName("ix_workout_sessions_tenant_id_trainer_profile_id_client_id");
 
                     b.ToTable("workout_sessions", "myhealth");
                 });
@@ -1373,6 +1538,16 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_asp_net_user_tokens_asp_net_users_user_id");
                 });
 
+            modelBuilder.Entity("MyHealth.Domain.CareRelationships.CareRelationship", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_care_relationships_tenants_tenant_id");
+                });
+
             modelBuilder.Entity("MyHealth.Domain.CareRelationships.DataSharingGrant", b =>
                 {
                     b.HasOne("MyHealth.Domain.CareRelationships.CareRelationship", null)
@@ -1418,6 +1593,13 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_workout_heart_rates_workout_sessions_id");
+
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_workout_heart_rates_tenants_tenant_id");
 
                     b.OwnsOne("MyHealth.Domain.HealthData.HeartRateSummary", "Summary", b1 =>
                         {
@@ -1485,8 +1667,44 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.Navigation("Summary");
                 });
 
+            modelBuilder.Entity("MyHealth.Domain.Tenants.TenantMembership", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tenant_memberships_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Training.Exercises.Exercise", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_exercises_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Training.Plans.TrainingPlan", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_training_plans_tenants_tenant_id");
+                });
+
             modelBuilder.Entity("MyHealth.Domain.Training.Plans.TrainingPlanVersion", b =>
                 {
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_training_plan_versions_tenants_tenant_id");
+
                     b.HasOne("MyHealth.Domain.Training.Plans.TrainingPlan", null)
                         .WithMany()
                         .HasForeignKey("TrainingPlanId")
@@ -1521,6 +1739,13 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_workout_sessions_training_plan_versions_plan_version_id");
+
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_workout_sessions_tenants_tenant_id");
 
                     b.OwnsOne("MyHealth.Domain.Training.Workouts.ExternalWorkoutExport", "AppleHealthWorkout", b1 =>
                         {

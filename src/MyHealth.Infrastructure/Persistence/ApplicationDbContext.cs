@@ -6,6 +6,7 @@ using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
 using MyHealth.Domain.Professionals;
+using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
@@ -19,6 +20,10 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
 {
     public const string IdentitySchema = "identity";
     public const string DefaultSchema = "myhealth";
+
+    public DbSet<Tenant> Tenants => Set<Tenant>();
+
+    public DbSet<TenantMembership> TenantMemberships => Set<TenantMembership>();
 
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
 
