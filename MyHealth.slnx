@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MyHealth.ApiService/MyHealth.ApiService.csproj" />
+    <Project Path="src/MyHealth.AppHost/MyHealth.AppHost.csproj" />
+    <Project Path="src/MyHealth.ServiceDefaults/MyHealth.ServiceDefaults.csproj" />
+    <Project Path="src/MyHealth.Web/MyHealth.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MyHealth.Tests/MyHealth.Tests.csproj" />
+  </Folder>
+</Solution>

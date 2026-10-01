@@ -1,0 +1,5 @@
+{
+  "appHost": {
+    "path": "MyHealth.AppHost/MyHealth.AppHost.csproj"
+  }
+}
