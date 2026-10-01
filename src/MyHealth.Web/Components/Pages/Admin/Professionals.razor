@@ -1,0 +1,126 @@
+@page "/admin/professionals"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+
+<PageTitle>Profissionais · Plataforma</PageTitle>
+
+<h1 class="h3">Verificação de profissionais</h1>
+<p class="text-body-secondary">
+    Confira o registro no conselho antes de verificar (RF-04). Só profissionais verificados convidam clientes, prescrevem e atendem.
+    Alterar o registro volta o perfil para pendente.
+</p>
+
+<div class="d-flex gap-2 mb-3">
+    @foreach (var (value, label) in Filters)
+    {
+        <button class="btn btn-sm @(_status == value ? "btn-primary" : "btn-outline-primary")" @onclick="() => FilterAsync(value)">@label</button>
+    }
+</div>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_action is { } action)
+{
+    <ReasonForm Title="@action.Title" Tone="@action.Tone" Required="@action.ReasonRequired" Label="@(action.ReasonRequired ? "Motivo" : "Observações (opcional)")"
+                ConfirmText="@action.Confirm" OnConfirm="ConfirmAsync" OnCancel="() => _action = null" />
+}
+
+@if (_items is null)
+{
+    <Loading />
+}
+else if (_items.Count == 0)
+{
+    <p class="text-body-secondary">Nenhum profissional nesta situação.</p>
+}
+else
+{
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr><th>Nome</th><th>Área</th><th>Registro</th><th>Situação</th><th>Cadastro</th><th></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var p in _items)
+            {
+                <tr>
+                    <td>@p.DisplayName</td>
+                    <td>@Labels.Discipline(p.Discipline)</td>
+                    <td><code>@p.Council @p.RegistrationNumber/@p.Region</code></td>
+                    <td><StatusBadge Status="@p.VerificationStatus" /></td>
+                    <td>@p.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                    <td class="text-end text-nowrap">
+                        @if (p.VerificationStatus != "Verified")
+                        {
+                            <button class="btn btn-sm btn-success" @onclick="() => Ask(p, Kind.Verify)">Verificar</button>
+                        }
+                        @if (p.VerificationStatus == "Pending")
+                        {
+                            <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => Ask(p, Kind.Reject)">Rejeitar</button>
+                        }
+                        @if (p.VerificationStatus == "Verified")
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Ask(p, Kind.Suspend)">Suspender</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private static readonly (string? Value, string Label)[] Filters =
+        [("Pending", "Pendentes"), ("Verified", "Verificados"), ("Suspended", "Suspensos"), ("Rejected", "Rejeitados"), (null, "Todos")];
+
+    private enum Kind { Verify, Reject, Suspend }
+
+    private sealed record PendingAction(ProfessionalProfileItem Profile, Kind Kind, string Title, string Confirm, string Tone, bool ReasonRequired);
+
+    private List<ProfessionalProfileItem>? _items;
+    private ApiProblem? _problem;
+    private string? _status = "Pending";
+    private PendingAction? _action;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task FilterAsync(string? status)
+    {
+        _status = status;
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _items = null;
+        var result = await Api.GetAsync<List<ProfessionalProfileItem>>(_status is null ? "admin/professional-profiles" : $"admin/professional-profiles?status={_status}");
+        _items = result.Value ?? [];
+        _problem = result.Problem;
+    }
+
+    private void Ask(ProfessionalProfileItem profile, Kind kind) =>
+        _action = kind switch
+        {
+            Kind.Verify => new(profile, kind, $"Verificar {profile.DisplayName} ({profile.Council} {profile.RegistrationNumber}/{profile.Region})", "Verificar", "success", false),
+            Kind.Reject => new(profile, kind, $"Rejeitar {profile.DisplayName}", "Rejeitar", "danger", true),
+            _ => new(profile, kind, $"Suspender {profile.DisplayName}", "Suspender", "danger", true),
+        };
+
+    private async Task ConfirmAsync(string? text)
+    {
+        var action = _action!;
+        var id = action.Profile.Id;
+        var result = action.Kind switch
+        {
+            Kind.Verify => await Api.PostAsync($"admin/professional-profiles/{id}/verify", new { notes = text }),
+            Kind.Reject => await Api.PostAsync($"admin/professional-profiles/{id}/reject", new { reason = text }),
+            _ => await Api.PostAsync($"admin/professional-profiles/{id}/suspend", new { reason = text }),
+        };
+
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _action = null;
+            await LoadAsync();
+        }
+    }
+}

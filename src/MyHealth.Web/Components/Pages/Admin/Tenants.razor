@@ -1,0 +1,45 @@
+@page "/admin/tenants"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+
+<PageTitle>Organizações · Plataforma</PageTitle>
+
+<h1 class="h3">Organizações</h1>
+<p class="text-body-secondary">Metadados apenas: operadores da plataforma não acessam dados de dentro das organizações.</p>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_items is null)
+{
+    <Loading />
+}
+else
+{
+    <table class="table table-sm">
+        <thead><tr><th>Nome</th><th>Tipo</th><th>Membros ativos</th><th>Criada em</th><th>Id</th></tr></thead>
+        <tbody>
+            @foreach (var t in _items)
+            {
+                <tr>
+                    <td>@t.Name</td>
+                    <td>@(t.Kind == "SoloPractice" ? "Consultório individual" : "Organização")</td>
+                    <td>@t.ActiveMembers</td>
+                    <td>@t.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                    <td><code class="small user-select-all">@t.Id</code></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<TenantSummaryItem>? _items;
+    private ApiProblem? _problem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetAsync<List<TenantSummaryItem>>("admin/tenants");
+        _items = result.Value ?? [];
+        _problem = result.Problem;
+    }
+}

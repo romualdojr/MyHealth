@@ -46,7 +46,12 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 
 ## Phase 4 — Clients and MVP release
 
-- [ ] iOS app integrating `docs/initial_requirements/ios`; Android app; professional web dashboard.
+- [x] Web dashboard foundation (Blazor): sign-in with 2FA, token refresh, organization switcher, platform admin console (RF-50), organization members and audit, trainer dashboard, contract tests.
+- [ ] Web: trainer workflow (clients, plan editor and publishing, workout sessions and feedback replies, heart-rate views).
+- [ ] Web: dietitian workflow (assessments, meal plan editor, food diary with comments) and therapist workflow (services, schedule, session record, consent status, care plans).
+- [ ] Web: invitation flows (clients and organizations), professional profile and onboarding, QR code for 2FA setup.
+- [ ] Web: accessibility review (WCAG 2.2 AA), end-to-end browser tests (e.g. Playwright).
+- [ ] iOS app integrating `docs/initial_requirements/ios` (needs a Mac with Xcode); Android app.
 - [ ] Accessibility (RNF-07), performance targets (RNF-06), on-device acceptance tests 10 and 12.
 
 ## Phase 5 — P1 features

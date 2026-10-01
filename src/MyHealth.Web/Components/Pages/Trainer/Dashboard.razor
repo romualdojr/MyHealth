@@ -1,0 +1,111 @@
+@page "/trainer"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+
+<PageTitle>Painel do treinador · MyHealth</PageTitle>
+
+<h1 class="h3">Painel do treinador</h1>
+
+@if (!Workspace.Practices("PersonalTrainer"))
+{
+    <p class="alert alert-info">Selecione uma organização em que você atua como personal trainer.</p>
+}
+else
+{
+    <p class="text-body-secondary">
+        Adesão dos últimos 7 dias em relação à frequência sugerida, feedbacks sem resposta, relatos de desconforto e planos que pedem revisão
+        (RF-21, RF-23). Somente clientes com vínculo ativo nesta organização.
+    </p>
+
+    <ProblemAlert Problem="_problem" />
+
+    @if (_dashboard is null)
+    {
+        @if (_problem is null)
+        {
+            <Loading />
+        }
+    }
+    else
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-sm-4"><Metric Label="Feedbacks sem resposta" Value="@_dashboard.TotalPendingFeedback" /></div>
+            <div class="col-sm-4"><Metric Label="Relatos de desconforto" Value="@_dashboard.TotalDiscomfortReports" Warn="true" /></div>
+            <div class="col-sm-4"><Metric Label="Planos para revisar" Value="@_dashboard.TotalPlansNeedingReview" Warn="true" /></div>
+        </div>
+
+        @if (_dashboard.Clients.Count == 0)
+        {
+            <p class="text-body-secondary">Nenhum cliente com vínculo ativo.</p>
+        }
+        else
+        {
+            <table class="table align-middle">
+                <thead>
+                    <tr><th>Cliente</th><th>Plano ativo</th><th>Últimos 7 dias</th><th>Adesão</th><th>Pendências</th><th>Último treino</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _dashboard.Clients)
+                    {
+                        <tr class="@(c.UnrepliedDiscomfortReports > 0 ? "table-warning" : string.Empty)">
+                            <td>@c.ClientName</td>
+                            <td>@(c.ActivePlanName ?? "—")</td>
+                            <td>@c.CompletedLast7Days@(c.SuggestedSessionsPerWeek is { } s ? $" de {s}" : string.Empty)</td>
+                            <td>@(c.AdherenceLast7Days is { } a ? a.ToString("P0") : "—")</td>
+                            <td class="small">
+                                @if (c.UnrepliedDiscomfortReports > 0)
+                                {
+                                    <span class="badge text-bg-danger me-1">@c.UnrepliedDiscomfortReports desconforto</span>
+                                }
+                                @if (c.PendingFeedbackReplies > 0)
+                                {
+                                    <span class="badge text-bg-warning me-1">@c.PendingFeedbackReplies feedback</span>
+                                }
+                                @if (c.PlansNeedingReview > 0)
+                                {
+                                    <span class="badge text-bg-info">revisar plano</span>
+                                }
+                            </td>
+                            <td>@(c.LastCompletedAt?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+}
+
+@code {
+    private TrainerDashboard? _dashboard;
+    private ApiProblem? _problem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        _dashboard = null;
+        _problem = null;
+        if (!Workspace.Practices("PersonalTrainer"))
+        {
+            return;
+        }
+
+        var result = await Api.GetAsync<TrainerDashboard>("trainer/dashboard");
+        _dashboard = result.Value;
+        _problem = result.Problem;
+    }
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

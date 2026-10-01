@@ -1,0 +1,26 @@
+@page "/organization/audit"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+
+<PageTitle>Auditoria · Organização</PageTitle>
+
+<h1 class="h3">Auditoria — @(Workspace.Membership?.TenantName ?? "organização")</h1>
+
+@if (!Workspace.IsTenantAdministrator)
+{
+    <p class="alert alert-info">Selecione uma organização que você administra.</p>
+}
+else
+{
+    <p class="text-body-secondary">Acessos e alterações nesta organização. Administradores veem metadados, nunca conteúdo clínico.</p>
+    <AuditTable @key="Workspace.Membership!.TenantId" Endpoint="tenant/audit-entries" />
+}
+
+@code {
+    protected override void OnInitialized() => Workspace.Changed += OnChanged;
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

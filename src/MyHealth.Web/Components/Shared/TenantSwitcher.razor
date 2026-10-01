@@ -1,0 +1,21 @@
+@* Selects the organization the user acts for (MT-02). The API honours it only for an active membership. *@
+@inject WorkspaceState Workspace
+
+@if (Workspace.Me is { Memberships.Count: > 0 } me)
+{
+    <label class="d-flex align-items-center gap-2 m-0 small">
+        <span class="text-body-secondary">Organização</span>
+        <select class="form-select form-select-sm" value="@(Workspace.Membership?.TenantId.ToString() ?? string.Empty)" @onchange="OnSelected">
+            <option value="">Visão de cliente</option>
+            @foreach (var membership in me.Memberships)
+            {
+                <option value="@membership.TenantId">@membership.TenantName</option>
+            }
+        </select>
+    </label>
+}
+
+@code {
+    private Task OnSelected(ChangeEventArgs e) =>
+        Workspace.SelectTenantAsync(Guid.TryParse(e.Value?.ToString(), out var id) ? id : null);
+}

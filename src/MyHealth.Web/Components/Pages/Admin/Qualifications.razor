@@ -1,0 +1,112 @@
+@page "/admin/qualifications"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+
+<PageTitle>Qualificações · Plataforma</PageTitle>
+
+<h1 class="h3">Qualificações de terapeutas</h1>
+<p class="text-body-secondary">
+    Formação por modalidade (RF-33). A verificação só é aceita quando o conselho do profissional está entre os aceitos pela modalidade;
+    revogar interrompe o atendimento imediatamente.
+</p>
+
+<div class="d-flex gap-2 mb-3">
+    @foreach (var (value, label) in Filters)
+    {
+        <button class="btn btn-sm @(_status == value ? "btn-primary" : "btn-outline-primary")" @onclick="() => FilterAsync(value)">@label</button>
+    }
+</div>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_action is { } action)
+{
+    <ReasonForm Title="@action.Title" Tone="@(action.Decision == "verify" ? "success" : "danger")" Required="@(action.Decision != "verify")"
+                Label="@(action.Decision == "verify" ? "Observações (opcional)" : "Motivo")" ConfirmText="Confirmar" OnConfirm="ConfirmAsync" OnCancel="() => _action = null" />
+}
+
+@if (_items is null)
+{
+    <Loading />
+}
+else if (_items.Count == 0)
+{
+    <p class="text-body-secondary">Nenhuma qualificação nesta situação.</p>
+}
+else
+{
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr><th>Profissional</th><th>Registro</th><th>Modalidade</th><th>Formação</th><th>Situação</th><th></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var q in _items)
+            {
+                <tr>
+                    <td>@q.PractitionerName</td>
+                    <td><code>@q.Council @q.RegistrationNumber/@q.Region</code></td>
+                    <td><code>@q.ModalityCode</code></td>
+                    <td>@q.Title<div class="small text-body-secondary">@q.Issuer @(q.CertificateNumber is null ? string.Empty : $"· nº {q.CertificateNumber}")</div></td>
+                    <td><StatusBadge Status="@q.Status" />@if (q.ReviewNotes is not null){<div class="small text-body-secondary">@q.ReviewNotes</div>}</td>
+                    <td class="text-end text-nowrap">
+                        @if (q.Status == "Pending")
+                        {
+                            <button class="btn btn-sm btn-success" @onclick="@(() => Ask(q, "verify"))">Verificar</button>
+                            <button class="btn btn-sm btn-outline-danger ms-1" @onclick="@(() => Ask(q, "reject"))">Rejeitar</button>
+                        }
+                        @if (q.Status == "Verified")
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="@(() => Ask(q, "revoke"))">Revogar</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private static readonly (string? Value, string Label)[] Filters =
+        [("Pending", "Pendentes"), ("Verified", "Verificadas"), ("Revoked", "Revogadas"), ("Rejected", "Rejeitadas"), (null, "Todas")];
+
+    private sealed record PendingAction(QualificationItem Qualification, string Decision, string Title);
+
+    private List<QualificationItem>? _items;
+    private ApiProblem? _problem;
+    private string? _status = "Pending";
+    private PendingAction? _action;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task FilterAsync(string? status)
+    {
+        _status = status;
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _items = null;
+        var result = await Api.GetAsync<List<QualificationItem>>(
+            _status is null ? "admin/practitioner-qualifications" : $"admin/practitioner-qualifications?status={_status}");
+        _items = result.Value ?? [];
+        _problem = result.Problem;
+    }
+
+    private void Ask(QualificationItem q, string decision)
+    {
+        var verb = decision switch { "verify" => "Verificar", "reject" => "Rejeitar", _ => "Revogar" };
+        _action = new PendingAction(q, decision, $"{verb} a qualificação de {q.PractitionerName} em {q.ModalityCode}");
+    }
+
+    private async Task ConfirmAsync(string? notes)
+    {
+        var result = await Api.PostAsync($"admin/practitioner-qualifications/{_action!.Qualification.Id}/{_action.Decision}", new { notes });
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _action = null;
+            await LoadAsync();
+        }
+    }
+}

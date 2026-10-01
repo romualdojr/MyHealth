@@ -1,0 +1,126 @@
+@* Who did what to which record, whose data it was, in which organization (RNF-03). Metadata only — never clinical content. *@
+@inject MyHealthApiClient Api
+
+<div class="row g-2 mb-3">
+    <div class="col-md-4">
+        <input class="form-control form-control-sm" placeholder="Titular (id do usuário)" @bind="_subject" aria-label="Titular" />
+    </div>
+    <div class="col-md-4">
+        <input class="form-control form-control-sm" placeholder="Autor (id do usuário)" @bind="_actor" aria-label="Autor" />
+    </div>
+    @if (AllowTenantFilter)
+    {
+        <div class="col-md-3">
+            <input class="form-control form-control-sm" placeholder="Organização (id)" @bind="_tenant" aria-label="Organização" />
+        </div>
+    }
+    <div class="col-md-1">
+        <button class="btn btn-sm btn-primary w-100" @onclick="() => LoadAsync(1)">Filtrar</button>
+    </div>
+</div>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_page is null)
+{
+    <Loading />
+}
+else
+{
+    <table class="table table-sm small">
+        <thead>
+            <tr>
+                <th>Quando</th><th>Ação</th><th>Recurso</th><th>Autor</th><th>Titular</th>
+                @if (AllowTenantFilter)
+                {
+                    <th>Organização</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var e in _page.Items)
+            {
+                <tr class="@(e.Action == "deny" ? "table-danger" : string.Empty)">
+                    <td class="text-nowrap">@e.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                    <td><code>@e.Action</code></td>
+                    <td>@e.ResourceType <span class="text-body-secondary">@Short(e.ResourceId)</span></td>
+                    <td><button class="btn btn-link btn-sm p-0" @onclick="() => FilterActor(e.ActorUserId)">@Short(e.ActorUserId)</button></td>
+                    <td>
+                        @if (e.SubjectUserId is { } subject)
+                        {
+                            <button class="btn btn-link btn-sm p-0" @onclick="() => FilterSubject(subject)">@Short(subject)</button>
+                        }
+                    </td>
+                    @if (AllowTenantFilter)
+                    {
+                        <td>@(e.TenantId is { } t ? Short(t) : "—")</td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-secondary" disabled="@(_page.Page <= 1)" @onclick="() => LoadAsync(_page.Page - 1)">Anterior</button>
+        <span class="small text-body-secondary">Página @_page.Page de @Pages · @_page.TotalCount registros</span>
+        <button class="btn btn-sm btn-outline-secondary" disabled="@(_page.Page >= Pages)" @onclick="() => LoadAsync(_page.Page + 1)">Próxima</button>
+    </div>
+}
+
+@code {
+    /// <summary><c>admin/audit-entries</c> (platform, across tenants) or <c>tenant/audit-entries</c> (selected organization).</summary>
+    [Parameter, EditorRequired]
+    public string Endpoint { get; set; } = string.Empty;
+
+    [Parameter]
+    public bool AllowTenantFilter { get; set; }
+
+    private const int PageSize = 50;
+
+    private PagedResponse<AuditEntryItem>? _page;
+    private ApiProblem? _problem;
+    private string? _subject;
+    private string? _actor;
+    private string? _tenant;
+
+    private int Pages => Math.Max(1, (int)Math.Ceiling((_page?.TotalCount ?? 0) / (double)PageSize));
+
+    protected override Task OnInitializedAsync() => LoadAsync(1);
+
+    private static string Short(Guid id) => id.ToString()[..8];
+
+    private Task FilterActor(Guid id)
+    {
+        _actor = id.ToString();
+        return LoadAsync(1);
+    }
+
+    private Task FilterSubject(Guid id)
+    {
+        _subject = id.ToString();
+        return LoadAsync(1);
+    }
+
+    private async Task LoadAsync(int page)
+    {
+        var query = new List<string> { $"page={page}", $"pageSize={PageSize}" };
+        if (Guid.TryParse(_subject, out var subject))
+        {
+            query.Add($"subjectUserId={subject}");
+        }
+
+        if (Guid.TryParse(_actor, out var actor))
+        {
+            query.Add($"actorUserId={actor}");
+        }
+
+        if (AllowTenantFilter && Guid.TryParse(_tenant, out var tenant))
+        {
+            query.Add($"tenantId={tenant}");
+        }
+
+        var result = await Api.GetAsync<PagedResponse<AuditEntryItem>>($"{Endpoint}?{string.Join('&', query)}");
+        _page = result.Value ?? new PagedResponse<AuditEntryItem>([], page, PageSize, 0);
+        _problem = result.Problem;
+    }
+}

@@ -1,0 +1,6 @@
+<span class="badge @Labels.BadgeClass(Status)">@Labels.Status(Status)</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Status { get; set; } = string.Empty;
+}

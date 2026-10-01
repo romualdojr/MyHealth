@@ -1,4 +1,6 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject WorkspaceState Workspace
 
 <div class="page">
     <div class="sidebar">
@@ -6,18 +8,63 @@
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        <div class="top-row px-4 gap-3">
+            <AuthorizeView>
+                <Authorized>
+                    <TenantSwitcher />
+                    <span class="text-body-secondary small">@context.User.Identity?.Name</span>
+                    <form action="account/logout" method="post" class="m-0">
+                        <AntiforgeryToken />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Sair</button>
+                    </form>
+                </Authorized>
+            </AuthorizeView>
         </div>
 
         <article class="content px-4">
-            @Body
+            <AuthorizeView>
+                <Authorized>
+                    @if (_loaded)
+                    {
+                        @Body
+                    }
+                    else
+                    {
+                        <Loading />
+                    }
+                </Authorized>
+                <NotAuthorized>
+                    @Body
+                </NotAuthorized>
+            </AuthorizeView>
         </article>
     </main>
 </div>
 
-<div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
+<div id="blazor-error-ui" data-nosnippet>
+    Ocorreu um erro inesperado.
+    <a href="." class="reload">Recarregar</a>
+    <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationState { get; set; } = null!;
+
+    private bool _loaded;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        if ((await AuthenticationState).User.Identity?.IsAuthenticated == true)
+        {
+            await Workspace.EnsureLoadedAsync();
+        }
+
+        _loaded = true;
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

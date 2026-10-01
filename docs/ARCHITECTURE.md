@@ -7,7 +7,8 @@ MyHealth.ApiService      Minimal-API endpoints, auth, ProblemDetails, OpenAPI   
 MyHealth.Infrastructure  EF Core/PostgreSQL, Identity, repositories, audit, UoW     │ depend
 MyHealth.Application     CQRS commands/queries + handlers, validation, access rules │ inwards
 MyHealth.Domain          Aggregates, value objects, domain events, Result/Error     ◄┘
-MyHealth.AppHost         Aspire orchestration (PostgreSQL + pgAdmin + API)
+MyHealth.AppHost         Aspire orchestration (PostgreSQL + pgAdmin + API + web dashboard)
+MyHealth.Web             Blazor web dashboard (professionals, organization admins, platform operators) — an API client only
 ```
 
 The dependency rule is enforced by `tests/MyHealth.ArchitectureTests`.
@@ -79,10 +80,23 @@ Samples must be 20–300 bpm, inside the server's session interval, and outside 
 
 Saving workouts *to* Apple Health is a separate opt-in (`PUT /me/health-connections/apple-health/workout-saving`); the phone reports the saved HKWorkout with `PUT /workout-sessions/{id}/apple-health-workout`, and only one per session is accepted. The full iPhone contract is in `docs/initial_requirements/ios/README.md`.
 
+## Web dashboard (Phase 4, started)
+
+`MyHealth.Web` is a Blazor (Interactive Server, no prerendering) app that talks to the API only over HTTP, like the
+phone apps will. It has no database and keeps its own copies of the response shapes it needs (`Api/ApiModels.cs`);
+`WebDashboardContractTests` reads every one of them from the real API, so drift fails the build.
+
+| Concern | Decision |
+|---|---|
+| Sign-in | The static `/login` page calls `/auth/login` (bearer tokens, two-factor step included) and signs the person into the dashboard's own HTTP-only, SameSite=Strict cookie. The access and refresh tokens travel only inside that encrypted cookie and server memory, never to browser JavaScript. `ApiSession` refreshes the access token transparently; a failed refresh means signing in again. Return URLs are sanitized to local paths. |
+| Organization | `WorkspaceState` loads `/me` and keeps the selected organization per circuit (remembered in protected browser storage); `MyHealthApiClient` sends it as `X-Tenant-Id`. Pages reload on a switch (MT-07); the API re-checks the membership on every call. |
+| Authorization | Pages declare `[Authorize]`; platform pages require the operator role (taken from `/me`, or probed for operators without a personal profile). The API remains the authority: the UI only hides what the API would refuse. |
+| Screens so far | Home, two-factor setup; platform: professional verification, therapy qualifications, therapy modalities (legal gate, consent versions), LGPD requests, retention, audit, organizations, operators; organization: members, audit; trainer dashboard. Portuguese (RNF-07). |
+
 ## Running
 
 ```bash
-dotnet run --project src/MyHealth.AppHost        # PostgreSQL + API (+ the template web front end)
+dotnet run --project src/MyHealth.AppHost        # PostgreSQL + API + web dashboard (webfrontend)
 ```
 
 API reference (Development): `/scalar/v1`. Migrations are applied on startup in Development.

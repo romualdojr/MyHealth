@@ -1,0 +1,81 @@
+@page "/account/security"
+@attribute [Authorize]
+@inject MyHealthApiClient Api
+
+<PageTitle>Segurança · MyHealth</PageTitle>
+
+<h1 class="h3">Verificação em duas etapas</h1>
+<p class="text-body-secondary">
+    Obrigatória para profissionais e operadores (RNF-02). Use um aplicativo autenticador (Google Authenticator, Microsoft Authenticator, 1Password…).
+</p>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_status is null)
+{
+    <Loading />
+}
+else if (_status.IsTwoFactorEnabled)
+{
+    <div class="alert alert-success">A verificação em duas etapas está ativa. Códigos de recuperação restantes: @_status.RecoveryCodesLeft.</div>
+
+    @if (_status.RecoveryCodes is { Count: > 0 } codes)
+    {
+        <div class="card mb-3">
+            <div class="card-body">
+                <h2 class="h6">Códigos de recuperação</h2>
+                <p class="small text-body-secondary">Guarde-os em local seguro. Eles não serão exibidos novamente.</p>
+                <pre class="mb-0">@string.Join(Environment.NewLine, codes)</pre>
+            </div>
+        </div>
+    }
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" @onclick="ResetRecoveryCodesAsync">Gerar novos códigos de recuperação</button>
+        <button class="btn btn-outline-danger" @onclick="DisableAsync">Desativar</button>
+    </div>
+}
+else
+{
+    <ol>
+        <li class="mb-2">
+            No aplicativo autenticador, adicione uma conta com a chave:
+            <code class="d-block fs-5 my-2 user-select-all">@FormatKey(_status.SharedKey)</code>
+        </li>
+        <li>
+            Informe o código de 6 dígitos gerado:
+            <div class="d-flex gap-2 mt-2" style="max-width: 20rem;">
+                <input class="form-control" @bind="_code" inputmode="numeric" autocomplete="one-time-code" aria-label="Código de verificação" />
+                <button class="btn btn-primary" @onclick="EnableAsync" disabled="@string.IsNullOrWhiteSpace(_code)">Ativar</button>
+            </div>
+        </li>
+    </ol>
+}
+
+@code {
+    private TwoFactorStatus? _status;
+    private ApiProblem? _problem;
+    private string? _code;
+
+    protected override Task OnInitializedAsync() => ChangeAsync(new { });
+
+    private Task EnableAsync() => ChangeAsync(new { enable = true, twoFactorCode = _code?.Trim().Replace(" ", string.Empty, StringComparison.Ordinal) });
+
+    private Task DisableAsync() => ChangeAsync(new { enable = false });
+
+    private Task ResetRecoveryCodesAsync() => ChangeAsync(new { resetRecoveryCodes = true });
+
+    private async Task ChangeAsync(object change)
+    {
+        var result = await Api.PostAsync<TwoFactorStatus>("auth/manage/2fa", change);
+        _problem = result.Problem;
+        if (result.Value is not null)
+        {
+            _status = result.Value;
+            _code = null;
+        }
+    }
+
+    private static string FormatKey(string key) =>
+        string.Join(' ', Enumerable.Range(0, (key.Length + 3) / 4).Select(i => key.Substring(i * 4, Math.Min(4, key.Length - (i * 4))))).ToLowerInvariant();
+}

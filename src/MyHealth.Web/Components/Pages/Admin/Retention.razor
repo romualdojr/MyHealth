@@ -1,0 +1,84 @@
+@page "/admin/retention"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+
+<PageTitle>Retenção · Plataforma</PageTitle>
+
+<h1 class="h3">Políticas de retenção</h1>
+<p class="text-body-secondary">
+    Prazo e base legal por tipo de registro (RF-50, RNF-01). Os valores devem vir da assessoria jurídica; por enquanto são registrados e
+    publicados, ainda sem expurgo automático.
+</p>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_items is null)
+{
+    <Loading />
+}
+else
+{
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr><th>Registro</th><th style="width: 9rem;">Meses</th><th>Base legal</th><th>Observações</th><th></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var row in _items)
+            {
+                <tr>
+                    <td>
+                        <code>@row.RecordType</code>
+                        @if (row.UpdatedAt is { } at)
+                        {
+                            <div class="small text-body-secondary">@at.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                        }
+                    </td>
+                    <td><input type="number" min="1" max="1200" class="form-control form-control-sm" @bind="row.Months" aria-label="Meses" /></td>
+                    <td><input class="form-control form-control-sm" @bind="row.LegalBasis" aria-label="Base legal" /></td>
+                    <td><input class="form-control form-control-sm" @bind="row.Notes" aria-label="Observações" /></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" disabled="@(row.Months is null || string.IsNullOrWhiteSpace(row.LegalBasis))"
+                                @onclick="() => SaveAsync(row)">Salvar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private sealed class Row
+    {
+        public string RecordType { get; init; } = string.Empty;
+
+        public int? Months { get; set; }
+
+        public string? LegalBasis { get; set; }
+
+        public string? Notes { get; set; }
+
+        public DateTimeOffset? UpdatedAt { get; set; }
+    }
+
+    private List<Row>? _items;
+    private ApiProblem? _problem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetAsync<List<RetentionPolicyItem>>("admin/retention-policies");
+        _problem = result.Problem;
+        _items = (result.Value ?? [])
+            .Select(p => new Row { RecordType = p.RecordType, Months = p.RetentionMonths, LegalBasis = p.LegalBasis, Notes = p.Notes, UpdatedAt = p.UpdatedAt })
+            .ToList();
+    }
+
+    private async Task SaveAsync(Row row)
+    {
+        var result = await Api.PutAsync($"admin/retention-policies/{row.RecordType}", new { retentionMonths = row.Months, legalBasis = row.LegalBasis, notes = row.Notes });
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            row.UpdatedAt = DateTimeOffset.Now;
+        }
+    }
+}

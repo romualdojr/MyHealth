@@ -1,0 +1,118 @@
+@page "/admin/privacy-requests"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+
+<PageTitle>Solicitações LGPD · Plataforma</PageTitle>
+
+<h1 class="h3">Solicitações de titulares (LGPD)</h1>
+<p class="text-body-secondary">
+    Correções e exclusões são tratadas aqui; a recusa exige justificativa (por exemplo, prazo legal de guarda). Exportações aparecem só para
+    prestação de contas: o conteúdo é baixado apenas pelo próprio titular.
+</p>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+    @foreach (var (value, label) in StatusFilters)
+    {
+        <button class="btn btn-sm @(_status == value ? "btn-primary" : "btn-outline-primary")" @onclick="() => FilterAsync(value)">@label</button>
+    }
+</div>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_action is { } action)
+{
+    <ReasonForm Title="@action.Title" Tone="@(action.Verb == "reject" ? "danger" : "primary")" Required="@(action.Verb == "reject")"
+                Label="@(action.Verb == "reject" ? "Justificativa (enviada ao titular)" : "Observações (enviadas ao titular)")"
+                OnConfirm="ConfirmAsync" OnCancel="() => _action = null" />
+}
+
+@if (_items is null)
+{
+    <Loading />
+}
+else if (_items.Count == 0)
+{
+    <p class="text-body-secondary">Nenhuma solicitação nesta situação.</p>
+}
+else
+{
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr><th>Recebida</th><th>Titular</th><th>Tipo</th><th>Detalhes</th><th>Situação</th><th></th></tr>
+        </thead>
+        <tbody>
+            @foreach (var r in _items)
+            {
+                <tr>
+                    <td class="text-nowrap">@r.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                    <td>@(r.UserEmail ?? r.UserId.ToString())</td>
+                    <td>@Labels.PrivacyType(r.Type)</td>
+                    <td class="small">
+                        @(r.Type == "DataExport" ? $"Baixada {r.DeliveryCount} vez(es)" : r.Details)
+                        @if (r.ResolutionNotes is not null)
+                        {
+                            <div class="text-body-secondary">Resposta: @r.ResolutionNotes</div>
+                        }
+                    </td>
+                    <td><StatusBadge Status="@r.Status" /></td>
+                    <td class="text-end text-nowrap">
+                        @if (r.Type != "DataExport" && r.Status is "Submitted" or "InProgress")
+                        {
+                            @if (r.Status == "Submitted")
+                            {
+                                <button class="btn btn-sm btn-outline-primary" @onclick="@(() => Ask(r, "start"))">Iniciar</button>
+                            }
+                            <button class="btn btn-sm btn-success ms-1" @onclick="@(() => Ask(r, "complete"))">Concluir</button>
+                            <button class="btn btn-sm btn-outline-danger ms-1" @onclick="@(() => Ask(r, "reject"))">Recusar</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private static readonly (string? Value, string Label)[] StatusFilters =
+        [("Submitted", "Recebidas"), ("InProgress", "Em andamento"), ("Completed", "Concluídas"), ("Rejected", "Recusadas"), (null, "Todas")];
+
+    private sealed record PendingAction(PrivacyRequestItem Request, string Verb, string Title);
+
+    private List<PrivacyRequestItem>? _items;
+    private ApiProblem? _problem;
+    private string? _status = "Submitted";
+    private PendingAction? _action;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task FilterAsync(string? status)
+    {
+        _status = status;
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _items = null;
+        var result = await Api.GetAsync<List<PrivacyRequestItem>>(_status is null ? "admin/privacy-requests" : $"admin/privacy-requests?status={_status}");
+        _items = result.Value ?? [];
+        _problem = result.Problem;
+    }
+
+    private void Ask(PrivacyRequestItem request, string verb)
+    {
+        var title = verb switch { "start" => "Iniciar atendimento", "complete" => "Concluir solicitação", _ => "Recusar solicitação" };
+        _action = new PendingAction(request, verb, $"{title} — {Labels.PrivacyType(request.Type)} de {request.UserEmail}");
+    }
+
+    private async Task ConfirmAsync(string? notes)
+    {
+        var result = await Api.PostAsync($"admin/privacy-requests/{_action!.Request.Id}/{_action.Verb}", new { notes });
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _action = null;
+            await LoadAsync();
+        }
+    }
+}

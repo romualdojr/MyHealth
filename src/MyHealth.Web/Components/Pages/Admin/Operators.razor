@@ -1,0 +1,73 @@
+@page "/admin/operators"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+
+<PageTitle>Operadores · Plataforma</PageTitle>
+
+<h1 class="h3">Operadores da plataforma</h1>
+<p class="text-body-secondary">
+    Operadores verificam credenciais, tratam solicitações LGPD e consultam a auditoria. Ninguém remove o próprio papel, e o último operador
+    não pode ser removido.
+</p>
+
+<ProblemAlert Problem="_problem" />
+
+<div class="d-flex gap-2 mb-3" style="max-width: 36rem;">
+    <input class="form-control" placeholder="Id do usuário a promover" @bind="_newUserId" @bind:event="oninput" aria-label="Id do usuário" />
+    <button class="btn btn-primary" disabled="@(!Guid.TryParse(_newUserId, out _))" @onclick="GrantAsync">Adicionar</button>
+</div>
+
+@if (_items is null)
+{
+    <Loading />
+}
+else
+{
+    <table class="table table-sm align-middle">
+        <thead><tr><th>E-mail</th><th>Duas etapas</th><th>Id</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var a in _items)
+            {
+                <tr>
+                    <td>@a.Email</td>
+                    <td>@(a.TwoFactorEnabled ? "Ativa" : "Inativa")</td>
+                    <td><code class="small">@a.UserId</code></td>
+                    <td class="text-end"><button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeAsync(a)">Remover</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<AdministratorItem>? _items;
+    private ApiProblem? _problem;
+    private string? _newUserId;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Api.GetAsync<List<AdministratorItem>>("admin/administrators");
+        _items = result.Value ?? [];
+        _problem ??= result.Problem;
+    }
+
+    private async Task GrantAsync()
+    {
+        var result = await Api.PutAsync($"admin/administrators/{Guid.Parse(_newUserId!)}");
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _newUserId = null;
+            await LoadAsync();
+        }
+    }
+
+    private async Task RevokeAsync(AdministratorItem a)
+    {
+        var result = await Api.DeleteAsync($"admin/administrators/{a.UserId}");
+        _problem = result.Problem;
+        await LoadAsync();
+    }
+}

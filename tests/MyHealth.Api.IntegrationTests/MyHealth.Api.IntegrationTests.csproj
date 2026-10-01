@@ -4,6 +4,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MyHealth.ApiService\MyHealth.ApiService.csproj" />
+    <!-- The web dashboard's API client and models, checked against the real API (WebDashboardContractTests). -->
+    <!-- Aliased: both web apps have a public Program class, and the API tests use the API's. -->
+    <ProjectReference Include="..\..\src\MyHealth.Web\MyHealth.Web.csproj" Aliases="web" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,4 +1,5 @@
-﻿<script type="module" src="@Assets["Components/Layout/NavMenu.razor.js"]"></script>
+@implements IDisposable
+@inject WorkspaceState Workspace
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -6,26 +7,52 @@
     </div>
 </div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+<input type="checkbox" title="Menu de navegação" class="navbar-toggler" />
 
-<div id="nav-scrollable" class="nav-scrollable">
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill" aria-hidden="true"></span> Home
-            </NavLink>
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Início</NavLink>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+        <AuthorizeView>
+            @if (Workspace.Practices("PersonalTrainer"))
+            {
+                <div class="nav-section px-3">Treino</div>
+                <div class="nav-item px-3"><NavLink class="nav-link" href="trainer">Painel do treinador</NavLink></div>
+            }
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
+            @if (Workspace.IsTenantAdministrator)
+            {
+                <div class="nav-section px-3">Organização</div>
+                <div class="nav-item px-3"><NavLink class="nav-link" href="organization/members">Membros</NavLink></div>
+                <div class="nav-item px-3"><NavLink class="nav-link" href="organization/audit">Auditoria</NavLink></div>
+            }
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@SessionClaims.AdministratorRole">
+            <div class="nav-section px-3">Plataforma</div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/professionals">Profissionais</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/qualifications">Qualificações</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/modalities">Terapias</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/privacy-requests">Solicitações LGPD</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/retention">Retenção</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/audit">Auditoria</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/tenants">Organizações</NavLink></div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="admin/operators">Operadores</NavLink></div>
+        </AuthorizeView>
+
+        <AuthorizeView>
+            <div class="nav-section px-3">Conta</div>
+            <div class="nav-item px-3"><NavLink class="nav-link" href="account/security">Segurança</NavLink></div>
+        </AuthorizeView>
     </nav>
 </div>
+
+@code {
+    protected override void OnInitialized() => Workspace.Changed += OnChanged;
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

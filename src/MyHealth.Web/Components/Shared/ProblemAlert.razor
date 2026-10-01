@@ -1,0 +1,13 @@
+@* Shows an API problem (RFC 9457) in plain words. *@
+@if (Problem is not null)
+{
+    <div class="alert alert-danger" role="alert">
+        @Problem.Message
+        <small class="d-block text-body-secondary">@Problem.Code</small>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public ApiProblem? Problem { get; set; }
+}

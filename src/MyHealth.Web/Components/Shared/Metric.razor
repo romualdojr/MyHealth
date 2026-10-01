@@ -1,0 +1,18 @@
+<div class="card h-100 @(Warn && Value > 0 ? "border-warning" : string.Empty)">
+    <div class="card-body">
+        <div class="small text-body-secondary">@Label</div>
+        <div class="fs-3 fw-semibold">@Value</div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    [Parameter]
+    public int Value { get; set; }
+
+    /// <summary>Highlights the card when the value is above zero.</summary>
+    [Parameter]
+    public bool Warn { get; set; }
+}
