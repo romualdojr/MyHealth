@@ -17,12 +17,13 @@ internal static class Fixtures
 
     public static FakeTimeProvider Clock() => new(Now);
 
-    public static IUserContext UserContext(Guid userId, string email = "user@example.com", Guid? requestedTenantId = null)
+    public static IUserContext UserContext(Guid userId, string email = "user@example.com", Guid? requestedTenantId = null, bool twoFactor = true)
     {
         var user = Substitute.For<IUserContext>();
         user.UserId.Returns(userId);
         user.Email.Returns(email);
         user.RequestedTenantId.Returns(requestedTenantId);
+        user.HasTwoFactorAsync(Arg.Any<CancellationToken>()).Returns(twoFactor);
         return user;
     }
 

@@ -15,6 +15,15 @@ public sealed record SetLogEntry(
     string? Notes,
     DateTimeOffset LoggedAt);
 
+/// <summary>The measured part of a set: what a correction after the workout may change.</summary>
+public sealed record SetValues(int? Repetitions, decimal? LoadKg, int? DurationSeconds, decimal? DistanceMeters, int? Difficulty, string? Notes)
+{
+    public bool IsEmpty => Repetitions is null && DurationSeconds is null && DistanceMeters is null;
+}
+
+/// <summary>What a set said before a correction made after the workout ended, why it changed and who changed it (§5 History).</summary>
+public sealed record SetLogCorrection(SetValues Previous, string Reason, Guid CorrectedBy, DateTimeOffset CorrectedAt);
+
 /// <summary>A set the client actually performed. Values are self-reported in the app.</summary>
 public sealed class SetLog : Entity<Guid>
 {
@@ -43,10 +52,26 @@ public sealed class SetLog : Entity<Guid>
 
     public DateTimeOffset LoggedAt { get; private set; }
 
+    /// <summary>Corrections made after the workout ended, oldest first. Corrections during the workout overwrite in place.</summary>
+    public List<SetLogCorrection> Corrections { get; private set; } = [];
+
     /// <summary>Repetitions × load, when both are known.</summary>
     public decimal? Volume => Repetitions is { } reps && LoadKg is { } load ? reps * load : null;
 
+    public SetValues Values => new(Repetitions, LoadKg, DurationSeconds, DistanceMeters, Difficulty, Notes);
+
     internal void Correct(SetLogEntry entry) => Apply(entry);
+
+    internal void CorrectAfterWorkout(SetValues values, string reason, Guid correctedBy, DateTimeOffset now)
+    {
+        Corrections.Add(new SetLogCorrection(Values, reason, correctedBy, now));
+        Repetitions = values.Repetitions;
+        LoadKg = values.LoadKg;
+        DurationSeconds = values.DurationSeconds;
+        DistanceMeters = values.DistanceMeters;
+        Difficulty = values.Difficulty;
+        Notes = values.Notes;
+    }
 
     private void Apply(SetLogEntry entry)
     {

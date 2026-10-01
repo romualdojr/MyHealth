@@ -4,8 +4,11 @@ using MyHealth.Application.Abstractions.Data;
 using MyHealth.Application.Abstractions.Messaging;
 using MyHealth.Application.Abstractions.Tenancy;
 using MyHealth.Domain.Abstractions;
+using MyHealth.Domain.Assessments;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.Notifications;
+using MyHealth.Domain.Nutrition;
+using MyHealth.Domain.Privacy;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
@@ -84,15 +87,41 @@ internal sealed class MarkNotificationReadHandler(IUserContext user, INotificati
 
 /// <summary>
 /// Turns domain events into in-app notifications in the same transaction (RF-07). Each one carries the tenant of the
-/// resource it points to. Push/e-mail delivery will be driven from these rows by an outbox processor in Phase 2.
+/// resource it points to. Each row is also an outbox entry: the notification dispatcher delivers it by push and e-mail
+/// after the transaction commits, so a rolled-back change never notifies anyone.
 /// </summary>
 internal sealed class NotificationEventHandlers(INotificationRepository notifications) :
     IDomainEventHandler<TrainingPlanPublished>,
     IDomainEventHandler<FeedbackReplied>,
     IDomainEventHandler<DiscomfortReported>,
     IDomainEventHandler<CareRelationshipActivated>,
-    IDomainEventHandler<ProfessionalVerified>
+    IDomainEventHandler<ProfessionalVerified>,
+    IDomainEventHandler<TrainingPlanReviewRequested>,
+    IDomainEventHandler<PhysicalAssessmentRecorded>,
+    IDomainEventHandler<NutritionAssessmentRecorded>,
+    IDomainEventHandler<MealPlanPublished>,
+    IDomainEventHandler<FoodDiaryCommented>,
+    IDomainEventHandler<PrivacyRequestUpdated>
 {
+    public Task Handle(TrainingPlanReviewRequested e, CancellationToken cancellationToken) =>
+        Add(Notification.ForProfessional(
+            e.TrainerUserId, e.TenantId, NotificationType.TrainingPlanReviewRequested, nameof(TrainingPlan), e.PlanId, e.OccurredAt));
+
+    public Task Handle(PhysicalAssessmentRecorded e, CancellationToken cancellationToken) =>
+        Add(Notification.ForClient(e.ClientId, e.TenantId, NotificationType.PhysicalAssessmentRecorded, nameof(PhysicalAssessment), e.AssessmentId, e.OccurredAt));
+
+    public Task Handle(NutritionAssessmentRecorded e, CancellationToken cancellationToken) =>
+        Add(Notification.ForClient(e.ClientId, e.TenantId, NotificationType.NutritionAssessmentRecorded, nameof(NutritionAssessment), e.AssessmentId, e.OccurredAt));
+
+    public Task Handle(MealPlanPublished e, CancellationToken cancellationToken) =>
+        Add(Notification.ForClient(e.ClientId, e.TenantId, NotificationType.MealPlanPublished, nameof(MealPlan), e.PlanId, e.OccurredAt));
+
+    public Task Handle(FoodDiaryCommented e, CancellationToken cancellationToken) =>
+        Add(Notification.ForClient(e.ClientId, e.TenantId, NotificationType.FoodDiaryCommented, nameof(FoodDiaryEntry), e.EntryId, e.OccurredAt));
+
+    public Task Handle(PrivacyRequestUpdated e, CancellationToken cancellationToken) =>
+        Add(Notification.ForAccount(e.UserId, NotificationType.PrivacyRequestUpdated, nameof(PrivacyRequest), e.RequestId, e.OccurredAt));
+
     public Task Handle(TrainingPlanPublished e, CancellationToken cancellationToken) =>
         Add(Notification.ForClient(e.ClientId, e.TenantId, NotificationType.TrainingPlanPublished, nameof(TrainingPlan), e.PlanId, e.OccurredAt));
 

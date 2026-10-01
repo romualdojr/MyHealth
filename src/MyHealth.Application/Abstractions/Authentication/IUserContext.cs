@@ -16,4 +16,10 @@ public interface IUserContext
     /// An unparsable value is reported as <see cref="Guid.Empty"/>, which never matches a membership.
     /// </summary>
     Guid? RequestedTenantId { get; }
+
+    /// <summary>
+    /// Whether the account is protected by a second factor. Sign-in to such an account always requires the second
+    /// factor, so every token it holds came from an MFA sign-in (RNF-02).
+    /// </summary>
+    Task<bool> HasTwoFactorAsync(CancellationToken cancellationToken);
 }

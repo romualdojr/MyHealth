@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using MyHealth.Domain.Abstractions;
+using MyHealth.Domain.Assessments;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
+using MyHealth.Domain.Nutrition;
+using MyHealth.Domain.Privacy;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Exercises;
@@ -71,6 +74,9 @@ internal sealed class CareRelationshipRepository(ApplicationDbContext db) : Repo
                  && r.Status == RelationshipStatus.Active,
             cancellationToken);
 
+    public async Task<IReadOnlyList<CareRelationship>> ListActiveForClientAsync(Guid clientId, CancellationToken cancellationToken = default) =>
+        await Db.CareRelationships.Where(r => r.ClientId == clientId && r.Status == RelationshipStatus.Active).ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<CareRelationship>> ListOpenForProfessionalAsync(
         Guid tenantId, Guid professionalUserId, CancellationToken cancellationToken = default) =>
         await Db.CareRelationships
@@ -85,7 +91,11 @@ internal sealed class ExerciseRepository(ApplicationDbContext db) : Repository<E
         await Db.Exercises.Where(e => ids.Contains(e.Id)).ToListAsync(cancellationToken);
 }
 
-internal sealed class TrainingPlanRepository(ApplicationDbContext db) : Repository<TrainingPlan>(db), ITrainingPlanRepository;
+internal sealed class TrainingPlanRepository(ApplicationDbContext db) : Repository<TrainingPlan>(db), ITrainingPlanRepository
+{
+    public async Task<IReadOnlyList<TrainingPlan>> ListOpenForClientAsync(Guid clientId, CancellationToken cancellationToken = default) =>
+        await Db.TrainingPlans.Where(p => p.ClientId == clientId && p.Status != PlanStatus.Ended).ToListAsync(cancellationToken);
+}
 
 internal sealed class TrainingPlanVersionRepository(ApplicationDbContext db) : Repository<TrainingPlanVersion>(db), ITrainingPlanVersionRepository;
 
@@ -117,3 +127,39 @@ internal sealed class HealthConnectionRepository(ApplicationDbContext db) : Repo
 }
 
 internal sealed class NotificationRepository(ApplicationDbContext db) : Repository<Notification>(db), INotificationRepository;
+
+internal sealed class HealthHistoryRepository(ApplicationDbContext db) : Repository<HealthHistory>(db), IHealthHistoryRepository
+{
+    public Task<HealthHistory?> GetByClientAsync(Guid clientId, CancellationToken cancellationToken = default) =>
+        Db.HealthHistories.FirstOrDefaultAsync(h => h.ClientId == clientId, cancellationToken);
+}
+
+internal sealed class PhysicalAssessmentRepository(ApplicationDbContext db) : Repository<PhysicalAssessment>(db), IPhysicalAssessmentRepository;
+
+internal sealed class NutritionAssessmentRepository(ApplicationDbContext db) : Repository<NutritionAssessment>(db), INutritionAssessmentRepository;
+
+internal sealed class MealPlanRepository(ApplicationDbContext db) : Repository<MealPlan>(db), IMealPlanRepository;
+
+internal sealed class MealPlanVersionRepository(ApplicationDbContext db) : Repository<MealPlanVersion>(db), IMealPlanVersionRepository
+{
+    public Task<MealPlanVersion?> GetByNumberAsync(Guid mealPlanId, int versionNumber, CancellationToken cancellationToken = default) =>
+        Db.MealPlanVersions.FirstOrDefaultAsync(v => v.MealPlanId == mealPlanId && v.VersionNumber == versionNumber, cancellationToken);
+}
+
+internal sealed class FoodDiaryRepository(ApplicationDbContext db) : Repository<FoodDiaryEntry>(db), IFoodDiaryRepository;
+
+internal sealed class PrivacyRequestRepository(ApplicationDbContext db) : Repository<PrivacyRequest>(db), IPrivacyRequestRepository;
+
+internal sealed class RetentionPolicyRepository(ApplicationDbContext db) : Repository<RetentionPolicy>(db), IRetentionPolicyRepository
+{
+    public Task<RetentionPolicy?> GetByRecordTypeAsync(string recordType, CancellationToken cancellationToken = default) =>
+        Db.RetentionPolicies.FirstOrDefaultAsync(p => p.RecordType == recordType, cancellationToken);
+}
+
+internal sealed class PushDeviceRepository(ApplicationDbContext db) : Repository<PushDevice>(db), IPushDeviceRepository
+{
+    public Task<PushDevice?> GetByInstallationAsync(Guid installationId, CancellationToken cancellationToken = default) =>
+        Db.PushDevices.FirstOrDefaultAsync(d => d.InstallationId == installationId, cancellationToken);
+
+    public void Remove(PushDevice device) => Db.PushDevices.Remove(device);
+}

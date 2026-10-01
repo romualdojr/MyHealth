@@ -1,3 +1,4 @@
+using MyHealth.Application.Abstractions.Authentication;
 using MyHealth.Application.Abstractions.Tenancy;
 using MyHealth.Application.Common;
 using MyHealth.Domain.Abstractions;
@@ -19,7 +20,7 @@ public sealed class CareAccessTests
     private CareAccess AccessFor(Guid userId, Guid? tenantId = null)
     {
         var user = Fixtures.UserContext(userId, requestedTenantId: tenantId ?? Fixtures.TenantId);
-        return new CareAccess(user, new TenantContext(user, _memberships, _audit), _professionals, _relationships, _audit);
+        return new CareAccess(user, new TenantContext(user, _memberships, _audit, SecurityPolicy.Strict), _professionals, _relationships, _audit);
     }
 
     /// <summary>Makes <paramref name="userId"/> an active member of the fixture tenant.</summary>
@@ -35,7 +36,7 @@ public sealed class CareAccessTests
     {
         var userId = Guid.CreateVersion7();
         var user = Fixtures.UserContext(userId);
-        var access = new CareAccess(user, new TenantContext(user, _memberships, _audit), _professionals, _relationships, _audit);
+        var access = new CareAccess(user, new TenantContext(user, _memberships, _audit, SecurityPolicy.Strict), _professionals, _relationships, _audit);
 
         var result = await access.GetCurrentProfessionalAsync(Discipline.PersonalTrainer, requireVerified: false, Ct);
 
@@ -110,6 +111,7 @@ public sealed class CareAccessTests
         MemberOf(trainer.UserId, Discipline.PersonalTrainer);
         var relationship = Fixtures.ActiveRelationship(trainer, Fixtures.Client());
         _relationships.GetByIdAsync(relationship.Id, Arg.Any<CancellationToken>()).Returns(relationship);
+        _professionals.GetByIdAsync(trainer.Id, Arg.Any<CancellationToken>()).Returns(trainer);
 
         var result = await AccessFor(trainer.UserId).GetSharedAccessAsync(relationship.Id, DataCategory.HeartRate, Ct);
 
@@ -125,10 +127,29 @@ public sealed class CareAccessTests
         var relationship = Fixtures.ActiveRelationship(trainer, client);
         relationship.Grant(client.Id, DataCategory.HeartRate, Fixtures.Now);
         _relationships.GetByIdAsync(relationship.Id, Arg.Any<CancellationToken>()).Returns(relationship);
+        _professionals.GetByIdAsync(trainer.Id, Arg.Any<CancellationToken>()).Returns(trainer);
 
         var result = await AccessFor(trainer.UserId).GetSharedAccessAsync(relationship.Id, DataCategory.HeartRate, Ct);
 
         result.IsSuccess.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_suspended_professional_loses_shared_and_direct_access()
+    {
+        var trainer = Fixtures.Trainer();
+        MemberOf(trainer.UserId, Discipline.PersonalTrainer);
+        var client = Fixtures.Client();
+        var relationship = Fixtures.ActiveRelationship(trainer, client);
+        relationship.Grant(client.Id, DataCategory.HeartRate, Fixtures.Now);
+        _relationships.GetByIdAsync(relationship.Id, Arg.Any<CancellationToken>()).Returns(relationship);
+        _professionals.GetByIdAsync(trainer.Id, Arg.Any<CancellationToken>()).Returns(trainer);
+        _professionals.GetByUserAsync(trainer.UserId, Discipline.PersonalTrainer, Arg.Any<CancellationToken>()).Returns(trainer);
+        trainer.Suspend(Guid.CreateVersion7(), "Registro vencido");
+
+        (await AccessFor(trainer.UserId).GetSharedAccessAsync(relationship.Id, DataCategory.HeartRate, Ct)).Error.ShouldBe(ProfessionalErrors.NotVerified);
+        (await AccessFor(trainer.UserId).GetCurrentProfessionalAsync(Discipline.PersonalTrainer, requireVerified: false, Ct))
+            .Error.ShouldBe(ProfessionalErrors.NotVerified);
     }
 
     [Fact]
@@ -173,7 +194,7 @@ public sealed class CareAccessTests
         var userId = Guid.CreateVersion7();
         MemberOf(userId, Discipline.PersonalTrainer);
         var user = Fixtures.UserContext(userId, requestedTenantId: Fixtures.TenantId);
-        var tenant = new TenantContext(user, _memberships, _audit);
+        var tenant = new TenantContext(user, _memberships, _audit, SecurityPolicy.Strict);
 
         (await tenant.RequireAsync(Ct)).IsSuccess.ShouldBeTrue();
         (await tenant.FindAsync(Ct)).Value!.TenantId.ShouldBe(Fixtures.TenantId);
@@ -186,9 +207,44 @@ public sealed class CareAccessTests
     {
         var user = Fixtures.UserContext(Guid.CreateVersion7());
 
-        Result<ActiveMembership?> found = await new TenantContext(user, _memberships, _audit).FindAsync(Ct);
+        Result<ActiveMembership?> found = await new TenantContext(user, _memberships, _audit, SecurityPolicy.Strict).FindAsync(Ct);
 
         found.IsSuccess.ShouldBeTrue();
         found.Value.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Acting_for_a_tenant_requires_two_factor_authentication()
+    {
+        var userId = Guid.CreateVersion7();
+        MemberOf(userId, Discipline.PersonalTrainer);
+        var user = Fixtures.UserContext(userId, requestedTenantId: Fixtures.TenantId, twoFactor: false);
+
+        var result = await new TenantContext(user, _memberships, _audit, SecurityPolicy.Strict).RequireAsync(Ct);
+
+        result.Error.ShouldBe(SecurityErrors.TwoFactorRequired);
+    }
+
+    [Fact]
+    public async Task Client_views_do_not_require_two_factor_authentication()
+    {
+        var user = Fixtures.UserContext(Guid.CreateVersion7(), twoFactor: false);
+
+        var found = await new TenantContext(user, _memberships, _audit, SecurityPolicy.Strict).FindAsync(Ct);
+
+        found.IsSuccess.ShouldBeTrue();
+        await user.DidNotReceive().HasTwoFactorAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Two_factor_can_be_relaxed_for_local_development()
+    {
+        var userId = Guid.CreateVersion7();
+        MemberOf(userId, Discipline.PersonalTrainer);
+        var user = Fixtures.UserContext(userId, requestedTenantId: Fixtures.TenantId, twoFactor: false);
+
+        var result = await new TenantContext(user, _memberships, _audit, new SecurityPolicy(RequireTwoFactorForProfessionals: false)).RequireAsync(Ct);
+
+        result.IsSuccess.ShouldBeTrue();
     }
 }

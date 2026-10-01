@@ -173,4 +173,28 @@ public sealed class WorkoutSessionTests
         session.ReplyToFeedback(session.TrainerProfileId, "Ótimo!", TestData.Now).IsSuccess.ShouldBeTrue();
         session.Reply!.Message.ShouldBe("Ótimo!");
     }
+
+    [Fact]
+    public void Corrections_after_the_workout_keep_previous_values_reason_and_person()
+    {
+        var (session, exercise) = Started();
+        var setId = Guid.CreateVersion7();
+        session.LogSet(Set(exercise, setId, reps: 10, load: 40m), TestData.Now);
+        var clientId = session.ClientId;
+        var corrected = new SetValues(10, 45m, null, null, null, "Anotei a carga errada");
+
+        session.CorrectSetAfterWorkout(setId, corrected, "Carga errada", clientId, TestData.Now).Error.ShouldBe(WorkoutErrors.StillOpen);
+        session.Complete(Feedback, TestData.Now.AddMinutes(40), TestData.Now.AddMinutes(41));
+
+        session.CorrectSetAfterWorkout(Guid.CreateVersion7(), corrected, "x", clientId, TestData.Now).Error.ShouldBe(WorkoutErrors.SetNotFound);
+        session.CorrectSetAfterWorkout(setId, corrected, " ", clientId, TestData.Now).Error.ShouldBe(WorkoutErrors.CorrectionReasonRequired);
+        session.CorrectSetAfterWorkout(setId, new SetValues(null, 45m, null, null, null, null), "x", clientId, TestData.Now).Error.ShouldBe(WorkoutErrors.EmptySet);
+        session.CorrectSetAfterWorkout(setId, corrected, "Carga errada", clientId, TestData.Now.AddHours(2)).IsSuccess.ShouldBeTrue();
+        session.CorrectSetAfterWorkout(setId, corrected, "Carga errada", clientId, TestData.Now.AddHours(2)).IsSuccess.ShouldBeTrue();
+
+        var set = session.Sets.ShouldHaveSingleItem();
+        set.LoadKg.ShouldBe(45m);
+        var correction = set.Corrections.ShouldHaveSingleItem();
+        (correction.Previous.LoadKg, correction.Reason, correction.CorrectedBy).ShouldBe((40m, "Carga errada", clientId));
+    }
 }

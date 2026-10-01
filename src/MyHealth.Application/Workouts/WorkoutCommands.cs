@@ -181,6 +181,58 @@ internal sealed class LogSetHandler(IUserContext user, IWorkoutSessionRepository
     }
 }
 
+/// <summary>
+/// The client corrects a set after the workout ended (A6, §5 History). The previous values and the reason are kept on
+/// the set, and the correction is audited; progress then reflects the corrected values.
+/// </summary>
+public sealed record CorrectSetCommand(
+    Guid SessionId,
+    Guid SetLogId,
+    int? Repetitions,
+    decimal? LoadKg,
+    int? DurationSeconds,
+    decimal? DistanceMeters,
+    int? Difficulty,
+    string? Notes,
+    string Reason) : ICommand;
+
+internal sealed class CorrectSetValidator : AbstractValidator<CorrectSetCommand>
+{
+    public CorrectSetValidator()
+    {
+        RuleFor(c => c.Repetitions).InclusiveBetween(0, 1000);
+        RuleFor(c => c.LoadKg).InclusiveBetween(0, 1000);
+        RuleFor(c => c.DurationSeconds).InclusiveBetween(0, 86_400);
+        RuleFor(c => c.DistanceMeters).InclusiveBetween(0, 1_000_000);
+        RuleFor(c => c.Difficulty).InclusiveBetween(1, 10);
+        RuleFor(c => c.Notes).MaximumLength(1000);
+        RuleFor(c => c.Reason).NotEmpty().MaximumLength(500);
+    }
+}
+
+internal sealed class CorrectSetHandler(IUserContext user, IWorkoutSessionRepository sessions, IAuditLog audit, IUnitOfWork unitOfWork, TimeProvider clock)
+    : ICommandHandler<CorrectSetCommand>
+{
+    public async Task<Result> Handle(CorrectSetCommand command, CancellationToken cancellationToken)
+    {
+        var session = await sessions.GetByIdAsync(command.SessionId, cancellationToken);
+        if (session is null || session.ClientId != user.UserId)
+        {
+            return WorkoutErrors.NotFound;
+        }
+
+        var values = new SetValues(command.Repetitions, command.LoadKg, command.DurationSeconds, command.DistanceMeters, command.Difficulty, command.Notes);
+        var result = session.CorrectSetAfterWorkout(command.SetLogId, values, command.Reason, user.UserId, clock.GetUtcNow());
+        if (result.IsSuccess)
+        {
+            audit.Record(AuditActions.Correct, nameof(SetLog), command.SetLogId, user.UserId, session.TenantId);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        return result;
+    }
+}
+
 public sealed record CompleteWorkoutCommand(
     Guid SessionId,
     DateTimeOffset CompletedAt,

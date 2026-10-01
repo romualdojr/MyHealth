@@ -48,6 +48,12 @@ public sealed class ProfessionalProfile : AggregateRoot<Guid>
 
     public bool IsVerified => VerificationStatus == VerificationStatus.Verified;
 
+    /// <summary>
+    /// Suspended or rejected credentials stop all care, reads included. A profile pending (re)verification keeps read
+    /// access to its existing clients but cannot prescribe or provide care.
+    /// </summary>
+    public bool IsBarred => VerificationStatus is VerificationStatus.Suspended or VerificationStatus.Rejected;
+
     public static ProfessionalProfile Create(
         Guid userId, Discipline discipline, string displayName, string? bio, string? photoUrl,
         ProfessionalRegistration registration, DateTimeOffset now) =>

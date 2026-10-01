@@ -14,6 +14,9 @@ internal static class WorkoutEndpoints
         Guid ExerciseId, Guid? PlannedExerciseId, int SetNumber, int? Repetitions, decimal? LoadKg, int? DurationSeconds,
         decimal? DistanceMeters, int? Difficulty, string? Notes, DateTimeOffset LoggedAt);
 
+    public sealed record CorrectSetRequest(
+        int? Repetitions, decimal? LoadKg, int? DurationSeconds, decimal? DistanceMeters, int? Difficulty, string? Notes, string Reason);
+
     public sealed record CompleteRequest(DateTimeOffset CompletedAt, int PerceivedExertion, bool ReportedDiscomfort, string? DiscomfortDetails, string? Comments);
 
     public sealed record ReplyRequest(string Message);
@@ -57,6 +60,15 @@ internal static class WorkoutEndpoints
                 new LogSetCommand(
                     sessionId, setLogId, request.ExerciseId, request.PlannedExerciseId, request.SetNumber, request.Repetitions, request.LoadKg,
                     request.DurationSeconds, request.DistanceMeters, request.Difficulty, request.Notes, request.LoggedAt),
+                ct)).ToHttp());
+
+        // After the workout ended, a set is corrected with a reason; the previous values are kept (§5 History).
+        group.MapPost("/{sessionId:guid}/sets/{setLogId:guid}/corrections", async (
+                Guid sessionId, Guid setLogId, CorrectSetRequest request, ICommandHandler<CorrectSetCommand> handler, CancellationToken ct) =>
+            (await handler.Handle(
+                new CorrectSetCommand(
+                    sessionId, setLogId, request.Repetitions, request.LoadKg, request.DurationSeconds, request.DistanceMeters, request.Difficulty, request.Notes,
+                    request.Reason),
                 ct)).ToHttp());
 
         group.MapPost("/{sessionId:guid}/complete", async (

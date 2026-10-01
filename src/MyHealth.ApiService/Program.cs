@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authorization;
 using MyHealth.ApiService.Endpoints;
 using MyHealth.ApiService.Infrastructure;
 using MyHealth.Application;
@@ -21,8 +22,9 @@ builder.Services.AddOpenApi(options => options
     .AddDocumentTransformer<BearerSecuritySchemeTransformer>()
     .AddOperationTransformer<TenantHeaderOperationTransformer>());
 
+builder.Services.AddSingleton<IAuthorizationHandler, TwoFactorRequirementHandler>();
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy(AuthorizationPolicies.Administrator, policy => policy.RequireRole(Roles.Administrator));
+    .AddPolicy(AuthorizationPolicies.Administrator, policy => policy.RequireRole(Roles.Administrator).AddRequirements(new TwoFactorRequirement()));
 
 // Brute-force protection for login, registration and password reset.
 builder.Services.AddRateLimiter(options =>
@@ -63,6 +65,9 @@ authenticated.MapExerciseEndpoints();
 authenticated.MapTrainingPlanEndpoints();
 authenticated.MapWorkoutEndpoints();
 authenticated.MapTrainerEndpoints();
+authenticated.MapMyRecordsEndpoints();
+authenticated.MapAssessmentEndpoints();
+authenticated.MapNutritionEndpoints();
 authenticated.MapAdminEndpoints();
 
 if (app.Configuration.GetValue("Database:InitializeOnStartup", app.Environment.IsDevelopment()))

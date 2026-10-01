@@ -84,6 +84,35 @@ public sealed class Exercise : AggregateRoot<Guid>
         return Result.Success();
     }
 
+    public bool IsSystem => TenantId is null && OwnerProfileId is null;
+
+    /// <summary>Platform operators maintain the curated library (RF-50). Plans keep the version they were written against.</summary>
+    public Result UpdateSystem(ExerciseDetails details, DateTimeOffset now)
+    {
+        if (!IsSystem)
+        {
+            return ExerciseErrors.NotSystem;
+        }
+
+        Apply(details);
+        Version++;
+        UpdatedAt = now;
+        return Result.Success();
+    }
+
+    /// <summary>Hides a curated entry from new prescriptions. Existing plans are unaffected.</summary>
+    public Result SetArchived(bool archived, DateTimeOffset now)
+    {
+        if (!IsSystem)
+        {
+            return ExerciseErrors.NotSystem;
+        }
+
+        IsArchived = archived;
+        UpdatedAt = now;
+        return Result.Success();
+    }
+
     private void Apply(ExerciseDetails details)
     {
         Name = details.Name.Trim();
@@ -114,6 +143,7 @@ public static class ExerciseErrors
 {
     public static readonly Error NotFound = Error.NotFound("Exercise.NotFound", "The exercise was not found.");
     public static readonly Error NotOwner = Error.Forbidden("Exercise.NotOwner", "Only the professional who created this exercise can change it.");
+    public static readonly Error NotSystem = Error.Validation("Exercise.NotSystem", "Only curated library entries are managed by platform operators.");
 
     public static Error Unknown(IEnumerable<Guid> ids) =>
         Error.Validation("Exercise.Unknown", $"Unknown or unavailable exercises: {string.Join(", ", ids)}.");

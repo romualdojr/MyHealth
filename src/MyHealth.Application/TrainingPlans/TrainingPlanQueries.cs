@@ -22,7 +22,9 @@ public sealed record TrainerPlanResponse(
     bool HasUnpublishedChanges,
     int CurrentVersionNumber,
     Guid? CopiedFromPlanId,
-    IReadOnlyList<PlanVersionSummary> Versions);
+    IReadOnlyList<PlanVersionSummary> Versions,
+    DateTimeOffset? ReviewRequestedAt,
+    string? ReviewReason);
 
 /// <summary>The trainer's full view of a plan, including the unpublished draft.</summary>
 public sealed record GetTrainerPlanQuery(Guid PlanId) : IQuery<TrainerPlanResponse>;
@@ -52,11 +54,12 @@ internal sealed class GetTrainerPlanHandler(IReadDbContext db, ICareAccess acces
 
         return new TrainerPlanResponse(
             plan.Id, plan.ClientId, plan.Details, plan.Status, plan.Draft, plan.HasUnpublishedChanges, plan.CurrentVersionNumber,
-            plan.CopiedFromPlanId, versions);
+            plan.CopiedFromPlanId, versions, plan.ReviewRequestedAt, plan.ReviewReason);
     }
 }
 
-public sealed record TrainerPlanListItem(Guid Id, Guid ClientId, string Name, PlanStatus Status, int CurrentVersionNumber, bool HasUnpublishedChanges, DateTimeOffset UpdatedAt);
+public sealed record TrainerPlanListItem(
+    Guid Id, Guid ClientId, string Name, PlanStatus Status, int CurrentVersionNumber, bool HasUnpublishedChanges, DateTimeOffset UpdatedAt, bool NeedsReview);
 
 public sealed record ListTrainerPlansQuery(Guid? ClientId) : IQuery<IReadOnlyList<TrainerPlanListItem>>;
 
@@ -79,7 +82,8 @@ internal sealed class ListTrainerPlansHandler(IReadDbContext db, ICareAccess acc
 
         var items = await plans
             .OrderByDescending(p => p.UpdatedAt)
-            .Select(p => new TrainerPlanListItem(p.Id, p.ClientId, p.Details.Name, p.Status, p.CurrentVersionNumber, p.HasUnpublishedChanges, p.UpdatedAt))
+            .Select(p => new TrainerPlanListItem(
+                p.Id, p.ClientId, p.Details.Name, p.Status, p.CurrentVersionNumber, p.HasUnpublishedChanges, p.UpdatedAt, p.ReviewRequestedAt != null))
             .ToListAsync(cancellationToken);
 
         return items;

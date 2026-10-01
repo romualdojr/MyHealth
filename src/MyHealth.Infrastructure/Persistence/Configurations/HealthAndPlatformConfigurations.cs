@@ -109,7 +109,11 @@ internal sealed class NotificationConfiguration : IEntityTypeConfiguration<Notif
         builder.HasKey(n => n.Id);
         builder.Property(n => n.Id).ValueGeneratedNever();
         builder.Property(n => n.ResourceType).HasMaxLength(100).IsRequired();
+        builder.Property(n => n.LastDeliveryError).HasMaxLength(100);
         builder.HasIndex(n => new { n.RecipientUserId, n.Audience, n.TenantId, n.CreatedAt });
+
+        // The outbox query: pending notifications whose next attempt is due.
+        builder.HasIndex(n => new { n.DeliveryStatus, n.NextDeliveryAttemptAt });
     }
 }
 

@@ -1,11 +1,18 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using MyHealth.Application.Abstractions.Authentication;
 
 namespace MyHealth.Infrastructure.Identity;
 
-internal sealed class UserContext(IHttpContextAccessor httpContextAccessor) : IUserContext
+internal sealed class UserContext(IHttpContextAccessor httpContextAccessor, UserManager<ApplicationUser> users) : IUserContext
 {
+    /// <summary>The claim Identity adds on a sign-in that used a second factor (RFC 8176 "amr").</summary>
+    public const string AuthenticationMethodClaim = "amr";
+    public const string MultiFactorMethod = "mfa";
+
+    private bool? _hasTwoFactor;
+
     private ClaimsPrincipal Principal =>
         httpContextAccessor.HttpContext?.User is { Identity.IsAuthenticated: true } principal
             ? principal
@@ -30,6 +37,26 @@ internal sealed class UserContext(IHttpContextAccessor httpContextAccessor) : IU
             // Several values, or one that is not a GUID, can never match a membership.
             return values.Count == 1 && Guid.TryParse(values[0], out var tenantId) ? tenantId : Guid.Empty;
         }
+    }
+
+    /// <summary>
+    /// True when this sign-in used a second factor, or when the account has two-factor enabled: Identity then refuses any
+    /// sign-in without it, and a refreshed token (which drops the "amr" claim) still descends from an MFA sign-in.
+    /// </summary>
+    public async Task<bool> HasTwoFactorAsync(CancellationToken cancellationToken)
+    {
+        if (_hasTwoFactor is { } known)
+        {
+            return known;
+        }
+
+        if (Principal.HasClaim(AuthenticationMethodClaim, MultiFactorMethod))
+        {
+            return (_hasTwoFactor = true).Value;
+        }
+
+        var account = await users.FindByIdAsync(UserId.ToString());
+        return (_hasTwoFactor = account is not null && await users.GetTwoFactorEnabledAsync(account)).Value;
     }
 }
 

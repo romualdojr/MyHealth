@@ -86,6 +86,18 @@ public sealed class AttendanceAndProgressTests(ApiFactory factory) : Integration
         point.TotalDurationSeconds.ShouldBeNull();
         point.Source.ShouldBe("self-reported");
         progress.HeaviestSet!.LoadKg.ShouldBe(55m);
+
+        // After completion a set is corrected with a reason; progress follows and the history is kept (A6).
+        var correction = new { repetitions = 10, loadKg = 60m, reason = "Carga anotada errada" };
+        (await client.Http.PutAsJsonAsync($"/api/v1/workout-sessions/{session}/sets/{setId}", set with { loadKg = 60m }, Ct)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        await Scenario.EnsureSuccess(await client.Http.PostAsJsonAsync($"/api/v1/workout-sessions/{session}/sets/{setId}/corrections", correction, Ct));
+        (await trainer.Http.PostAsJsonAsync($"/api/v1/workout-sessions/{session}/sets/{setId}/corrections", correction, Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        var corrected = await Scenario.Read<ExerciseProgressResponse>(await client.Http.GetAsync($"/api/v1/me/progress/exercises/{exercise.ExerciseId}", Ct));
+        corrected.HeaviestSet!.LoadKg.ShouldBe(60m);
+        var detail = await Scenario.Read<WorkoutSessionResponse>(await client.Http.GetAsync($"/api/v1/workout-sessions/{session}", Ct));
+        var history = detail.Sets.Single(s => s.Id == setId).Corrections.ShouldHaveSingleItem();
+        (history.Previous.LoadKg, history.Reason).ShouldBe((50m, "Carga anotada errada"));
     }
 
     [Fact]

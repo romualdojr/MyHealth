@@ -222,6 +222,36 @@ internal sealed class EndTrainingPlanHandler(
 }
 
 /// <summary>
+/// The trainer confirms the plan is still appropriate after a flagged change (e.g. a new injury in the health history),
+/// without publishing a new version. Publishing a new version also clears the flag.
+/// </summary>
+public sealed record AcknowledgeTrainingPlanReviewCommand(Guid PlanId) : ICommand;
+
+internal sealed class AcknowledgeTrainingPlanReviewHandler(
+    ICareAccess access, ITrainingPlanRepository plans, IAuditLog audit, IUnitOfWork unitOfWork, TimeProvider clock)
+    : ICommandHandler<AcknowledgeTrainingPlanReviewCommand>
+{
+    public async Task<Result> Handle(AcknowledgeTrainingPlanReviewCommand command, CancellationToken cancellationToken)
+    {
+        var loaded = await TrainerPlanLoader.LoadOwnedAsync(access, plans, audit, command.PlanId, cancellationToken);
+        if (loaded.IsFailure)
+        {
+            return loaded.Error;
+        }
+
+        var plan = loaded.Value.Plan;
+        var result = plan.AcknowledgeReview(clock.GetUtcNow());
+        if (result.IsSuccess)
+        {
+            audit.Record(AuditActions.Review, nameof(TrainingPlan), plan.Id, plan.ClientId, plan.TenantId);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        return result;
+    }
+}
+
+/// <summary>
 /// Copies a plan as a new draft for the same or another client of the same tenant (RF-10). History of the source is
 /// untouched, and a plan can never be copied into another organization.
 /// </summary>

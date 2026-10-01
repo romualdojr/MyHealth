@@ -19,5 +19,8 @@ public static class WorkoutErrors
     public static readonly Error InvalidPerceivedExertion = Error.Validation("Workout.InvalidPerceivedExertion", "Perceived exertion must be between 1 and 10.");
     public static readonly Error AlreadySavedToAppleHealth = Error.Conflict(
         "Workout.AlreadySavedToAppleHealth", "A different Apple Health workout is already recorded for this session; delete the duplicate on the phone.");
+    public static readonly Error StillOpen = Error.Conflict("Workout.StillOpen", "The workout is still open; update the set directly.");
+    public static readonly Error SetNotFound = Error.NotFound("Workout.SetNotFound", "The set was not found in this workout.");
+    public static readonly Error CorrectionReasonRequired = Error.Validation("Workout.CorrectionReasonRequired", "A correction after the workout needs a reason.");
     public static readonly Error NotResponsibleTrainer = Error.Forbidden("Workout.NotResponsibleTrainer", "Only the trainer responsible for this plan can reply.");
 }

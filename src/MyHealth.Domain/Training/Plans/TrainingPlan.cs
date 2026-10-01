@@ -66,6 +66,16 @@ public sealed class TrainingPlan : AggregateRoot<Guid>
 
     public Guid? CopiedFromPlanId { get; private set; }
 
+    /// <summary>
+    /// Set when something the prescription depends on changed (e.g. the client reported a new injury, RF-23). Cleared when
+    /// the trainer acknowledges it or publishes a new version.
+    /// </summary>
+    public DateTimeOffset? ReviewRequestedAt { get; private set; }
+
+    public string? ReviewReason { get; private set; }
+
+    public bool NeedsReview => ReviewRequestedAt is not null;
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
@@ -163,6 +173,8 @@ public sealed class TrainingPlan : AggregateRoot<Guid>
         CurrentVersionId = version.Id;
         Status = PlanStatus.Published;
         HasUnpublishedChanges = false;
+        ReviewRequestedAt = null;
+        ReviewReason = null;
         UpdatedAt = now;
         Raise(new TrainingPlanPublished(Id, TenantId, version.Id, version.VersionNumber, ClientId, now));
         return version;
@@ -176,6 +188,33 @@ public sealed class TrainingPlan : AggregateRoot<Guid>
         }
 
         Status = PlanStatus.Ended;
+        UpdatedAt = now;
+        return Result.Success();
+    }
+
+    /// <summary>Flags the plan for the trainer's review. Ended plans are not flagged, and a pending flag is not raised twice.</summary>
+    public void RequestReview(string reason, DateTimeOffset now)
+    {
+        if (Status == PlanStatus.Ended || NeedsReview)
+        {
+            return;
+        }
+
+        ReviewRequestedAt = now;
+        ReviewReason = reason;
+        Raise(new TrainingPlanReviewRequested(Id, TenantId, ClientId, TrainerUserId, now));
+    }
+
+    /// <summary>The trainer confirms the prescription is still appropriate without changing it.</summary>
+    public Result AcknowledgeReview(DateTimeOffset now)
+    {
+        if (!NeedsReview)
+        {
+            return PlanErrors.NoReviewPending;
+        }
+
+        ReviewRequestedAt = null;
+        ReviewReason = null;
         UpdatedAt = now;
         return Result.Success();
     }
@@ -227,6 +266,9 @@ public sealed class TrainingPlan : AggregateRoot<Guid>
         return details.SuggestedSessionsPerWeek is < 1 or > 14 ? PlanErrors.InvalidFrequency : Result.Success();
     }
 }
+
+public sealed record TrainingPlanReviewRequested(Guid PlanId, Guid TenantId, Guid ClientId, Guid TrainerUserId, DateTimeOffset OccurredAt)
+    : DomainEvent(OccurredAt);
 
 public sealed record TrainingPlanPublished(Guid PlanId, Guid TenantId, Guid VersionId, int VersionNumber, Guid ClientId, DateTimeOffset OccurredAt)
     : DomainEvent(OccurredAt);

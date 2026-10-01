@@ -63,6 +63,10 @@ internal static class TrainingPlanEndpoints
         group.MapPost("/{planId:guid}/end", async (Guid planId, ICommandHandler<EndTrainingPlanCommand> handler, CancellationToken ct) =>
             (await handler.Handle(new EndTrainingPlanCommand(planId), ct)).ToHttp());
 
+        // The prescription is still appropriate after a flagged change (RF-23); publishing a new version also clears the flag.
+        group.MapPost("/{planId:guid}/acknowledge-review", async (Guid planId, ICommandHandler<AcknowledgeTrainingPlanReviewCommand> handler, CancellationToken ct) =>
+            (await handler.Handle(new AcknowledgeTrainingPlanReviewCommand(planId), ct)).ToHttp());
+
         group.MapPost("/{planId:guid}/copy", async (Guid planId, CopyRequest request, ICommandHandler<CopyTrainingPlanCommand, Guid> handler, CancellationToken ct) =>
             (await handler.Handle(new CopyTrainingPlanCommand(planId, request.TargetClientId, request.NewName), ct))
             .ToHttp(id => TypedResults.Created($"/api/v1/training-plans/{id}", new { id })));

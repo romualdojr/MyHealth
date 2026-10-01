@@ -1,7 +1,10 @@
 using MyHealth.Application.Abstractions.Auditing;
+using MyHealth.Domain.Assessments;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
+using MyHealth.Domain.Nutrition;
+using MyHealth.Domain.Privacy;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Exercises;
@@ -38,6 +41,24 @@ public interface IReadDbContext
     IQueryable<WorkoutHeartRate> WorkoutHeartRates { get; }
 
     IQueryable<HealthConnection> HealthConnections { get; }
+
+    IQueryable<HealthHistory> HealthHistories { get; }
+
+    IQueryable<PhysicalAssessment> PhysicalAssessments { get; }
+
+    IQueryable<NutritionAssessment> NutritionAssessments { get; }
+
+    IQueryable<MealPlan> MealPlans { get; }
+
+    IQueryable<MealPlanVersion> MealPlanVersions { get; }
+
+    IQueryable<FoodDiaryEntry> FoodDiaryEntries { get; }
+
+    IQueryable<PrivacyRequest> PrivacyRequests { get; }
+
+    IQueryable<RetentionPolicy> RetentionPolicies { get; }
+
+    IQueryable<PushDevice> PushDevices { get; }
 
     IQueryable<Notification> Notifications { get; }
 

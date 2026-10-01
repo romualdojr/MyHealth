@@ -1,7 +1,9 @@
 using MyHealth.ApiService.Infrastructure;
 using MyHealth.Application.Abstractions.Messaging;
+using MyHealth.Application.Assessments;
 using MyHealth.Application.CareRelationships;
 using MyHealth.Application.HealthData;
+using MyHealth.Application.Nutrition;
 using MyHealth.Application.Professionals;
 using MyHealth.Domain.CareRelationships;
 
@@ -29,6 +31,8 @@ internal static class ProfessionalEndpoints
 internal static class CareRelationshipEndpoints
 {
     public sealed record EndRelationshipRequest(string? Reason);
+
+    public sealed record ReviewHealthHistoryRequest(int RevisionNumber, string? Notes);
 
     public static void MapCareRelationshipEndpoints(this IEndpointRouteBuilder routes)
     {
@@ -67,5 +71,21 @@ internal static class CareRelationshipEndpoints
         group.MapGet("/{relationshipId:guid}/heart-rate/sessions/{sessionId:guid}", async (
                 Guid relationshipId, Guid sessionId, IQueryHandler<GetSharedWorkoutHeartRateQuery, WorkoutHeartRateResponse> handler, CancellationToken ct) =>
             (await handler.Handle(new GetSharedWorkoutHeartRateQuery(relationshipId, sessionId), ct)).ToHttp());
+
+        group.MapGet("/{relationshipId:guid}/health-history", async (
+                Guid relationshipId, IQueryHandler<GetSharedHealthHistoryQuery, HealthHistoryResponse> handler, CancellationToken ct) =>
+            (await handler.Handle(new GetSharedHealthHistoryQuery(relationshipId), ct)).ToHttp());
+
+        group.MapPost("/{relationshipId:guid}/health-history/reviews", async (
+                Guid relationshipId, ReviewHealthHistoryRequest request, ICommandHandler<ReviewHealthHistoryCommand> handler, CancellationToken ct) =>
+            (await handler.Handle(new ReviewHealthHistoryCommand(relationshipId, request.RevisionNumber, request.Notes), ct)).ToHttp());
+
+        group.MapGet("/{relationshipId:guid}/physical-assessments", async (
+                Guid relationshipId, IQueryHandler<ListSharedPhysicalAssessmentsQuery, IReadOnlyList<PhysicalAssessmentResponse>> handler, CancellationToken ct) =>
+            (await handler.Handle(new ListSharedPhysicalAssessmentsQuery(relationshipId), ct)).ToHttp());
+
+        group.MapGet("/{relationshipId:guid}/nutrition-summary", async (
+                Guid relationshipId, IQueryHandler<GetSharedNutritionSummaryQuery, NutritionSummaryResponse> handler, CancellationToken ct) =>
+            (await handler.Handle(new GetSharedNutritionSummaryQuery(relationshipId), ct)).ToHttp());
     }
 }

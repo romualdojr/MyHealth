@@ -1,7 +1,7 @@
 # MyHealth — Requirements Review and Development Phases
 
 **Source reviewed:** `docs/initial_requirements/APP_REQUIREMENTS.md` (v1.0, 2026-09-30) and `docs/initial_requirements/ios/` (HealthKit module + expected API contract).
-**Scope of this delivery:** backend API only (Phase 1). Mobile apps and web dashboards are later phases.
+**Scope of this delivery:** backend API only (Phases 0–2). Mobile apps and web dashboards are later phases.
 
 ---
 
@@ -45,7 +45,7 @@ It is weaker on *operational detail*: several P0 items depend on P1 items, a few
 | A3 | Verification (RF-04) | An administrator verifies registration (e.g. CREF/CRN) manually; only *verified* professionals can invite, publish or provide care. Changing the registration resets verification. |
 | A4 | Feedback (RF-19) | Perceived exertion (1–10) is required to complete; discomfort and comments are optional. |
 | A5 | Plan editing after publish | The plan keeps an editable *draft*; each publish creates an immutable numbered version. Executions reference the version. |
-| A6 | Corrections (§5 History) | Phase 1 allows set-log corrections only while the session is in progress; post-completion corrections with reason come in Phase 2. |
+| A6 | Corrections (§5 History) | Sets are overwritten while the session is in progress; after it ends, corrections need a reason and keep the previous values (done in Phase 2, see 2.7 N15). |
 
 ### 2.3 Risks
 
@@ -56,7 +56,7 @@ It is weaker on *operational detail*: several P0 items depend on P1 items, a few
 
 ### 2.4 iPhone / HealthKit integration — findings and resolutions ✅
 
-Current focus. Every item below is implemented on both sides of the contract (API and the reference Swift module in
+Every item below is implemented on both sides of the contract (API and the reference Swift module in
 `docs/initial_requirements/ios`) and covered by tests (`IphoneIntegrationTests`, `HeartRateTests`, `IphoneContractTests`, `WorkoutHeartRateTests`).
 
 | # | Finding (gap or contradiction) | Resolution |
@@ -110,15 +110,42 @@ Open points for the business/product (not blocking):
 - **MT-07/MT-09 files, exports, background jobs:** those features do not exist yet; they must use the same tenant checks.
 - **Tenant suspension** (unpaid subscription) depends on billing (§12.2).
 
+### 2.7 Phase 2 — assessments, nutrition, privacy: findings and resolutions ✅
+
+Gaps and contradictions found while building RF-23 → RF-25, RF-28 → RF-30, RNF-04, RF-50 and RNF-02, and how the API
+resolves them. Items marked **(confirm)** are product or legal calls the API had to make to proceed.
+
+| # | Finding | Resolution |
+|---|---|---|
+| N1 | **Who may see the health history?** §3 journey 2 has the trainer review it, but §6 has no row for it and the category list (2.1 #7) had none. | New `HealthHistory` data category. *Every* professional, trainers included, reads it only with the client's grant; reads are audited. **(confirm)** that trainers should not get it by default. |
+| N2 | **"Significant changes flag the prescription for review" (RF-23)** — "significant" is undefined. | Changes to *limitations* or *reported injuries* are significant; goals, availability and equipment are not. Open training plans are flagged only for trainers the client shares the history with (active relationship + `HealthHistory` grant), because even "something changed" is health information; the reason text names no condition. The trainer is notified and clears the flag by acknowledging or publishing a new version; the dashboard counts flagged plans. **(confirm)** the list of significant fields. |
+| N3 | **RF-23 "acknowledgment"** — of what? | Each submission must confirm the information is true and complete (`acknowledged = true`); the time is stored on the revision. Identical resubmissions are no-ops, so retries do not create revisions. |
+| N4 | **"Do not compare different methods" (RF-24)** needs a model. | Every measurement is *(metric, method, unit, value)*. Series in My Progress are grouped by all three, so body fat by bioimpedance and by skinfolds are separate lines. Units are a fixed SI/clinical list (2.1 #10). Only recorded points are returned — no interpolation. |
+| N5 | **Photos in RF-24 and RF-30** need file storage, which is RF-27 (P1), with the tenant checks of MT-07/MT-09. | Not accepted yet. They arrive with the files feature; the records already have the place for them conceptually (assessment/diary entry ids). |
+| N6 | **Which dietitian sees a diary entry?** A client may have dietitians in several organizations, and MT-10 forbids automatic cross-tenant sharing. | Each entry is *addressed*: logged against a meal plan (→ its dietitian and tenant) or a dietitian relationship; otherwise it is private. Tenant and dietitian are derived server-side, never from input. Only that dietitian reads and comments, while the relationship is active. |
+| N7 | **§9 "trainers see only what the client *and dietitian* authorize".** | Implemented as the client's `NutritionSummary` grant on the trainer's relationship. The summary is active meal plans and last-7-days adherence *counts* from the same organization — no foods, assessments or diary text. A dietitian-side veto is **(confirm)**: it needs a product decision. |
+| N8 | **§12.3 nutrition depth.** | The recommended MVP: prescribed, versioned meal plan + simple diary. No nutrient database or calculations (RF-31, P1). |
+| N9 | **RF-29 "only a qualified dietitian may prescribe".** | Creating, editing and publishing need a verified dietitian profile acting in a membership that includes the discipline; suspension stops publishing immediately (acceptance test 7, nutrition part). |
+| N16 | **Suspension (RF-50) only blocked writes:** reads kept working because they accept unverified profiles (a registration change resets verification). | *Suspended* or *rejected* profiles lose all care access, reads included, in `ICareAccess` — direct and shared. A profile *pending* re-verification keeps read access to existing clients but cannot prescribe. |
+| N10 | **RNF-04 export: what is "their records" and "no third-party data"?** | Records whose *subject* is the caller, from every tenant, with provenance (organization, responsible professional, method, timestamps, sources). A professional exporting their own data gets their profile and memberships, never their clients' records. Professionals are named only by public display name; other actors in the access log are described by role. Drafts are excluded. |
+| N11 | **RNF-04 correction and deletion "subject to retention obligations".** | A request workflow: the user submits, a platform operator starts, completes or rejects (a rejection needs a reason, e.g. a legal retention period) and the user is notified. Changes themselves are applied by the operator; automatic deletion waits for the retention decisions (§12.5). |
+| N12 | **RF-50 "configure retention"** while periods are undefined (2.3). | A retention catalogue per record type (period in months, legal basis, notes), editable by operators and audited. It is recorded, **not yet enforced** — no purge job until legal counsel sets the periods. |
+| N13 | **RNF-02 MFA** with bearer tokens: refreshed tokens lose Identity's `amr` claim. | Enforcement checks that the *account* has two-factor enabled (Identity then refuses any sign-in without it). Applies to every tenant action and every `/admin` endpoint; client views are exempt. Relaxed only in `appsettings.Development.json`. |
+| N14 | **Push/e-mail providers are undecided (§8).** | Transactional outbox with logging placeholders behind `IPushSender` / `INotificationEmailSender`. Push goes to all registered devices; e-mail only when the person has no device, to avoid duplicate alerts. Texts never contain clinical content. |
+| N15 | **A6 (post-completion corrections).** | Done: after a workout ends the client corrects a set with a reason; previous values, reason and person are kept on the set and the change is audited. During the workout, sets are still simply overwritten. |
+
+Not in Phase 2 (unchanged scope): RF-07 configurable reminders, RF-26 goals (My Progress shows the goals professionals
+already define: training plan goal, meal plan goal, latest nutrition assessment goals), RF-27 files, RF-31/32.
+
 ## 3. Development phases
 
 The phases below re-cut §10 so that every phase ends with a demonstrable, testable slice. P0 is split into three backend phases because nutrition and therapy are independent modules (§2 product principle) and therapy is legally gated.
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **0 — Foundation** ✅ *(this delivery)* | Clean Architecture solution, DDD building blocks, CQRS handlers + validation/logging decorators, PostgreSQL + EF Core migrations, Aspire orchestration, ASP.NET Core Identity (bearer tokens, e-mail confirmation, 2FA endpoints), ProblemDetails, OpenAPI, audit log, test projects (unit, architecture, integration). | Solution builds, all tests green, API runs under Aspire. |
-| **1 — Training core API** ✅ *(this delivery)* | RF-01/02/03/04 (accounts, profiles, verification, relationships, sharing grants), RF-06 (client home), RF-07 (notifications, in-app), RF-10/11/12/13 (library, plans, versioned publish, copy), RF-17/18/19/20/21 (execution, attendance, feedback, progress, trainer dashboard), RF-38/40/41/42/43 + HK-03…HK-08 server side (connection, heart-rate ingestion, both means, provenance, reconciliation, Apple Health workout record, professional view), RNF-03 audit. | Acceptance tests 1, 2, 3, 4, 5, 11, 12 (API side), 13 pass at API level. |
-| **2 — Assessments, Nutrition, Privacy** | RF-23/24/25 (health history, physical assessments, My Progress), RF-28/29/30 (nutrition assessment, versioned meal plan, food diary), RNF-04 data export + LGPD request workflow, RF-50 admin console endpoints, MFA *enforcement* for professionals/admins, push/e-mail notification delivery (outbox). | Acceptance tests 6, 7 (nutrition part), 9 pass. |
+| **0 — Foundation** ✅ | Clean Architecture solution, DDD building blocks, CQRS handlers + validation/logging decorators, PostgreSQL + EF Core migrations, Aspire orchestration, ASP.NET Core Identity (bearer tokens, e-mail confirmation, 2FA endpoints), ProblemDetails, OpenAPI, audit log, test projects (unit, architecture, integration). | Solution builds, all tests green, API runs under Aspire. |
+| **1 — Training core API** ✅ | RF-01/02/03/04 (accounts, profiles, verification, relationships, sharing grants), RF-06 (client home), RF-07 (notifications, in-app), RF-10/11/12/13 (library, plans, versioned publish, copy), RF-17/18/19/20/21 (execution, attendance, feedback, progress, trainer dashboard), RF-38/40/41/42/43 + HK-03…HK-08 server side (connection, heart-rate ingestion, both means, provenance, reconciliation, Apple Health workout record, professional view), RNF-03 audit. | Acceptance tests 1, 2, 3, 4, 5, 11, 12 (API side), 13 pass at API level. |
+| **2 — Assessments, Nutrition, Privacy** ✅ *(this delivery)* | RF-23/24/25 (health history, physical assessments, My Progress), RF-28/29/30 (nutrition assessment, versioned meal plan, food diary), RNF-04 data export + LGPD request workflow, RF-50 admin console endpoints, MFA *enforcement* for professionals/admins, push/e-mail notification delivery (outbox), A6 post-completion corrections. See 2.7. | Acceptance tests 6, 7 (nutrition part), 9 pass. |
 | **3 — Therapies** *(after legal review)* | RF-33/34/35/36 (service catalogue, acupuncture record, procedure consent, appointments). | Acceptance tests 7 (therapy part), 8 pass. |
 | **4 — Clients & MVP release** | iOS app (integrating `docs/initial_requirements/ios`), Android app, professional web dashboard, accessibility (RNF-07), performance (RNF-06), backup/restore test, RPO/RTO. | Every role has an end-to-end journey; acceptance tests 10, 12 on device; data-isolation tests pass. **MVP launch.** |
 | **5 — P1 features** | RF-08 messaging, RF-09 calendar, RF-14 extra workouts, RF-15 periodisation, RF-16 offline, RF-22 aerobic zones, RF-26 goals, RF-27 files, RF-31/32 nutrition goals, RF-37 other modalities, RF-44 HR zones, RF-47/48/49 billing and reports. | Financial reconciliation and resilient sync tested. |
@@ -139,12 +166,30 @@ The phases below re-cut §10 so that every phase ends with a demonstrable, testa
 | 14 — professional in two tenants switches context; known ids from the other fail | `MultiTenancyTests` |
 | 15 — client of two organizations sees both; neither sees the other's records | `MultiTenancyTests` |
 
+### 3.2 Phase 2 acceptance mapping (API)
+
+| §11 test / requirement | Covered by |
+|---|---|
+| 6 — dietitian revises a plan; client sees new version and history; trainer cannot see the diary | `NutritionTests.Acceptance_6_*`, `MealPlanTests` (domain) |
+| 7 (nutrition) — unverified professional cannot publish dietary prescriptions | `NutritionTests.Acceptance_7_*`, `NutritionTests.A_dietitian_whose_verification_is_suspended_*`, `MealPlanTests` |
+| 9 — export contains own records and provenance, no third-party data; request and delivery audited | `PrivacyTests.Acceptance_9_*`, `PrivacyTests.A_professionals_own_export_*` |
+| RF-23 health history, review flag | `AssessmentTests` (integration), `HealthHistoryTests`, `TrainingPlanTests` (domain) |
+| RF-24 assessments, corrections, sharing inside the organization | `AssessmentTests`, `PhysicalAssessmentTests`, `MeasurementTests` |
+| RF-25 My Progress (methods kept apart, no estimates) | `AssessmentTests.My_progress_*` |
+| RF-30 diary idempotency, addressing, comments | `NutritionTests.Diary_entries_*`, `FoodDiaryEntryTests` |
+| RNF-04 / RF-50 privacy requests, retention, catalog, operator role | `PrivacyTests`, `SecurityAndOperationsTests`, `PrivacyRequestTests` |
+| RNF-02 MFA | `SecurityAndOperationsTests`, `CareAccessTests` (unit) |
+| Outbox delivery and back-off | `SecurityAndOperationsTests.Notifications_*`, `NotificationDeliveryTests` |
+| A6 corrections after completion | `AttendanceAndProgressTests.Set_logs_*`, `WorkoutSessionTests` |
+
 ## 4. Open decisions for the business (carry-over from §12)
 
 1. Initial market (independent vs. clinics) — now only affects onboarding and billing; both use the same tenant model.
 2. Who pays and who invoices the client.
-3. Nutrition MVP depth (recommend: diary + prescribed plan, no nutrient database).
+3. ~~Nutrition MVP depth~~ — built as diary + prescribed plan, no nutrient database (2.7 N8); revisit with RF-31.
 4. Therapy modalities at launch and the qualification-verification procedure.
-5. Retention periods per record type and the legal basis catalogue (RNF-01).
+5. Retention periods per record type and the legal basis catalogue (RNF-01) — the API now stores them (2.7 N12) but they must be decided before enforcement.
+8. Phase 2 confirmations: health history visible to trainers only with a grant (N1), the significant fields (N2), and whether the dietitian must also authorize the trainer's nutrition summary (N7).
+9. Push and e-mail providers (§8): the outbox delivers through logging placeholders until they are chosen (N14).
 6. Heart-rate update cadence (the mean question is resolved: both are stored, see H2).
 7. Confirm RF-45/RF-46 numbering gap.

@@ -8,14 +8,14 @@ using MyHealth.Infrastructure.Identity;
 
 namespace MyHealth.Api.IntegrationTests.Infrastructure;
 
-/// <summary>Authenticates "Authorization: Test &lt;base64(id|email|admin)&gt;" so tests can act as any user quickly.</summary>
+/// <summary>Authenticates "Authorization: Test &lt;base64(id|email|admin|2fa)&gt;" so tests can act as any user quickly.</summary>
 internal sealed class TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     public const string SchemeName = "Test";
 
-    public static string Encode(Guid userId, string email, bool administrator) =>
-        Convert.ToBase64String(Encoding.UTF8.GetBytes($"{userId}|{email}|{administrator}"));
+    public static string Encode(Guid userId, string email, bool administrator, bool twoFactor = true) =>
+        Convert.ToBase64String(Encoding.UTF8.GetBytes($"{userId}|{email}|{administrator}|{twoFactor}"));
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -32,6 +32,12 @@ internal sealed class TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOption
             new(ClaimTypes.Email, parts[1]),
             new(ClaimTypes.Name, parts[1]),
         ];
+        if (bool.Parse(parts[3]))
+        {
+            // What Identity adds after a sign-in with a second factor.
+            claims.Add(new Claim("amr", "mfa"));
+        }
+
         if (bool.Parse(parts[2]))
         {
             claims.Add(new Claim(ClaimTypes.Role, Roles.Administrator));

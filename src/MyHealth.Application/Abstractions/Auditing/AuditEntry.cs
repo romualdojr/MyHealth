@@ -54,6 +54,14 @@ public static class AuditActions
     public const string Import = "import";
     public const string Invite = "invite";
     public const string Join = "join";
+    public const string Correct = "correct";
+    public const string Review = "review";
+    public const string Comment = "comment";
+    public const string Request = "request";
+    public const string Deliver = "deliver";
+    public const string Resolve = "resolve";
+    public const string Suspend = "suspend";
+    public const string Archive = "archive";
 
     /// <summary>An attempt to reach another tenant's resource or a tenant the caller does not belong to (MT-09).</summary>
     public const string Deny = "deny";

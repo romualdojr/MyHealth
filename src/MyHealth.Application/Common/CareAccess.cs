@@ -56,7 +56,7 @@ internal sealed class CareAccess(
             return ProfessionalErrors.MissingProfile(discipline);
         }
 
-        if (requireVerified && !profile.IsVerified)
+        if (profile.IsBarred || (requireVerified && !profile.IsVerified))
         {
             return ProfessionalErrors.NotVerified;
         }
@@ -102,6 +102,12 @@ internal sealed class CareAccess(
         if (!relationship.IsActive)
         {
             return CareRelationshipErrors.NotActive;
+        }
+
+        var profile = await professionals.GetByIdAsync(relationship.ProfessionalProfileId, cancellationToken);
+        if (profile is null || profile.IsBarred)
+        {
+            return ProfessionalErrors.NotVerified;
         }
 
         return relationship.HasActiveGrant(category) ? relationship : CareRelationshipErrors.SharingNotGranted;

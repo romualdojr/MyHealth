@@ -2,9 +2,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using MyHealth.Application.Abstractions.Auditing;
+using MyHealth.Domain.Assessments;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
+using MyHealth.Domain.Nutrition;
+using MyHealth.Domain.Privacy;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Exercises;
@@ -42,6 +45,24 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<WorkoutHeartRate> WorkoutHeartRates => Set<WorkoutHeartRate>();
 
     public DbSet<HealthConnection> HealthConnections => Set<HealthConnection>();
+
+    public DbSet<HealthHistory> HealthHistories => Set<HealthHistory>();
+
+    public DbSet<PhysicalAssessment> PhysicalAssessments => Set<PhysicalAssessment>();
+
+    public DbSet<NutritionAssessment> NutritionAssessments => Set<NutritionAssessment>();
+
+    public DbSet<MealPlan> MealPlans => Set<MealPlan>();
+
+    public DbSet<MealPlanVersion> MealPlanVersions => Set<MealPlanVersion>();
+
+    public DbSet<FoodDiaryEntry> FoodDiaryEntries => Set<FoodDiaryEntry>();
+
+    public DbSet<PrivacyRequest> PrivacyRequests => Set<PrivacyRequest>();
+
+    public DbSet<RetentionPolicy> RetentionPolicies => Set<RetentionPolicy>();
+
+    public DbSet<PushDevice> PushDevices => Set<PushDevice>();
 
     public DbSet<Notification> Notifications => Set<Notification>();
 

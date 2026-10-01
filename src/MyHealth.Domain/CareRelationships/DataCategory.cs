@@ -11,6 +11,9 @@ public enum DataCategory
     PhysicalAssessments = 3,
     NutritionSummary = 4,
     TherapySummary = 5,
+
+    /// <summary>The client's health history (RF-23). Every professional needs it shared, including trainers.</summary>
+    HealthHistory = 6,
 }
 
 public enum RelationshipStatus

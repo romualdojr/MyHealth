@@ -10,6 +10,9 @@ public interface ICareRelationshipRepository : IRepository<CareRelationship, Gui
     Task<CareRelationship?> GetActiveAsync(
         Guid tenantId, Guid professionalUserId, Discipline discipline, Guid clientId, CancellationToken cancellationToken = default);
 
+    /// <summary>A client's active relationships in every tenant, with their grants.</summary>
+    Task<IReadOnlyList<CareRelationship>> ListActiveForClientAsync(Guid clientId, CancellationToken cancellationToken = default);
+
     /// <summary>Pending and active relationships a professional holds in one tenant.</summary>
     Task<IReadOnlyList<CareRelationship>> ListOpenForProfessionalAsync(
         Guid tenantId, Guid professionalUserId, CancellationToken cancellationToken = default);

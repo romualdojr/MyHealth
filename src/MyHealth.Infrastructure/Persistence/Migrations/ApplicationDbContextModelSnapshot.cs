@@ -239,6 +239,209 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.ToTable("audit_entries", "myhealth");
                 });
 
+            modelBuilder.Entity("MyHealth.Domain.Assessments.HealthHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("CurrentRevisionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_revision_number");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_health_histories");
+
+                    b.HasIndex("ClientId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_health_histories_client_id");
+
+                    b.ToTable("health_histories", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Assessments.HealthHistoryReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Discipline")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("discipline");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("notes");
+
+                    b.Property<DateTimeOffset>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid>("ReviewerProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewer_profile_id");
+
+                    b.Property<Guid>("ReviewerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewer_user_id");
+
+                    b.Property<int>("RevisionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision_number");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid?>("health_history_id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("health_history_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_health_history_reviews");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_health_history_reviews_tenant_id");
+
+                    b.HasIndex("health_history_id")
+                        .HasDatabaseName("ix_health_history_reviews_health_history_id");
+
+                    b.ToTable("health_history_reviews", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Assessments.HealthHistoryRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AcknowledgedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("acknowledged_at");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("content");
+
+                    b.Property<bool>("IsSignificantChange")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_significant_change");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer")
+                        .HasColumnName("number");
+
+                    b.Property<DateTimeOffset>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<Guid>("health_history_id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("health_history_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_health_history_revisions");
+
+                    b.HasIndex("health_history_id", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_health_history_revisions_health_history_id_number");
+
+                    b.ToTable("health_history_revisions", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Assessments.PhysicalAssessment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("AssessedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("assessed_on");
+
+                    b.Property<Guid>("AssessorProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assessor_profile_id");
+
+                    b.Property<Guid>("AssessorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assessor_user_id");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<string>("Corrections")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("corrections");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Measurements")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("measurements");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("notes");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_physical_assessments");
+
+                    b.HasIndex("ClientId", "AssessedOn")
+                        .HasDatabaseName("ix_physical_assessments_client_id_assessed_on");
+
+                    b.HasIndex("TenantId", "ClientId")
+                        .HasDatabaseName("ix_physical_assessments_tenant_id_client_id");
+
+                    b.ToTable("physical_assessments", "myhealth");
+                });
+
             modelBuilder.Entity("MyHealth.Domain.CareRelationships.CareRelationship", b =>
                 {
                     b.Property<Guid>("Id")
@@ -620,6 +823,29 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<DateTimeOffset?>("DeliveredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("delivered_at");
+
+                    b.Property<int>("DeliveryAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("delivery_attempts");
+
+                    b.Property<string>("DeliveryStatus")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("delivery_status");
+
+                    b.Property<string>("LastDeliveryError")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("last_delivery_error");
+
+                    b.Property<DateTimeOffset?>("NextDeliveryAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_delivery_attempt_at");
+
                     b.Property<DateTimeOffset?>("ReadAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("read_at");
@@ -651,10 +877,570 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_notifications");
 
+                    b.HasIndex("DeliveryStatus", "NextDeliveryAttemptAt")
+                        .HasDatabaseName("ix_notifications_delivery_status_next_delivery_attempt_at");
+
                     b.HasIndex("RecipientUserId", "Audience", "TenantId", "CreatedAt")
                         .HasDatabaseName("ix_notifications_recipient_user_id_audience_tenant_id_created_");
 
                     b.ToTable("notifications", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Notifications.PushDevice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("InstallationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("installation_id");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("platform");
+
+                    b.Property<DateTimeOffset>("RegisteredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registered_at");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("token");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_push_devices");
+
+                    b.HasIndex("InstallationId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_push_devices_installation_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_push_devices_user_id");
+
+                    b.ToTable("push_devices", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Nutrition.FoodDiaryComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AuthorProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_profile_id");
+
+                    b.Property<Guid>("AuthorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("message");
+
+                    b.Property<Guid?>("food_diary_entry_id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("food_diary_entry_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_food_diary_comments");
+
+                    b.HasIndex("food_diary_entry_id")
+                        .HasDatabaseName("ix_food_diary_comments_food_diary_entry_id");
+
+                    b.ToTable("food_diary_comments", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Nutrition.FoodDiaryEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Adherence")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("adherence");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<string>("ClientNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("client_notes");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<Guid?>("DietitianProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dietitian_profile_id");
+
+                    b.Property<DateTimeOffset>("EatenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("eaten_at");
+
+                    b.Property<DateOnly>("LocalDate")
+                        .HasColumnType("date")
+                        .HasColumnName("local_date");
+
+                    b.Property<string>("MealName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("meal_name");
+
+                    b.Property<Guid?>("MealPlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("meal_plan_id");
+
+                    b.Property<int?>("MealPlanVersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("meal_plan_version_number");
+
+                    b.Property<Guid?>("PlannedMealId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("planned_meal_id");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("time_zone_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int?>("WaterMl")
+                        .HasColumnType("integer")
+                        .HasColumnName("water_ml");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_food_diary_entries");
+
+                    b.HasIndex("ClientId", "LocalDate")
+                        .HasDatabaseName("ix_food_diary_entries_client_id_local_date");
+
+                    b.HasIndex("TenantId", "DietitianProfileId", "ClientId", "LocalDate")
+                        .HasDatabaseName("ix_food_diary_entries_tenant_id_dietitian_profile_id_client_id");
+
+                    b.ToTable("food_diary_entries", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Nutrition.MealPlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CurrentVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("current_version_id");
+
+                    b.Property<int>("CurrentVersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_version_number");
+
+                    b.Property<Guid>("DietitianProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dietitian_profile_id");
+
+                    b.Property<Guid>("DietitianUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dietitian_user_id");
+
+                    b.Property<string>("Draft")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("draft");
+
+                    b.Property<bool>("HasUnpublishedChanges")
+                        .HasColumnType("boolean")
+                        .HasColumnName("has_unpublished_changes");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "Details", "MyHealth.Domain.Nutrition.MealPlan.Details#MealPlanDetails", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<DateOnly?>("EndDate")
+                                .HasColumnType("date")
+                                .HasColumnName("end_date");
+
+                            b1.Property<string>("Goal")
+                                .HasMaxLength(500)
+                                .HasColumnType("character varying(500)")
+                                .HasColumnName("goal");
+
+                            b1.Property<string>("Name")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("name");
+
+                            b1.Property<string>("Notes")
+                                .HasMaxLength(4000)
+                                .HasColumnType("character varying(4000)")
+                                .HasColumnName("notes");
+
+                            b1.Property<DateOnly>("StartDate")
+                                .HasColumnType("date")
+                                .HasColumnName("start_date");
+                        });
+
+                    b.HasKey("Id")
+                        .HasName("pk_meal_plans");
+
+                    b.HasIndex("ClientId", "Status")
+                        .HasDatabaseName("ix_meal_plans_client_id_status");
+
+                    b.HasIndex("TenantId", "DietitianProfileId", "ClientId")
+                        .HasDatabaseName("ix_meal_plans_tenant_id_dietitian_profile_id_client_id");
+
+                    b.ToTable("meal_plans", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Nutrition.MealPlanVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ChangeDescription")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("change_description");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("content");
+
+                    b.Property<Guid>("DietitianProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dietitian_profile_id");
+
+                    b.Property<Guid>("DietitianUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dietitian_user_id");
+
+                    b.Property<Guid>("MealPlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("meal_plan_id");
+
+                    b.Property<DateTimeOffset>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("version_number");
+
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "Details", "MyHealth.Domain.Nutrition.MealPlanVersion.Details#MealPlanDetails", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<DateOnly?>("EndDate")
+                                .HasColumnType("date")
+                                .HasColumnName("end_date");
+
+                            b1.Property<string>("Goal")
+                                .HasMaxLength(500)
+                                .HasColumnType("character varying(500)")
+                                .HasColumnName("goal");
+
+                            b1.Property<string>("Name")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("name");
+
+                            b1.Property<string>("Notes")
+                                .HasMaxLength(4000)
+                                .HasColumnType("character varying(4000)")
+                                .HasColumnName("notes");
+
+                            b1.Property<DateOnly>("StartDate")
+                                .HasColumnType("date")
+                                .HasColumnName("start_date");
+                        });
+
+                    b.HasKey("Id")
+                        .HasName("pk_meal_plan_versions");
+
+                    b.HasIndex("ClientId")
+                        .HasDatabaseName("ix_meal_plan_versions_client_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_meal_plan_versions_tenant_id");
+
+                    b.HasIndex("MealPlanId", "VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_meal_plan_versions_meal_plan_id_version_number");
+
+                    b.ToTable("meal_plan_versions", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Nutrition.NutritionAssessment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("AssessedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("assessed_on");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("content");
+
+                    b.Property<string>("Corrections")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("corrections");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("DietitianProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dietitian_profile_id");
+
+                    b.Property<Guid>("DietitianUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("dietitian_user_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_nutrition_assessments");
+
+                    b.HasIndex("ClientId", "AssessedOn")
+                        .HasDatabaseName("ix_nutrition_assessments_client_id_assessed_on");
+
+                    b.HasIndex("TenantId", "DietitianProfileId", "ClientId")
+                        .HasDatabaseName("ix_nutrition_assessments_tenant_id_dietitian_profile_id_client");
+
+                    b.ToTable("nutrition_assessments", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Privacy.PrivacyRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("DeliveryCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("delivery_count");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("details");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid?>("HandledBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("handled_by");
+
+                    b.Property<DateTimeOffset?>("LastDeliveredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_delivered_at");
+
+                    b.Property<string>("ResolutionNotes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("resolution_notes");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("type");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_privacy_requests");
+
+                    b.HasIndex("Status", "Type")
+                        .HasDatabaseName("ix_privacy_requests_status_type");
+
+                    b.HasIndex("UserId", "SubmittedAt")
+                        .HasDatabaseName("ix_privacy_requests_user_id_submitted_at");
+
+                    b.ToTable("privacy_requests", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Privacy.RetentionPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("LegalBasis")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("legal_basis");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("RecordType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("record_type");
+
+                    b.Property<int>("RetentionMonths")
+                        .HasColumnType("integer")
+                        .HasColumnName("retention_months");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_retention_policies");
+
+                    b.HasIndex("RecordType")
+                        .IsUnique()
+                        .HasDatabaseName("ix_retention_policies_record_type");
+
+                    b.ToTable("retention_policies", "myhealth");
                 });
 
             modelBuilder.Entity("MyHealth.Domain.Professionals.ProfessionalProfile", b =>
@@ -985,6 +1771,15 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("has_unpublished_changes");
 
+                    b.Property<string>("ReviewReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("review_reason");
+
+                    b.Property<DateTimeOffset?>("ReviewRequestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("review_requested_at");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -1168,6 +1963,11 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("Corrections")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("corrections");
 
                     b.Property<int?>("Difficulty")
                         .HasColumnType("integer")
@@ -1538,6 +2338,42 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_asp_net_user_tokens_asp_net_users_user_id");
                 });
 
+            modelBuilder.Entity("MyHealth.Domain.Assessments.HealthHistoryReview", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_health_history_reviews_tenants_tenant_id");
+
+                    b.HasOne("MyHealth.Domain.Assessments.HealthHistory", null)
+                        .WithMany("Reviews")
+                        .HasForeignKey("health_history_id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_health_history_reviews_health_histories_health_history_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Assessments.HealthHistoryRevision", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Assessments.HealthHistory", null)
+                        .WithMany("Revisions")
+                        .HasForeignKey("health_history_id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_health_history_revisions_health_histories_health_history_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Assessments.PhysicalAssessment", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_physical_assessments_tenants_tenant_id");
+                });
+
             modelBuilder.Entity("MyHealth.Domain.CareRelationships.CareRelationship", b =>
                 {
                     b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
@@ -1665,6 +2501,61 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         });
 
                     b.Navigation("Summary");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Nutrition.FoodDiaryComment", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Nutrition.FoodDiaryEntry", null)
+                        .WithMany("Comments")
+                        .HasForeignKey("food_diary_entry_id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_food_diary_comments_food_diary_entries_food_diary_entry_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Nutrition.FoodDiaryEntry", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_food_diary_entries_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Nutrition.MealPlan", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_meal_plans_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Nutrition.MealPlanVersion", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Nutrition.MealPlan", null)
+                        .WithMany()
+                        .HasForeignKey("MealPlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_meal_plan_versions_meal_plans_meal_plan_id");
+
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_meal_plan_versions_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Nutrition.NutritionAssessment", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_nutrition_assessments_tenants_tenant_id");
                 });
 
             modelBuilder.Entity("MyHealth.Domain.Tenants.TenantMembership", b =>
@@ -1843,6 +2734,13 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.Navigation("Reply");
                 });
 
+            modelBuilder.Entity("MyHealth.Domain.Assessments.HealthHistory", b =>
+                {
+                    b.Navigation("Reviews");
+
+                    b.Navigation("Revisions");
+                });
+
             modelBuilder.Entity("MyHealth.Domain.CareRelationships.CareRelationship", b =>
                 {
                     b.Navigation("Grants");
@@ -1858,6 +2756,11 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.Navigation("Samples");
 
                     b.Navigation("Syncs");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Nutrition.FoodDiaryEntry", b =>
+                {
+                    b.Navigation("Comments");
                 });
 
             modelBuilder.Entity("MyHealth.Domain.Training.Workouts.WorkoutSession", b =>

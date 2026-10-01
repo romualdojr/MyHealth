@@ -9,6 +9,7 @@ public static class PlanErrors
     public static readonly Error NotOwner = Error.Forbidden("TrainingPlan.NotOwner", "Only the trainer who owns this plan can change it.");
     public static readonly Error Ended = Error.Conflict("TrainingPlan.Ended", "The training plan has ended and can no longer be changed.");
     public static readonly Error NotPublished = Error.Conflict("TrainingPlan.NotPublished", "The training plan has no published version.");
+    public static readonly Error NoReviewPending = Error.Conflict("TrainingPlan.NoReviewPending", "This plan has no pending review.");
     public static readonly Error NothingToPublish = Error.Conflict("TrainingPlan.NothingToPublish", "There are no changes to publish.");
     public static readonly Error NoSessions = Error.Validation("TrainingPlan.NoSessions", "A plan needs at least one session to be published.");
     public static readonly Error InvalidDates = Error.Validation("TrainingPlan.InvalidDates", "The end date must be on or after the start date.");

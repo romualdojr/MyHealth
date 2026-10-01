@@ -36,6 +36,7 @@ internal sealed class TrainingPlanConfiguration : IEntityTypeConfiguration<Train
         builder.Property(p => p.Id).ValueGeneratedNever();
         builder.ComplexProperty(p => p.Details, PlanDetailsMapping.Configure);
         builder.Property(p => p.Draft).HasJsonConversion();
+        builder.Property(p => p.ReviewReason).HasMaxLength(500);
         builder.Property<uint>("version").IsRowVersion();
         builder.HasOne<Tenant>().WithMany().HasForeignKey(p => p.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(p => new { p.TenantId, p.TrainerProfileId, p.ClientId });
@@ -130,6 +131,8 @@ internal sealed class SetLogConfiguration : IEntityTypeConfiguration<SetLog>
         builder.Property(s => s.DistanceMeters).HasPrecision(10, 2);
         builder.Property(s => s.Notes).HasMaxLength(1000);
         builder.Ignore(s => s.Volume);
+        builder.Ignore(s => s.Values);
+        builder.Property(s => s.Corrections).HasJsonConversion();
         builder.HasIndex(s => s.ExerciseId);
     }
 }

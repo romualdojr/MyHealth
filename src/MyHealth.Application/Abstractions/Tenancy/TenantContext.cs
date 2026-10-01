@@ -15,6 +15,7 @@ public sealed record ActiveMembership(Guid TenantId, Guid MembershipId, IReadOnl
 /// <summary>
 /// Resolves the active tenant from the authenticated membership (MT-04): the requested tenant id is honoured only when
 /// the caller holds an active membership in it. A request for any other tenant fails as "not found" and is audited.
+/// Acting for a tenant — as a professional or a tenant administrator — also requires two-factor authentication (RNF-02).
 /// </summary>
 public interface ITenantContext
 {
@@ -28,7 +29,8 @@ public interface ITenantContext
     Task<Result<ActiveMembership?>> FindAsync(CancellationToken cancellationToken);
 }
 
-internal sealed class TenantContext(IUserContext user, ITenantMembershipRepository memberships, IAuditLog audit) : ITenantContext
+internal sealed class TenantContext(IUserContext user, ITenantMembershipRepository memberships, IAuditLog audit, SecurityPolicy security)
+    : ITenantContext
 {
     private Result<ActiveMembership?>? _resolved;
 
@@ -58,6 +60,11 @@ internal sealed class TenantContext(IUserContext user, ITenantMembershipReposito
         {
             await audit.RecordDeniedAsync(nameof(Tenant), tenantId, tenantId == Guid.Empty ? null : tenantId, cancellationToken);
             return TenantErrors.NotFound;
+        }
+
+        if (security.RequireTwoFactorForProfessionals && !await user.HasTwoFactorAsync(cancellationToken))
+        {
+            return SecurityErrors.TwoFactorRequired;
         }
 
         return new ActiveMembership(membership.TenantId, membership.Id, membership.Disciplines, membership.IsAdministrator);

@@ -4,6 +4,7 @@ using MyHealth.Application.Exercises;
 using MyHealth.Application.Common;
 using MyHealth.Application.TrainingPlans;
 using MyHealth.Application.Workouts;
+using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Plans;
@@ -164,6 +165,37 @@ public sealed class Scenario(ApiFactory factory)
             completedAt = completedAt ?? DateTimeOffset.UtcNow.AddMinutes(-1), perceivedExertion = 7, reportedDiscomfort = discomfort,
             discomfortDetails = discomfort ? "Dor no joelho" : null,
         }, Ct));
+
+    /// <summary>The client shares one data category with the professional of this relationship.</summary>
+    public static async Task ShareAsync(TestUser client, Guid relationshipId, DataCategory category) =>
+        await EnsureSuccess(await client.Http.PutAsync($"/api/v1/care-relationships/{relationshipId}/sharing/{category}", null, Ct));
+
+    /// <summary>A draft meal plan with breakfast and lunch, created by a dietitian (tenant already selected).</summary>
+    public async Task<Guid> DraftMealPlanAsync(TestUser dietitian, Guid clientId, string name = "Plano alimentar")
+    {
+        var create = await dietitian.Http.PostAsJsonAsync("/api/v1/meal-plans", new
+        {
+            clientId, details = new { name, goal = "Reeducação alimentar", startDate = "2026-10-01" },
+        }, Ct);
+        var planId = (await Read<IdResponse>(create)).Id;
+        await SetMealsAsync(dietitian, planId, "Café da manhã", "Almoço");
+        return planId;
+    }
+
+    public async Task SetMealsAsync(TestUser dietitian, Guid planId, params string[] mealNames) =>
+        await EnsureSuccess(await dietitian.Http.PutAsJsonAsync($"/api/v1/meal-plans/{planId}/meals", mealNames.Select((meal, i) => new
+        {
+            name = meal,
+            time = $"{7 + (i * 5):00}:00:00",
+            items = new object[]
+            {
+                new { food = "Pão integral", quantity = 50m, unit = "g", substitutions = new[] { "Tapioca" } },
+                new { food = "Ovo mexido", householdMeasure = "2 unidades" },
+            },
+        }).ToArray(), Ct));
+
+    public async Task<PublishedVersionResponse> PublishMealPlanAsync(TestUser dietitian, Guid planId, string change = "Versão inicial") =>
+        await Read<PublishedVersionResponse>(await dietitian.Http.PostAsJsonAsync($"/api/v1/meal-plans/{planId}/publish", new { changeDescription = change }, Ct));
 
     public static async Task<T> Read<T>(HttpResponseMessage response)
     {

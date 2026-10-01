@@ -3,13 +3,17 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using MyHealth.Application.Abstractions.Administration;
 using MyHealth.Application.Abstractions.Auditing;
 using MyHealth.Application.Abstractions.Authentication;
 using MyHealth.Application.Abstractions.Data;
 using MyHealth.Domain.Abstractions;
+using MyHealth.Domain.Assessments;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
+using MyHealth.Domain.Nutrition;
+using MyHealth.Domain.Privacy;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Exercises;
@@ -18,6 +22,7 @@ using MyHealth.Domain.Training.Workouts;
 using MyHealth.Domain.Users;
 using MyHealth.Infrastructure.Auditing;
 using MyHealth.Infrastructure.Identity;
+using MyHealth.Infrastructure.Notifications;
 using MyHealth.Infrastructure.Persistence;
 
 namespace MyHealth.Infrastructure;
@@ -55,6 +60,29 @@ public static class DependencyInjection
         services.AddScoped<IWorkoutHeartRateRepository, WorkoutHeartRateRepository>();
         services.AddScoped<IHealthConnectionRepository, HealthConnectionRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
+        services.AddScoped<IHealthHistoryRepository, HealthHistoryRepository>();
+        services.AddScoped<IPhysicalAssessmentRepository, PhysicalAssessmentRepository>();
+        services.AddScoped<INutritionAssessmentRepository, NutritionAssessmentRepository>();
+        services.AddScoped<IMealPlanRepository, MealPlanRepository>();
+        services.AddScoped<IMealPlanVersionRepository, MealPlanVersionRepository>();
+        services.AddScoped<IFoodDiaryRepository, FoodDiaryRepository>();
+        services.AddScoped<IPrivacyRequestRepository, PrivacyRequestRepository>();
+        services.AddScoped<IRetentionPolicyRepository, RetentionPolicyRepository>();
+        services.AddScoped<IPushDeviceRepository, PushDeviceRepository>();
+
+        // RNF-02: professionals and administrators need two-factor authentication. Turn off only for local development.
+        services.AddSingleton(new SecurityPolicy(builder.Configuration.GetValue("Security:RequireTwoFactorForProfessionals", true)));
+        services.AddScoped<IAdministratorDirectory, AdministratorDirectory>();
+
+        // Notification outbox. The logging sender stands in until push and e-mail providers are chosen (§8).
+        services.AddSingleton<LoggingNotificationSender>();
+        services.AddSingleton<IPushSender>(sp => sp.GetRequiredService<LoggingNotificationSender>());
+        services.AddSingleton<INotificationEmailSender>(sp => sp.GetRequiredService<LoggingNotificationSender>());
+        services.AddScoped<NotificationDispatcher>();
+        if (builder.Configuration.GetValue("Notifications:DispatcherEnabled", true))
+        {
+            services.AddHostedService<NotificationDispatcherService>();
+        }
 
         services
             .AddIdentityApiEndpoints<ApplicationUser>(options =>

@@ -31,6 +31,38 @@ public sealed class TrainingPlanTests
     }
 
     [Fact]
+    public void A_review_request_is_raised_once_and_cleared_by_acknowledging_or_publishing()
+    {
+        var trainer = TestData.Professional();
+        var (plan, _) = TestData.PublishedPlan(trainer, TestData.Client());
+
+        plan.RequestReview("Nova lesão", TestData.Now);
+        plan.RequestReview("Outra mudança", TestData.Now);
+
+        plan.DomainEvents.OfType<TrainingPlanReviewRequested>().Count().ShouldBe(1);
+        (plan.NeedsReview, plan.ReviewReason).ShouldBe((true, "Nova lesão"));
+        plan.AcknowledgeReview(TestData.Now).IsSuccess.ShouldBeTrue();
+        plan.AcknowledgeReview(TestData.Now).Error.ShouldBe(PlanErrors.NoReviewPending);
+
+        plan.RequestReview("Nova lesão", TestData.Now);
+        plan.UpdateDraft(new PlanContent([TestData.StrengthSession("Treino B")]), TestData.Now);
+        plan.Publish(trainer, "Ajuste pela lesão", TestData.Now).IsSuccess.ShouldBeTrue();
+        plan.NeedsReview.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Ended_plans_are_not_flagged_for_review()
+    {
+        var (plan, _) = TestData.PublishedPlan(TestData.Professional(), TestData.Client());
+        plan.End(TestData.Now);
+
+        plan.RequestReview("Nova lesão", TestData.Now);
+
+        plan.NeedsReview.ShouldBeFalse();
+        plan.DomainEvents.ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Publishing_an_empty_plan_fails()
     {
         var trainer = TestData.Professional();

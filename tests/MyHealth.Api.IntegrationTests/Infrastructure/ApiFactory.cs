@@ -47,13 +47,13 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         }
     }
 
-    public TestUser NewUser(string? name = null, bool administrator = false)
+    public TestUser NewUser(string? name = null, bool administrator = false, bool twoFactor = true)
     {
         EnsureAvailable();
         var id = Guid.CreateVersion7();
         var email = $"{name ?? "user"}-{id:N}@test.local";
         var client = CreateClient();
-        client.DefaultRequestHeaders.Authorization = new("Test", TestAuthHandler.Encode(id, email, administrator));
+        client.DefaultRequestHeaders.Authorization = new("Test", TestAuthHandler.Encode(id, email, administrator, twoFactor));
         return new TestUser(id, email, client);
     }
 
@@ -63,6 +63,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("ConnectionStrings:myhealthdb", _postgres!.GetConnectionString());
         builder.UseSetting("Database:InitializeOnStartup", "true");
         builder.UseSetting("Identity:RequireConfirmedEmail", "false");
+        builder.UseSetting("Security:RequireTwoFactorForProfessionals", "true");
+
+        // Tests run the notification dispatcher themselves, so delivery is deterministic.
+        builder.UseSetting("Notifications:DispatcherEnabled", "false");
 
         builder.ConfigureServices(services =>
         {

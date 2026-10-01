@@ -233,6 +233,42 @@ public sealed class WorkoutSession : AggregateRoot<Guid>
         return Result.Success();
     }
 
+    /// <summary>
+    /// Corrects a set after the workout ended (assumption A6): the previous values, the reason and the person are kept.
+    /// Submitting the values the set already has is a no-op, so a retry does not add a second correction.
+    /// </summary>
+    public Result CorrectSetAfterWorkout(Guid setLogId, SetValues values, string reason, Guid correctedBy, DateTimeOffset now)
+    {
+        if (IsOpen)
+        {
+            return WorkoutErrors.StillOpen;
+        }
+
+        var set = _sets.Find(s => s.Id == setLogId);
+        if (set is null)
+        {
+            return WorkoutErrors.SetNotFound;
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return WorkoutErrors.CorrectionReasonRequired;
+        }
+
+        if (values.IsEmpty)
+        {
+            return WorkoutErrors.EmptySet;
+        }
+
+        if (set.Values == values)
+        {
+            return Result.Success();
+        }
+
+        set.CorrectAfterWorkout(values, reason.Trim(), correctedBy, now);
+        return Result.Success();
+    }
+
     public Result Complete(WorkoutFeedback feedback, DateTimeOffset completedAt, DateTimeOffset now)
     {
         // A retried completion must not fail nor change what was recorded.

@@ -17,7 +17,7 @@ namespace MyHealth.Application.Workouts;
 
 public sealed record SetLogResponse(
     Guid Id, Guid ExerciseId, Guid? PlannedExerciseId, int SetNumber, int? Repetitions, decimal? LoadKg, int? DurationSeconds,
-    decimal? DistanceMeters, int? Difficulty, string? Notes, DateTimeOffset LoggedAt);
+    decimal? DistanceMeters, int? Difficulty, string? Notes, DateTimeOffset LoggedAt, IReadOnlyList<SetLogCorrection> Corrections);
 
 public sealed record WorkoutSessionResponse(
     Guid Id,
@@ -210,11 +210,16 @@ public sealed record TrainerClientSummary(
     double? AdherenceLast7Days,
     int PendingFeedbackReplies,
     int UnrepliedDiscomfortReports,
-    DateTimeOffset? LastCompletedAt);
+    DateTimeOffset? LastCompletedAt,
+    int PlansNeedingReview);
 
-public sealed record TrainerDashboardResponse(IReadOnlyList<TrainerClientSummary> Clients, int TotalPendingFeedback, int TotalDiscomfortReports);
+public sealed record TrainerDashboardResponse(
+    IReadOnlyList<TrainerClientSummary> Clients, int TotalPendingFeedback, int TotalDiscomfortReports, int TotalPlansNeedingReview);
 
-/// <summary>Planned-vs-actual adherence, pending feedback and reported discomfort for the trainer's active clients (RF-21).</summary>
+/// <summary>
+/// Planned-vs-actual adherence, pending feedback, reported discomfort and plans flagged for review (RF-21, RF-23) for the
+/// trainer's active clients.
+/// </summary>
 public sealed record GetTrainerDashboardQuery : IQuery<TrainerDashboardResponse>;
 
 internal sealed class GetTrainerDashboardHandler(IReadDbContext db, ICareAccess access, TimeProvider clock)
@@ -246,6 +251,11 @@ internal sealed class GetTrainerDashboardHandler(IReadDbContext db, ICareAccess 
             .Select(p => new { p.ClientId, p.Details.Name, p.Details.SuggestedSessionsPerWeek, p.UpdatedAt })
             .ToListAsync(cancellationToken);
 
+        var flagged = await db.TrainingPlans
+            .Where(p => p.TenantId == tenantId && p.TrainerProfileId == trainerId && clientIds.Contains(p.ClientId) && p.ReviewRequestedAt != null)
+            .Select(p => p.ClientId)
+            .ToListAsync(cancellationToken);
+
         var completed = await db.WorkoutSessions
             .Where(s => s.TenantId == tenantId && s.TrainerProfileId == trainerId && clientIds.Contains(s.ClientId) && s.Status == WorkoutStatus.Completed)
             .Select(s => new { s.ClientId, s.CompletedAt, HasReply = s.Reply != null, Discomfort = s.Feedback!.ReportedDiscomfort })
@@ -266,10 +276,12 @@ internal sealed class GetTrainerDashboardHandler(IReadDbContext db, ICareAccess 
                 plan is null ? null : Math.Round((double)recent / plan.SuggestedSessionsPerWeek, 2),
                 mine.Count(s => !s.HasReply),
                 mine.Count(s => s.Discomfort && !s.HasReply),
-                mine.Max(s => s.CompletedAt));
+                mine.Max(s => s.CompletedAt),
+                flagged.Count(id => id == client.ClientId));
         }).OrderByDescending(s => s.UnrepliedDiscomfortReports).ThenBy(s => s.ClientName).ToList();
 
-        return new TrainerDashboardResponse(summaries, summaries.Sum(s => s.PendingFeedbackReplies), summaries.Sum(s => s.UnrepliedDiscomfortReports));
+        return new TrainerDashboardResponse(
+            summaries, summaries.Sum(s => s.PendingFeedbackReplies), summaries.Sum(s => s.UnrepliedDiscomfortReports), summaries.Sum(s => s.PlansNeedingReview));
     }
 }
 
@@ -334,7 +346,7 @@ internal static class WorkoutMapping
             s.CompletedAt, s.AbandonedAt, s.LocalDate, (int?)s.ActiveDuration()?.TotalSeconds,
             s.Sets.OrderBy(x => x.LoggedAt).Select(x => new SetLogResponse(
                 x.Id, x.ExerciseId, x.PlannedExerciseId, x.SetNumber, x.Repetitions, x.LoadKg, x.DurationSeconds, x.DistanceMeters, x.Difficulty,
-                x.Notes, x.LoggedAt)).ToList(),
+                x.Notes, x.LoggedAt, x.Corrections)).ToList(),
             s.Feedback,
             s.Reply,
             s.AppleHealthWorkout);
