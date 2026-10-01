@@ -7,7 +7,7 @@ namespace MyHealth.Api.IntegrationTests;
 public sealed class OpenApiTests(ApiFactory factory) : IntegrationTest(factory)
 {
     [Fact]
-    public async Task The_openapi_document_describes_every_phase_2_area()
+    public async Task The_openapi_document_describes_the_phase_2_and_3_areas()
     {
         Scenario.Factory.EnsureAvailable();
         using var anonymous = Scenario.Factory.CreateClient();
@@ -24,5 +24,8 @@ public sealed class OpenApiTests(ApiFactory factory) : IntegrationTest(factory)
         paths.ShouldContain("/api/v1/me/data-exports/{exportId}/download");
         paths.ShouldContain("/api/v1/admin/privacy-requests/{requestId}/complete");
         paths.ShouldContain("/api/v1/admin/retention-policies/{recordType}");
+        paths.ShouldContain("/api/v1/therapy/sessions/{sessionId}/complete");
+        paths.ShouldContain("/api/v1/me/therapy-consents");
+        paths.ShouldContain("/api/v1/admin/therapy-modalities/{code}/enable");
     }
 }

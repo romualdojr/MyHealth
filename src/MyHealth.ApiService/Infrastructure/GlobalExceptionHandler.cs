@@ -15,7 +15,7 @@ internal sealed class GlobalExceptionHandler(IProblemDetailsService problemDetai
         var (status, title) = exception switch
         {
             DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Concurrency.Conflict"),
-            DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } } =>
+            DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation or PostgresErrorCodes.ExclusionViolation } } =>
                 (StatusCodes.Status409Conflict, "Concurrency.Duplicate"),
             BadHttpRequestException bad => (bad.StatusCode, "Request.Invalid"),
             _ => (StatusCodes.Status500InternalServerError, "Server.Error"),

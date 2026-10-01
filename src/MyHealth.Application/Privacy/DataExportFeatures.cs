@@ -13,6 +13,7 @@ using MyHealth.Domain.Nutrition;
 using MyHealth.Domain.Privacy;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
+using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
 using MyHealth.Domain.Users;
@@ -103,6 +104,9 @@ public sealed record DataExportPackage(
     IReadOnlyList<ExportNutritionAssessment> NutritionAssessments,
     IReadOnlyList<ExportMealPlanVersion> MealPlans,
     IReadOnlyList<ExportFoodDiaryEntry> FoodDiary,
+    IReadOnlyList<ExportTherapySession> TherapySessions,
+    IReadOnlyList<ExportTherapyConsent> TherapyConsents,
+    IReadOnlyList<ExportCarePlan> TherapyCarePlans,
     IReadOnlyList<ExportNotification> Notifications,
     IReadOnlyList<ExportPrivacyRequest> PrivacyRequests,
     IReadOnlyList<ExportAccessLogEntry> AccessLog);
@@ -166,6 +170,19 @@ public sealed record ExportFoodDiaryEntry(
     Guid Id, string? SharedWithOrganization, Guid? MealPlanId, int? MealPlanVersionNumber, string? MealName, DateTimeOffset EatenAt, DateOnly LocalDate,
     string? Description, int? WaterMl, MealAdherence? Adherence, string? ClientNotes, IReadOnlyList<ExportDiaryComment> Comments, DateTimeOffset RecordedAt);
 
+public sealed record ExportTherapySession(
+    Guid Id, string OrganizationName, string PractitionerName, string ModalityCode, string ServiceName, DateTimeOffset StartsAt, TherapySessionStatus Status,
+    DateTimeOffset? CompletedAt, DateTimeOffset? CancelledAt, TherapyRecord? Record, IReadOnlyList<TherapyRecordCorrection> Corrections,
+    ClientProgressReport? ClientReport, IReadOnlyList<MedicalReferral> Referrals);
+
+public sealed record ExportTherapyConsent(
+    string OrganizationName, string PractitionerName, string ModalityCode, int TemplateVersion, IReadOnlyList<string> DisclosedRisks, ConsentDecision Decision,
+    DateTimeOffset DecidedAt, DateTimeOffset? WithdrawnAt, string? WithdrawalReason);
+
+public sealed record ExportCarePlan(
+    string OrganizationName, string PractitionerName, string ModalityCode, string Goals, int? PlannedSessions, string? Frequency, CarePlanStatus Status,
+    IReadOnlyList<CarePlanReview> Reviews, DateTimeOffset CreatedAt);
+
 public sealed record ExportNotification(NotificationType Type, string? OrganizationName, DateTimeOffset CreatedAt, DateTimeOffset? ReadAt);
 
 public sealed record ExportPrivacyRequest(PrivacyRequestType Type, PrivacyRequestStatus Status, string? Details, DateTimeOffset SubmittedAt, DateTimeOffset? ResolvedAt,
@@ -217,6 +234,9 @@ internal sealed class DataExportAssembler(IReadDbContext db, Guid userId)
             await NutritionAssessmentsAsync(ct),
             await MealPlansAsync(ct),
             await FoodDiaryAsync(ct),
+            await TherapySessionsAsync(ct),
+            await TherapyConsentsAsync(ct),
+            await CarePlansAsync(ct),
             await NotificationsAsync(ct),
             await PrivacyRequestsAsync(ct),
             await AccessLogAsync(relationships, ct));
@@ -234,6 +254,7 @@ internal sealed class DataExportAssembler(IReadDbContext db, Guid userId)
             .Concat(await db.NutritionAssessments.Where(a => a.ClientId == userId).Select(a => a.DietitianProfileId).ToListAsync(ct))
             .Concat(await db.TrainingPlanVersions.Where(v => v.ClientId == userId).Select(v => v.TrainerProfileId).ToListAsync(ct))
             .Concat(await db.MealPlanVersions.Where(v => v.ClientId == userId).Select(v => v.DietitianProfileId).ToListAsync(ct))
+            .Concat(await db.TherapySessions.Where(s => s.ClientId == userId).Select(s => s.PractitionerProfileId).ToListAsync(ct))
             .Distinct()
             .ToList();
         return await db.ProfessionalProfiles.Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.DisplayName, ct);
@@ -353,6 +374,49 @@ internal sealed class DataExportAssembler(IReadDbContext db, Guid userId)
                     .Select(c => new ExportDiaryComment(authors.GetValueOrDefault(c.AuthorProfileId, string.Empty), c.Message, c.CreatedAt)).ToList(),
                 e.RecordedAt))
             .ToList();
+    }
+
+    private async Task<IReadOnlyList<ExportTherapySession>> TherapySessionsAsync(CancellationToken ct)
+    {
+        var rows = await (
+                from s in db.TherapySessions
+                join m in db.TherapyModalities on s.ModalityId equals m.Id
+                where s.ClientId == userId
+                orderby s.StartsAt
+                select new { Session = s, m.Code })
+            .ToListAsync(ct);
+        return rows.Select(r => new ExportTherapySession(
+            r.Session.Id, Tenant(r.Session.TenantId), Professional(r.Session.PractitionerProfileId), r.Code, r.Session.ServiceName, r.Session.StartsAt,
+            r.Session.Status, r.Session.CompletedAt, r.Session.CancelledAt,
+            r.Session.Status == TherapySessionStatus.Completed ? r.Session.Record : null, r.Session.Corrections, r.Session.ClientReport, r.Session.Referrals)).ToList();
+    }
+
+    private async Task<IReadOnlyList<ExportTherapyConsent>> TherapyConsentsAsync(CancellationToken ct)
+    {
+        var rows = await (
+                from c in db.TherapyConsents
+                join m in db.TherapyModalities on c.ModalityId equals m.Id
+                where c.ClientId == userId
+                orderby c.DecidedAt
+                select new { Consent = c, m.Code })
+            .ToListAsync(ct);
+        return rows.Select(r => new ExportTherapyConsent(
+            Tenant(r.Consent.TenantId), Professional(r.Consent.PractitionerProfileId), r.Code, r.Consent.TemplateVersion, r.Consent.DisclosedRisks,
+            r.Consent.Decision, r.Consent.DecidedAt, r.Consent.WithdrawnAt, r.Consent.WithdrawalReason)).ToList();
+    }
+
+    private async Task<IReadOnlyList<ExportCarePlan>> CarePlansAsync(CancellationToken ct)
+    {
+        var rows = await (
+                from p in db.TherapyCarePlans
+                join m in db.TherapyModalities on p.ModalityId equals m.Id
+                where p.ClientId == userId
+                orderby p.CreatedAt
+                select new { Plan = p, m.Code })
+            .ToListAsync(ct);
+        return rows.Select(r => new ExportCarePlan(
+            Tenant(r.Plan.TenantId), Professional(r.Plan.PractitionerProfileId), r.Code, r.Plan.Goals, r.Plan.PlannedSessions, r.Plan.Frequency, r.Plan.Status,
+            r.Plan.Reviews, r.Plan.CreatedAt)).ToList();
     }
 
     private async Task<IReadOnlyList<ExportNotification>> NotificationsAsync(CancellationToken ct)

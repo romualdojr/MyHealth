@@ -10,6 +10,7 @@ using MyHealth.Domain.Nutrition;
 using MyHealth.Domain.Privacy;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
+using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
@@ -63,6 +64,20 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<RetentionPolicy> RetentionPolicies => Set<RetentionPolicy>();
 
     public DbSet<PushDevice> PushDevices => Set<PushDevice>();
+
+    public DbSet<TherapyModality> TherapyModalities => Set<TherapyModality>();
+
+    public DbSet<PractitionerQualification> PractitionerQualifications => Set<PractitionerQualification>();
+
+    public DbSet<TherapyService> TherapyServices => Set<TherapyService>();
+
+    public DbSet<ConsentTemplate> ConsentTemplates => Set<ConsentTemplate>();
+
+    public DbSet<TherapyConsent> TherapyConsents => Set<TherapyConsent>();
+
+    public DbSet<TherapySession> TherapySessions => Set<TherapySession>();
+
+    public DbSet<TherapyCarePlan> TherapyCarePlans => Set<TherapyCarePlan>();
 
     public DbSet<Notification> Notifications => Set<Notification>();
 

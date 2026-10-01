@@ -18,7 +18,7 @@ internal static class JsonValueConverters
     };
 
     public static PropertyBuilder<T> HasJsonConversion<T>(this PropertyBuilder<T> property)
-        where T : class
+        where T : class?
     {
         property
             .HasConversion(

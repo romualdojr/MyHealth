@@ -5,7 +5,7 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 
 ## Decisions needed (business / legal)
 
-- [ ] **Therapies legal review** (blocks go-live of Phase 3, not its build): which registrations may practise acupuncture under Law 15,345/2026, council rules per modality, consent wording and disclosed risks.
+- [ ] **Therapies legal review** (blocks go-live of Phase 3, which is built): accepted councils for acupuncture under Law 15,345/2026, required record fields, consent wording and disclosed risks, re-consent on new versions (2.8 R1–R4).
 - [ ] Health history visible to trainers only with the client's grant (2.7 N1) — confirm.
 - [ ] Fields that count as a "significant" health-history change: limitations and injuries (2.7 N2) — confirm.
 - [ ] Should the dietitian also authorize the trainer's nutrition summary, or is the client's grant enough (2.7 N7)?
@@ -16,13 +16,17 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] Onboarding: should a solo practice be created automatically for independent professionals (2.6)?
 - [ ] Confirm the RF-45/RF-46 numbering gap.
 
-## Phase 3 — Therapies (in progress)
+## Phase 3 — Therapies (built; go-live waits for the legal review)
 
-- [ ] RF-33 service catalogue per modality; practitioner qualifications verified per modality before appointments or records.
-- [ ] RF-34 acupuncture record (concern/goal, assessment, contraindications and precautions, technique, points/regions, duration, adverse events, guidance).
-- [ ] RF-35 procedure-specific, versioned consent with refusal and withdrawal; no completion without required documentation.
-- [ ] RF-36 appointments, session history, client-reported progress, care-plan review, referral for medical care.
-- [ ] Acceptance tests 7 (therapy part) and 8.
+- [x] RF-33 service catalogue per modality; practitioner qualifications verified per modality before appointments or records.
+- [x] RF-34 acupuncture record (concern/goal, assessment, contraindications and precautions, technique, points/regions, duration, adverse events, guidance).
+- [x] RF-35 procedure-specific, versioned consent with refusal and withdrawal; no completion without required documentation.
+- [x] RF-36 appointments, session history, client-reported progress, care-plan review, referral for medical care.
+- [x] Acceptance tests 7 (therapy part) and 8.
+- [ ] Go-live: operators configure acupuncture with legal counsel's answers (accepted councils, required fields, consent text and risks) and enable it with the review reference.
+- [ ] In-person (paper) consent capture, if legal requires it.
+- [ ] Appointment reminders and confirmation (with RF-09).
+- [ ] RF-37: add other modalities through the same catalogue after their own legal review.
 
 ## Follow-ups from Phase 2
 

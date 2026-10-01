@@ -9,6 +9,7 @@ using MyHealth.Domain.Nutrition;
 using MyHealth.Domain.Privacy;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
+using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
@@ -58,6 +59,20 @@ internal sealed class ReadDbContext(ApplicationDbContext db) : IReadDbContext
     public IQueryable<RetentionPolicy> RetentionPolicies => db.RetentionPolicies.AsNoTracking();
 
     public IQueryable<PushDevice> PushDevices => db.PushDevices.AsNoTracking();
+
+    public IQueryable<TherapyModality> TherapyModalities => db.TherapyModalities.AsNoTracking();
+
+    public IQueryable<PractitionerQualification> PractitionerQualifications => db.PractitionerQualifications.AsNoTracking();
+
+    public IQueryable<TherapyService> TherapyServices => db.TherapyServices.AsNoTracking();
+
+    public IQueryable<ConsentTemplate> ConsentTemplates => db.ConsentTemplates.AsNoTracking();
+
+    public IQueryable<TherapyConsent> TherapyConsents => db.TherapyConsents.AsNoTracking();
+
+    public IQueryable<TherapySession> TherapySessions => db.TherapySessions.AsNoTracking();
+
+    public IQueryable<TherapyCarePlan> TherapyCarePlans => db.TherapyCarePlans.AsNoTracking();
 
     public IQueryable<Notification> Notifications => db.Notifications.AsNoTracking();
 

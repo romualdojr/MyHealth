@@ -8,6 +8,7 @@ using MyHealth.Domain.Nutrition;
 using MyHealth.Domain.Privacy;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
+using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
@@ -163,3 +164,56 @@ internal sealed class PushDeviceRepository(ApplicationDbContext db) : Repository
 
     public void Remove(PushDevice device) => Db.PushDevices.Remove(device);
 }
+
+internal sealed class TherapyModalityRepository(ApplicationDbContext db) : Repository<TherapyModality>(db), ITherapyModalityRepository
+{
+    public Task<TherapyModality?> GetByCodeAsync(string code, CancellationToken cancellationToken = default) =>
+        Db.TherapyModalities.FirstOrDefaultAsync(m => m.Code == code, cancellationToken);
+}
+
+internal sealed class PractitionerQualificationRepository(ApplicationDbContext db)
+    : Repository<PractitionerQualification>(db), IPractitionerQualificationRepository
+{
+    public Task<PractitionerQualification?> GetCurrentAsync(Guid professionalProfileId, Guid modalityId, CancellationToken cancellationToken = default) =>
+        Db.PractitionerQualifications
+            .Where(q => q.ProfessionalProfileId == professionalProfileId && q.ModalityId == modalityId)
+            .OrderByDescending(q => q.SubmittedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+}
+
+internal sealed class TherapyServiceRepository(ApplicationDbContext db) : Repository<TherapyService>(db), ITherapyServiceRepository;
+
+internal sealed class ConsentTemplateRepository(ApplicationDbContext db) : Repository<ConsentTemplate>(db), IConsentTemplateRepository
+{
+    public Task<ConsentTemplate?> GetCurrentAsync(Guid modalityId, CancellationToken cancellationToken = default) =>
+        Db.ConsentTemplates.Where(t => t.ModalityId == modalityId).OrderByDescending(t => t.Version).FirstOrDefaultAsync(cancellationToken);
+}
+
+internal sealed class TherapyConsentRepository(ApplicationDbContext db) : Repository<TherapyConsent>(db), ITherapyConsentRepository
+{
+    public Task<TherapyConsent?> GetLatestAsync(
+        Guid clientId, Guid tenantId, Guid practitionerProfileId, Guid modalityId, CancellationToken cancellationToken = default) =>
+        Db.TherapyConsents
+            .Where(c => c.ClientId == clientId && c.TenantId == tenantId && c.PractitionerProfileId == practitionerProfileId && c.ModalityId == modalityId)
+            .OrderByDescending(c => c.DecidedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+}
+
+internal sealed class TherapySessionRepository(ApplicationDbContext db) : Repository<TherapySession>(db), ITherapySessionRepository
+{
+    public Task<bool> HasOverlapAsync(
+        Guid practitionerProfileId, DateTimeOffset startsAt, DateTimeOffset endsAt, Guid? excludeSessionId, CancellationToken cancellationToken = default) =>
+        Db.TherapySessions.AnyAsync(
+            s => s.PractitionerProfileId == practitionerProfileId && s.Status == TherapySessionStatus.Scheduled
+                 && s.StartsAt < endsAt && s.EndsAt > startsAt && s.Id != excludeSessionId,
+            cancellationToken);
+
+    public async Task<IReadOnlyList<TherapySession>> ListScheduledAsync(
+        Guid tenantId, Guid practitionerProfileId, Guid clientId, CancellationToken cancellationToken = default) =>
+        await Db.TherapySessions
+            .Where(s => s.TenantId == tenantId && s.PractitionerProfileId == practitionerProfileId && s.ClientId == clientId
+                        && s.Status == TherapySessionStatus.Scheduled)
+            .ToListAsync(cancellationToken);
+}
+
+internal sealed class TherapyCarePlanRepository(ApplicationDbContext db) : Repository<TherapyCarePlan>(db), ITherapyCarePlanRepository;

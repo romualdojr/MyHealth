@@ -16,6 +16,13 @@ public enum NotificationType
     MealPlanPublished = 10,
     FoodDiaryCommented = 11,
     PrivacyRequestUpdated = 12,
+    TherapySessionScheduled = 13,
+    TherapySessionCancelled = 14,
+    TherapySessionCompleted = 15,
+    MedicalReferralRecommended = 16,
+    TherapyProgressReported = 17,
+    TherapyConsentChanged = 18,
+    TherapyCarePlanReviewed = 19,
 }
 
 /// <summary>Push/e-mail delivery state (the notification row is its own outbox entry).</summary>

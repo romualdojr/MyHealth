@@ -33,14 +33,14 @@ public sealed class Scenario(ApiFactory factory)
     /// Pass <paramref name="ownTenant"/> = false for someone who will only join other tenants.
     /// </summary>
     public async Task<(TestUser User, Guid ProfileId)> ProfessionalAsync(
-        string name = "trainer", Discipline discipline = Discipline.PersonalTrainer, bool verified = true, bool ownTenant = true)
+        string name = "trainer", Discipline discipline = Discipline.PersonalTrainer, bool verified = true, bool ownTenant = true, string council = "CREF")
     {
         var user = await ClientAsync(name);
         var response = await user.Http.PostAsJsonAsync("/api/v1/professional-profiles", new
         {
             discipline = discipline.ToString(),
             displayName = $"{name} Pro",
-            registration = new { council = "CREF", number = Guid.NewGuid().ToString("N")[..8], region = "SP" },
+            registration = new { council, number = Guid.NewGuid().ToString("N")[..8], region = "SP" },
         }, Ct);
         var profileId = (await Read<IdResponse>(response)).Id;
 

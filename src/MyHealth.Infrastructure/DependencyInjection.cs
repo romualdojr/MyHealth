@@ -16,6 +16,7 @@ using MyHealth.Domain.Nutrition;
 using MyHealth.Domain.Privacy;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
+using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
@@ -69,6 +70,13 @@ public static class DependencyInjection
         services.AddScoped<IPrivacyRequestRepository, PrivacyRequestRepository>();
         services.AddScoped<IRetentionPolicyRepository, RetentionPolicyRepository>();
         services.AddScoped<IPushDeviceRepository, PushDeviceRepository>();
+        services.AddScoped<ITherapyModalityRepository, TherapyModalityRepository>();
+        services.AddScoped<IPractitionerQualificationRepository, PractitionerQualificationRepository>();
+        services.AddScoped<ITherapyServiceRepository, TherapyServiceRepository>();
+        services.AddScoped<IConsentTemplateRepository, ConsentTemplateRepository>();
+        services.AddScoped<ITherapyConsentRepository, TherapyConsentRepository>();
+        services.AddScoped<ITherapySessionRepository, TherapySessionRepository>();
+        services.AddScoped<ITherapyCarePlanRepository, TherapyCarePlanRepository>();
 
         // RNF-02: professionals and administrators need two-factor authentication. Turn off only for local development.
         services.AddSingleton(new SecurityPolicy(builder.Configuration.GetValue("Security:RequireTwoFactorForProfessionals", true)));

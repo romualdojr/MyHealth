@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Infrastructure.Identity;
 
@@ -27,6 +28,7 @@ public static class DatabaseInitializer
         }
 
         await SeedExercisesAsync(db, provider.GetRequiredService<TimeProvider>(), cancellationToken);
+        await SeedTherapyModalitiesAsync(db, provider.GetRequiredService<TimeProvider>(), cancellationToken);
         await SeedAdministratorAsync(provider, logger);
     }
 
@@ -53,6 +55,24 @@ public static class DatabaseInitializer
         ];
 
         db.Exercises.AddRange(library.Select(details => Exercise.CreateSystem(details, now)));
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Acupuncture is seeded disabled and with no accepted councils: which professions may practise it under Law 15,345/2026
+    /// is a legal decision (§9). Operators configure it and enable it with the reference of that review.
+    /// </summary>
+    private static async Task SeedTherapyModalitiesAsync(ApplicationDbContext db, TimeProvider clock, CancellationToken cancellationToken)
+    {
+        if (await db.TherapyModalities.AnyAsync(m => m.Code == TherapyModality.Acupuncture, cancellationToken))
+        {
+            return;
+        }
+
+        var acupuncture = TherapyModality.Define(
+            TherapyModality.Acupuncture, "Acupuntura", "Aguardando revisão jurídica e clínica antes da habilitação.", [],
+            TherapyModality.AcupunctureDefaultRequiredFields, requiresConsent: true, clock.GetUtcNow());
+        db.TherapyModalities.Add(acupuncture.Value);
         await db.SaveChangesAsync(cancellationToken);
     }
 

@@ -62,6 +62,13 @@ public static class AuditActions
     public const string Resolve = "resolve";
     public const string Suspend = "suspend";
     public const string Archive = "archive";
+    public const string Enable = "enable";
+    public const string Disable = "disable";
+    public const string Schedule = "schedule";
+    public const string Cancel = "cancel";
+    public const string Complete = "complete";
+    public const string Refer = "refer";
+    public const string Withdraw = "withdraw";
 
     /// <summary>An attempt to reach another tenant's resource or a tenant the caller does not belong to (MT-09).</summary>
     public const string Deny = "deny";

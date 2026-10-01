@@ -7,6 +7,7 @@ using MyHealth.Domain.Nutrition;
 using MyHealth.Domain.Privacy;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
+using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
@@ -59,6 +60,20 @@ public interface IReadDbContext
     IQueryable<RetentionPolicy> RetentionPolicies { get; }
 
     IQueryable<PushDevice> PushDevices { get; }
+
+    IQueryable<TherapyModality> TherapyModalities { get; }
+
+    IQueryable<PractitionerQualification> PractitionerQualifications { get; }
+
+    IQueryable<TherapyService> TherapyServices { get; }
+
+    IQueryable<ConsentTemplate> ConsentTemplates { get; }
+
+    IQueryable<TherapyConsent> TherapyConsents { get; }
+
+    IQueryable<TherapySession> TherapySessions { get; }
+
+    IQueryable<TherapyCarePlan> TherapyCarePlans { get; }
 
     IQueryable<Notification> Notifications { get; }
 

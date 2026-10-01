@@ -1,7 +1,7 @@
 # MyHealth — Requirements Review and Development Phases
 
 **Source reviewed:** `docs/initial_requirements/APP_REQUIREMENTS.md` (v1.0, 2026-09-30) and `docs/initial_requirements/ios/` (HealthKit module + expected API contract).
-**Scope of this delivery:** backend API only (Phases 0–2). Mobile apps and web dashboards are later phases.
+**Scope of this delivery:** backend API only (Phases 0–3). Mobile apps and web dashboards are later phases.
 
 ---
 
@@ -49,7 +49,7 @@ It is weaker on *operational detail*: several P0 items depend on P1 items, a few
 
 ### 2.3 Risks
 
-- **Legal (blocking for Phase 3):** acupuncture scope (the document cites Law 15,345/2026 — must be validated by legal counsel), consent wording, council rules (CREF, CRN, COFFITO/CFM etc.).
+- **Legal (blocking the go-live of Phase 3, not its build — see 2.8):** acupuncture scope (the document cites Law 15,345/2026 — must be validated by legal counsel), consent wording, council rules (CREF, CRN, COFFITO/CFM etc.).
 - **Regulatory:** RNF-10/Anvisa — keep every heart-rate feature descriptive (no alerts that look like diagnosis). The API exposes raw samples and descriptive statistics only, labelled with method and provenance.
 - **Privacy (RNF-01):** legal basis per purpose is undefined. The API records *grants* (who may see what, since when) but the legal-basis catalogue is a product/legal deliverable.
 - **Undefined targets:** RPO/RTO (RNF-05), retention periods (§12.5), heart-rate update frequency (§12.6).
@@ -137,6 +137,27 @@ resolves them. Items marked **(confirm)** are product or legal calls the API had
 Not in Phase 2 (unchanged scope): RF-07 configurable reminders, RF-26 goals (My Progress shows the goals professionals
 already define: training plan goal, meal plan goal, latest nutrition assessment goals), RF-27 files, RF-31/32.
 
+### 2.8 Phase 3 — therapies: findings and resolutions ✅
+
+The legal review (2.3) gates *going live*, not building. Everything it decides is configuration a platform operator
+enters, so the code does not change when the lawyers answer.
+
+| # | Finding | Resolution |
+|---|---|---|
+| R1 | **Who may practise acupuncture (§9, Law 15,345/2026)** is a legal answer, not a code constant. | Each `TherapyModality` lists its *accepted councils* (e.g. CFM, COFFITO). Acupuncture is seeded **disabled with none**. An operator enables a modality only with accepted councils **and** a legal-review reference (stored with who enabled it and when). Changing councils, required fields or the consent rule on an enabled modality disables it again for re-review. |
+| R2 | **RF-33 "verify qualifications and permitted scope for each modality".** | `PractitionerQualification` (training title, issuer, certificate) per practitioner and modality, global like the council registration. Operators verify it, and verification fails when the practitioner's council is outside the modality's scope. Services, scheduling, documentation, completion and care plans all require: verified profile + enabled modality + council in scope + verified qualification. Revoking a qualification stops care at once. |
+| R3 | **RF-34 "points or regions *when relevant*"** — and which fields are mandatory at all? | The modality lists its required record fields. Acupuncture's default: concern, assessment, contraindications/precautions, technique, duration, adverse events, post-session guidance — points/regions optional. "None" must be written explicitly (an empty adverse-events field is indistinguishable from a forgotten one). **(confirm)** the list. |
+| R4 | **RF-35 consent "with version"** — what happens when the text changes? | Operators publish numbered, immutable `ConsentTemplate` versions (text + disclosed risks). The client decides in the app on the version they read; the decision copies the risks. Completion requires a granted, not withdrawn consent by that client, for that practitioner, tenant and modality, **on the current version** — a new version means consenting again. Refusals and withdrawals are recorded. **(confirm)** that re-consent on every new version is wanted; in-person paper consent is not modelled. |
+| R5 | **RF-35 "cannot be marked completed without the required documentation".** | `Complete` fails with `MissingDocumentation` (naming the fields) or `ConsentRequired`; the session view shows the missing fields and whether consent is in force. Acceptance test 8. |
+| R6 | **RF-36 "referral for medical care when warning signs arise"** must not look like a diagnosis (RNF-10). | The practitioner records a referral (reason, routine/urgent) on the session or closes the care plan with outcome *refer for medical care*. The client gets a notification whose text says only that there is an important note. No automatic triggers. |
+| R7 | **RF-36 appointments vs. RF-09 calendar (P1).** | Practitioner books, reschedules and cancels; the client can cancel. Overlapping sessions of a practitioner are refused across tenants (without revealing the other booking), enforced by a database exclusion constraint. Confirmation, reminders and cancellation policies stay in RF-09. |
+| R8 | **§6 "therapy record: client views".** | Clients see their full record, guidance, corrections and referrals, and report how they feel (1–5) after a completed session. Trainers and dietitians see only a `TherapySummary` (active modalities, next appointment, recent session count) with the client's grant, inside the same organization. |
+| R9 | **History (§5).** | Completed records change only through corrections that keep the previous record, reason and practitioner. Referrals are appended, never replaced. Until completion the record is the practitioner's work in progress: clients see it, and the export includes it, only once the session is completed. |
+| R10 | **Review findings (independent review of the Phase 3 diff).** | Eligibility is re-checked on *every* care action, including rescheduling, care-plan reviews and re-activating a service (only a medical-care referral is exempt). Ending a relationship — by either side or because the practitioner left the organization — cancels its scheduled sessions and notifies the client. Double booking is prevented by a PostgreSQL exclusion constraint (`btree_gist`; the extension must be allowed on the production server), not only by the application check. Known service ids from other tenants are audited as `deny`. |
+
+Not in Phase 3: RF-37 other modalities need their own legal review, but the same model supports them (operators add a
+modality); in-person/paper consent capture; reminders.
+
 ## 3. Development phases
 
 The phases below re-cut §10 so that every phase ends with a demonstrable, testable slice. P0 is split into three backend phases because nutrition and therapy are independent modules (§2 product principle) and therapy is legally gated.
@@ -145,8 +166,8 @@ The phases below re-cut §10 so that every phase ends with a demonstrable, testa
 |---|---|---|
 | **0 — Foundation** ✅ | Clean Architecture solution, DDD building blocks, CQRS handlers + validation/logging decorators, PostgreSQL + EF Core migrations, Aspire orchestration, ASP.NET Core Identity (bearer tokens, e-mail confirmation, 2FA endpoints), ProblemDetails, OpenAPI, audit log, test projects (unit, architecture, integration). | Solution builds, all tests green, API runs under Aspire. |
 | **1 — Training core API** ✅ | RF-01/02/03/04 (accounts, profiles, verification, relationships, sharing grants), RF-06 (client home), RF-07 (notifications, in-app), RF-10/11/12/13 (library, plans, versioned publish, copy), RF-17/18/19/20/21 (execution, attendance, feedback, progress, trainer dashboard), RF-38/40/41/42/43 + HK-03…HK-08 server side (connection, heart-rate ingestion, both means, provenance, reconciliation, Apple Health workout record, professional view), RNF-03 audit. | Acceptance tests 1, 2, 3, 4, 5, 11, 12 (API side), 13 pass at API level. |
-| **2 — Assessments, Nutrition, Privacy** ✅ *(this delivery)* | RF-23/24/25 (health history, physical assessments, My Progress), RF-28/29/30 (nutrition assessment, versioned meal plan, food diary), RNF-04 data export + LGPD request workflow, RF-50 admin console endpoints, MFA *enforcement* for professionals/admins, push/e-mail notification delivery (outbox), A6 post-completion corrections. See 2.7. | Acceptance tests 6, 7 (nutrition part), 9 pass. |
-| **3 — Therapies** *(after legal review)* | RF-33/34/35/36 (service catalogue, acupuncture record, procedure consent, appointments). | Acceptance tests 7 (therapy part), 8 pass. |
+| **2 — Assessments, Nutrition, Privacy** ✅ | RF-23/24/25 (health history, physical assessments, My Progress), RF-28/29/30 (nutrition assessment, versioned meal plan, food diary), RNF-04 data export + LGPD request workflow, RF-50 admin console endpoints, MFA *enforcement* for professionals/admins, push/e-mail notification delivery (outbox), A6 post-completion corrections. See 2.7. | Acceptance tests 6, 7 (nutrition part), 9 pass. |
+| **3 — Therapies** ✅ *(this delivery; go-live after legal review)* | RF-33/34/35/36 (modality catalogue with legal gate, practitioner qualifications, service catalogue, acupuncture record, versioned procedure consent, appointments, care plans, referrals, client progress), therapy summary for other professionals, export. See 2.8. | Acceptance tests 7 (therapy part), 8 pass. |
 | **4 — Clients & MVP release** | iOS app (integrating `docs/initial_requirements/ios`), Android app, professional web dashboard, accessibility (RNF-07), performance (RNF-06), backup/restore test, RPO/RTO. | Every role has an end-to-end journey; acceptance tests 10, 12 on device; data-isolation tests pass. **MVP launch.** |
 | **5 — P1 features** | RF-08 messaging, RF-09 calendar, RF-14 extra workouts, RF-15 periodisation, RF-16 offline, RF-22 aerobic zones, RF-26 goals, RF-27 files, RF-31/32 nutrition goals, RF-37 other modalities, RF-44 HR zones, RF-47/48/49 billing and reports. | Financial reconciliation and resilient sync tested. |
 | **6 — P2** | Advanced HealthKit analysis — only after data-quality validation and Anvisa/RNF-10 assessment. | Regulatory sign-off. |
@@ -182,14 +203,25 @@ The phases below re-cut §10 so that every phase ends with a demonstrable, testa
 | Outbox delivery and back-off | `SecurityAndOperationsTests.Notifications_*`, `NotificationDeliveryTests` |
 | A6 corrections after completion | `AttendanceAndProgressTests.Set_logs_*`, `WorkoutSessionTests` |
 
+### 3.3 Phase 3 acceptance mapping (API)
+
+| §11 test / requirement | Covered by |
+|---|---|
+| 7 (therapy) — an unverified professional cannot document acupuncture procedures | `TherapyTests.Acceptance_7_*` (unverified profile, council out of scope, revoked qualification), `TherapyTests` (domain) |
+| 8 — an acupuncture session requires consent and mandatory fields before completion | `TherapyTests.Acceptance_8_*` (missing fields, refusal, new consent version, withdrawal), `TherapyTests` (domain) |
+| Legal gate (§9) | `TherapyTests.Acupuncture_is_seeded_disabled_*` |
+| RF-36 corrections, progress, referral, export | `TherapyTests.Completed_records_*` |
+| Isolation and therapy summary | `TherapyTests.Sessions_are_isolated_*`, `TherapyTests.Summary_inside_the_same_organization_*` |
+| Scheduling and care plans | `TherapyTests.Scheduling_*`, `TherapyTests.Care_plans_*` |
+
 ## 4. Open decisions for the business (carry-over from §12)
 
 1. Initial market (independent vs. clinics) — now only affects onboarding and billing; both use the same tenant model.
 2. Who pays and who invoices the client.
 3. ~~Nutrition MVP depth~~ — built as diary + prescribed plan, no nutrient database (2.7 N8); revisit with RF-31.
-4. Therapy modalities at launch and the qualification-verification procedure.
+4. Therapy modalities at launch and the qualification-verification procedure — the API is ready (2.8); legal counsel must supply, per modality, the accepted councils, the required record fields, the consent wording and disclosed risks, and the legal-review reference used to enable it. Also confirm re-consent on every new consent version (R4) and whether paper consent must be supported.
 5. Retention periods per record type and the legal basis catalogue (RNF-01) — the API now stores them (2.7 N12) but they must be decided before enforcement.
-8. Phase 2 confirmations: health history visible to trainers only with a grant (N1), the significant fields (N2), and whether the dietitian must also authorize the trainer's nutrition summary (N7).
-9. Push and e-mail providers (§8): the outbox delivers through logging placeholders until they are chosen (N14).
 6. Heart-rate update cadence (the mean question is resolved: both are stored, see H2).
 7. Confirm RF-45/RF-46 numbering gap.
+8. Phase 2 confirmations: health history visible to trainers only with a grant (N1), the significant fields (N2), and whether the dietitian must also authorize the trainer's nutrition summary (N7).
+9. Push and e-mail providers (§8): the outbox delivers through logging placeholders until they are chosen (N14).

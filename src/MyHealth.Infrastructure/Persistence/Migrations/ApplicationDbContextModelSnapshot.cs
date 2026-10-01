@@ -1649,6 +1649,566 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.ToTable("tenant_memberships", "myhealth");
                 });
 
+            modelBuilder.Entity("MyHealth.Domain.Therapies.ConsentTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)")
+                        .HasColumnName("body");
+
+                    b.PrimitiveCollection<List<string>>("DisclosedRisks")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("disclosed_risks");
+
+                    b.Property<Guid>("ModalityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("modality_id");
+
+                    b.Property<DateTimeOffset>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.Property<Guid>("PublishedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("published_by");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_therapy_consent_templates");
+
+                    b.HasIndex("ModalityId", "Version")
+                        .IsUnique()
+                        .HasDatabaseName("ix_therapy_consent_templates_modality_id_version");
+
+                    b.ToTable("therapy_consent_templates", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Therapies.PractitionerQualification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CertificateNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("certificate_number");
+
+                    b.Property<DateOnly?>("IssuedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("issued_on");
+
+                    b.Property<string>("Issuer")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("issuer");
+
+                    b.Property<Guid>("ModalityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("modality_id");
+
+                    b.Property<Guid>("ProfessionalProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("professional_profile_id");
+
+                    b.Property<string>("ReviewNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("review_notes");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid?>("ReviewedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_practitioner_qualifications");
+
+                    b.HasIndex("ModalityId")
+                        .HasDatabaseName("ix_practitioner_qualifications_modality_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_practitioner_qualifications_status");
+
+                    b.HasIndex("ProfessionalProfileId", "ModalityId", "SubmittedAt")
+                        .HasDatabaseName("ix_practitioner_qualifications_professional_profile_id_modalit");
+
+                    b.ToTable("practitioner_qualifications", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Therapies.TherapyCarePlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Frequency")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("frequency");
+
+                    b.Property<string>("Goals")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("goals");
+
+                    b.Property<Guid>("ModalityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("modality_id");
+
+                    b.Property<DateOnly?>("NextReviewOn")
+                        .HasColumnType("date")
+                        .HasColumnName("next_review_on");
+
+                    b.Property<int?>("PlannedSessions")
+                        .HasColumnType("integer")
+                        .HasColumnName("planned_sessions");
+
+                    b.Property<Guid>("PractitionerProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("practitioner_profile_id");
+
+                    b.Property<Guid>("PractitionerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("practitioner_user_id");
+
+                    b.Property<string>("Reviews")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("reviews");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_therapy_care_plans");
+
+                    b.HasIndex("ClientId")
+                        .HasDatabaseName("ix_therapy_care_plans_client_id");
+
+                    b.HasIndex("ModalityId")
+                        .HasDatabaseName("ix_therapy_care_plans_modality_id");
+
+                    b.HasIndex("TenantId", "PractitionerProfileId", "ClientId")
+                        .HasDatabaseName("ix_therapy_care_plans_tenant_id_practitioner_profile_id_client");
+
+                    b.ToTable("therapy_care_plans", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Therapies.TherapyConsent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<DateTimeOffset>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("decision");
+
+                    b.PrimitiveCollection<List<string>>("DisclosedRisks")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("disclosed_risks");
+
+                    b.Property<Guid>("ModalityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("modality_id");
+
+                    b.Property<Guid>("PractitionerProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("practitioner_profile_id");
+
+                    b.Property<Guid>("PractitionerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("practitioner_user_id");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("template_id");
+
+                    b.Property<int>("TemplateVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("template_version");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("WithdrawalReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("withdrawal_reason");
+
+                    b.Property<DateTimeOffset?>("WithdrawnAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("withdrawn_at");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_therapy_consents");
+
+                    b.HasIndex("TemplateId")
+                        .HasDatabaseName("ix_therapy_consents_template_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_therapy_consents_tenant_id");
+
+                    b.HasIndex("ClientId", "TenantId", "PractitionerProfileId", "ModalityId", "DecidedAt")
+                        .HasDatabaseName("ix_therapy_consents_client_id_tenant_id_practitioner_profile_i");
+
+                    b.ToTable("therapy_consents", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Therapies.TherapyModality", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.PrimitiveCollection<List<string>>("AcceptedCouncils")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("accepted_councils");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTimeOffset?>("EnabledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("enabled_at");
+
+                    b.Property<Guid?>("EnabledBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("enabled_by");
+
+                    b.Property<string>("LegalReviewReference")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("legal_review_reference");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.PrimitiveCollection<int[]>("RequiredRecordFields")
+                        .IsRequired()
+                        .HasColumnType("integer[]")
+                        .HasColumnName("required_record_fields");
+
+                    b.Property<bool>("RequiresConsent")
+                        .HasColumnType("boolean")
+                        .HasColumnName("requires_consent");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_therapy_modalities");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_therapy_modalities_code");
+
+                    b.ToTable("therapy_modalities", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Therapies.TherapyService", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Delivery")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("delivery");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("description");
+
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_minutes");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<Guid>("ModalityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("modality_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("PractitionerProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("practitioner_profile_id");
+
+                    b.Property<Guid>("PractitionerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("practitioner_user_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_therapy_services");
+
+                    b.HasIndex("ModalityId")
+                        .HasDatabaseName("ix_therapy_services_modality_id");
+
+                    b.HasIndex("TenantId", "PractitionerProfileId")
+                        .HasDatabaseName("ix_therapy_services_tenant_id_practitioner_profile_id");
+
+                    b.ToTable("therapy_services", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Therapies.TherapySession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("cancellation_reason");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<Guid?>("CancelledBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cancelled_by");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<string>("ClientReport")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("client_report");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<Guid?>("ConsentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("consent_id");
+
+                    b.Property<string>("Corrections")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("corrections");
+
+                    b.Property<string>("Delivery")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("delivery");
+
+                    b.Property<DateTimeOffset>("EndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at");
+
+                    b.Property<Guid>("ModalityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("modality_id");
+
+                    b.Property<Guid>("PractitionerProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("practitioner_profile_id");
+
+                    b.Property<Guid>("PractitionerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("practitioner_user_id");
+
+                    b.Property<string>("Record")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("record");
+
+                    b.Property<DateTimeOffset?>("RecordUpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("record_updated_at");
+
+                    b.Property<string>("Referrals")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("referrals");
+
+                    b.Property<DateTimeOffset>("ScheduledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("scheduled_at");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<string>("ServiceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("service_name");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_therapy_sessions");
+
+                    b.HasIndex("ClientId")
+                        .HasDatabaseName("ix_therapy_sessions_client_id");
+
+                    b.HasIndex("ServiceId")
+                        .HasDatabaseName("ix_therapy_sessions_service_id");
+
+                    b.HasIndex("TenantId", "ClientId")
+                        .HasDatabaseName("ix_therapy_sessions_tenant_id_client_id");
+
+                    b.HasIndex("PractitionerProfileId", "Status", "StartsAt")
+                        .HasDatabaseName("ix_therapy_sessions_practitioner_profile_id_status_starts_at");
+
+                    b.ToTable("therapy_sessions", "myhealth");
+                });
+
             modelBuilder.Entity("MyHealth.Domain.Training.Exercises.Exercise", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2566,6 +3126,94 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_tenant_memberships_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Therapies.ConsentTemplate", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Therapies.TherapyModality", null)
+                        .WithMany()
+                        .HasForeignKey("ModalityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_therapy_consent_templates_therapy_modalities_modality_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Therapies.PractitionerQualification", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Therapies.TherapyModality", null)
+                        .WithMany()
+                        .HasForeignKey("ModalityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_practitioner_qualifications_therapy_modalities_modality_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Therapies.TherapyCarePlan", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Therapies.TherapyModality", null)
+                        .WithMany()
+                        .HasForeignKey("ModalityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_therapy_care_plans_therapy_modalities_modality_id");
+
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_therapy_care_plans_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Therapies.TherapyConsent", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Therapies.ConsentTemplate", null)
+                        .WithMany()
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_therapy_consents_therapy_consent_templates_template_id");
+
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_therapy_consents_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Therapies.TherapyService", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Therapies.TherapyModality", null)
+                        .WithMany()
+                        .HasForeignKey("ModalityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_therapy_services_therapy_modalities_modality_id");
+
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_therapy_services_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Therapies.TherapySession", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Therapies.TherapyService", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_therapy_sessions_therapy_services_service_id");
+
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_therapy_sessions_tenants_tenant_id");
                 });
 
             modelBuilder.Entity("MyHealth.Domain.Training.Exercises.Exercise", b =>

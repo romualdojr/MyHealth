@@ -68,6 +68,7 @@ authenticated.MapTrainerEndpoints();
 authenticated.MapMyRecordsEndpoints();
 authenticated.MapAssessmentEndpoints();
 authenticated.MapNutritionEndpoints();
+authenticated.MapTherapyEndpoints();
 authenticated.MapAdminEndpoints();
 
 if (app.Configuration.GetValue("Database:InitializeOnStartup", app.Environment.IsDevelopment()))

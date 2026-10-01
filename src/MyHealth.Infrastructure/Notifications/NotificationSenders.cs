@@ -62,6 +62,13 @@ internal static class NotificationTexts
             NotificationType.MealPlanPublished => ("Plano alimentar atualizado", "Sua nutricionista publicou uma nova versão do seu plano alimentar."),
             NotificationType.FoodDiaryCommented => ("Novo comentário", "Sua nutricionista comentou no seu diário alimentar."),
             NotificationType.PrivacyRequestUpdated => ("Solicitação de privacidade", "Há uma atualização na sua solicitação sobre seus dados."),
+            NotificationType.TherapySessionScheduled => ("Sessão agendada", "Uma sessão de terapia foi agendada ou remarcada."),
+            NotificationType.TherapySessionCancelled => ("Sessão cancelada", "Uma sessão de terapia foi cancelada."),
+            NotificationType.TherapySessionCompleted => ("Orientações disponíveis", "As orientações da sua última sessão estão disponíveis."),
+            NotificationType.MedicalReferralRecommended => ("Orientação importante", "Seu terapeuta deixou uma orientação importante para você."),
+            NotificationType.TherapyProgressReported => ("Retorno do cliente", "Um cliente contou como se sentiu após a sessão."),
+            NotificationType.TherapyConsentChanged => ("Consentimento atualizado", "Um cliente atualizou um consentimento."),
+            NotificationType.TherapyCarePlanReviewed => ("Plano de cuidado revisado", "Seu plano de cuidado foi revisado."),
             _ => ("MyHealth", "Você tem uma nova atualização."),
         };
 
