@@ -1,60 +1,113 @@
-# Módulo de integração HealthKit (iPhone)
+# HealthKit Integration Module (iPhone)
 
-Este diretório contém uma implementação nativa isolada. Ainda não há app iOS nem API nesta pasta para conectá-la ao fluxo real. O arquivo Swift precisa entrar em um target iOS existente e ser compilado/testado no Xcode com um iPhone físico e fontes reais de dados.
+This directory contains a standalone native implementation of the iPhone side of the Apple Health integration, and the
+contract it has with the MyHealth API (`src/MyHealth.ApiService`, implemented and covered by integration tests). Add the
+Swift file to the iOS target and compile and test it in Xcode on a physical iPhone with real Apple Health data
+(deployment target iOS 15+ for `Date.ISO8601FormatStyle`).
 
-## Configuração no target iOS
+## iOS Target Setup
 
-1. Habilitar a capability **HealthKit** no Xcode (entitlement `com.apple.developer.healthkit`).
-2. Incluir `NSHealthShareUsageDescription`: “Ler sua frequência cardíaca do Apple Saúde durante os treinos para mostrar sua evolução e sincronizá-la com sua conta.”
-3. Incluir `NSHealthUpdateUsageDescription`: “Salvar no Apple Saúde os treinos concluídos quando você autorizar.”
-4. Exibir explicação de uso e compartilhamento com a API antes de iniciar a conexão; chamar `start` após toque explícito do aluno. O diálogo de leitura é controlado pelo iOS.
-5. Adicionar botão/controle separado para salvar treinos no Apple Saúde; chamar `saveToAppleHealth` somente após essa escolha. A permissão de escrita é independente da leitura.
+1. Enable the **HealthKit** capability in Xcode (`com.apple.developer.healthkit` entitlement).
+2. Add `NSHealthShareUsageDescription`: “Read your heart rate from Apple Health during workouts to show your progress and sync it with your account.”
+3. Add `NSHealthUpdateUsageDescription`: “Save completed workouts to Apple Health when you authorize it.”
+4. Explain data use and API sharing before connecting (use `GET …/apple-health` for the list of receiving professionals); call `start` only after an explicit client action. iOS controls the read-permission dialog.
+5. Provide a separate control for saving workouts to Apple Health; call `saveToAppleHealth` only after that choice. Write permission is independent of read permission.
 
-## Uso no fluxo do app
+## App Flow
 
 ```swift
+let api = URL(string: "https://api.example.com/api/v1")!
 let healthKit = HealthKitWorkoutIntegration()
-let workoutID = UUID() // Use o ID estável da sessão no backend.
+
+// 1. The phone generates the session id and registers it BEFORE starting HealthKit (works offline: retry later,
+//    the call is idempotent on sessionId).
+let workoutID = UUID()
+// POST {api}/workout-sessions { sessionId: workoutID, planId, plannedSessionId, startedAt }
+
 let uploader = HTTPWorkoutHeartRateUploader(
-    endpoint: authenticatedWorkoutURL,
+    endpoint: api.appending(path: "workout-sessions/\(workoutID)/heart-rate"),
     bearerToken: currentAccessToken
 )
 
-// Ação de usuário: iniciar treino.
-try await healthKit.start(workoutID: workoutID) { points in
-    // Atualizar gráfico e último valor recebido. Os dados podem chegar com atraso.
+// 2. User action: start workout (only when the client connected Apple Health:
+//    POST {api}/me/health-connections/apple-health/connect).
+try await healthKit.start(workoutID: workoutID, at: startedAt) { points in
+    // Update the chart, latest sample time and latest sync time. Data may arrive late.
 }
 
-// Enquanto a sessão estiver ativa, chamar sequencialmente ao receber novos pontos
-// ou em intervalos definidos pelo app (e repetir quando a rede voltar):
+// 3. While the session is active, upload sequentially when new points arrive or on a timer.
 try await healthKit.syncCurrent(using: uploader)
 
-// Ação de usuário: finalizar treino.
-let result = try await healthKit.finish()
+// 4. User action: finish. Persist `result` locally BEFORE uploading; retry on .uploadFailed with the same id.
+let result = try await healthKit.finish(at: completedAt)
+// POST {api}/workout-sessions/{workoutID}/complete { completedAt, perceivedExertion, ... }
 try await healthKit.upload(result, using: uploader)
 
-// Somente se o aluno ativou a gravação no Apple Saúde:
-try await healthKit.saveToAppleHealth(result, activityType: .traditionalStrengthTraining)
+// 5. Only if the client enabled saving (PUT {api}/me/health-connections/apple-health/workout-saving { enabled: true }):
+if let saved = try await healthKit.saveToAppleHealth(result, activityType: .traditionalStrengthTraining) {
+    try await HTTPSavedWorkoutReporter(
+        endpoint: api.appending(path: "workout-sessions/\(workoutID)/apple-health-workout"),
+        bearerToken: currentAccessToken
+    ).report(saved)
+}
+
+// 6. On launch / foreground: reconcile late samples (HK-08).
+// GET {api}/me/health-connections/apple-health/reconciliation → sessions[] { sessionId, startedAt, endedAt, ... }
+for s in candidates {
+    let report = try await healthKit.reconcile(workoutID: s.sessionId, startedAt: s.startedAt, endedAt: s.endedAt)
+    try await healthKit.upload(report, using: uploaderFor(s.sessionId))
+}
 ```
 
-O app precisa persistir `result` localmente antes de tentar o upload e repetir em caso de falha de rede, preservando o mesmo `workoutID`. Também deve reconciliar amostras que cheguem ao Apple Saúde **depois** do encerramento; o módulo faz apenas uma leitura final no momento de finalizar. A UI não deve prometer FC em tempo real: o HealthKit entrega novos registros quando cada fonte os grava/sincroniza.
+Retry rules (`HealthKitWorkoutError`): `.uploadFailed` (network, 408, 409, 429, 5xx) → keep the report and retry with
+the same id; `.uploadRejected(statusCode)` (400, 403, 404) → permanent, do not retry (e.g. 403 means import is paused or
+revoked — the workout itself is unaffected).
 
-## Contrato esperado da API
+## API Contract
 
-`PUT /workouts/{workoutID}/heart-rate` com autenticação do aluno e chave de idempotência. O caminho exato é configurado pelo app ao criar o `HTTPWorkoutHeartRateUploader`. O corpo JSON contém `workoutID`, `startedAt`, `endedAt` (nulo durante a execução), `averageBeatsPerMinute`, `maximumBeatsPerMinute` e `points[]` (`healthKitID`, `timestamp`, `beatsPerMinute`, `sourceName`, `deviceName`). Datas usam ISO 8601 UTC. O servidor deve:
+All routes are under `/api/v1`, need `Authorization: Bearer <token>`, and use ISO 8601 UTC dates (fractional seconds
+accepted and recommended).
 
-- validar que a sessão pertence ao aluno autenticado e que a autorização de compartilhamento está ativa;
-- aceitar apenas amostras dentro do intervalo do treino e valores plausíveis para armazenamento, sem usá-los para diagnóstico;
-- deduplicar pontos por `(aluno, healthKitID)` e fazer upsert da sessão por `workoutID`;
-- recalcular média e máximo no servidor a partir dos pontos aceitos e guardar origem, horário e histórico de atualização;
-- permitir repetição segura do `PUT` e exclusão/revogação conforme política de dados.
+### `PUT /workout-sessions/{workoutID}/heart-rate`
 
-**Média:** no módulo é a média aritmética das amostras recebidas. Não é média contínua ponderada pelo tempo. Se o produto exigir média fisiológica da sessão, é necessário definir e implementar a regra de agregação no backend.
+Body = `WorkoutHeartRateReport`: `workoutID`, `startedAt`, `endedAt` (null while in progress), `averageBeatsPerMinute`,
+`maximumBeatsPerMinute`, `points[]` (`healthKitID`, `timestamp`, `beatsPerMinute`, `sourceName`, `deviceName`,
+`wasUserEntered` — optional, default false). The body `workoutID` must match the URL. The server:
 
-## Validação pendente
+- Verifies the authenticated client owns the session and that Apple Health import is **connected** (403 when paused or revoked).
+- Accepts only samples of 20–300 bpm inside the **server's** session interval and outside periods in which the client had paused or revoked import (the authorized period).
+- Deduplicates points by `(client, healthKitID)`: a sample already stored for another session of the same client is counted in `claimedByOtherSession` and not stored again (also enforced by a unique index).
+- Treats each report as a snapshot: in-progress reports are additive; the first report with `endedAt` is **final** (points missing from it are marked *removed by source*, never hard-deleted); later reports with `endedAt` are **reconciliation**; an in-progress report arriving after the final one is **ignored as stale** and can never revert the completed state.
+- Accepts reconciliation for up to **30 days** after the workout ended (409 `HealthData.ReconciliationWindowClosed` afterwards).
+- Ignores the phone's mean and maximum and recalculates from accepted points (see *Mean* below); stores provenance, every upload in a sync history, a revision number and `lastRevisedAt`.
+- Is safe to retry: identical reports produce only duplicates. The `Idempotency-Key` header is accepted but not required, because the operation is idempotent by content.
 
-- Compilar com o Xcode no target real e revisar disponibilidade das APIs no deployment target escolhido.
-- Testar no iPhone: autorização de leitura negada/parcial, escrita negada, amostras de diferentes origens no Apple Saúde, ausência de amostras, amostras atrasadas, exclusão na fonte e rede indisponível.
-- Integrar a API real, persistência local de upload e verificação de acesso do aluno no backend.
+Response: `{ kind, accepted, duplicates, corrected, rejected, removed, claimedByOtherSession, revision, isFinalized, summary, syncedAt }`.
 
-Referências: [autorização HealthKit](https://developer.apple.com/documentation/HealthKit/authorizing-access-to-health-data), [consulta ancorada](https://developer.apple.com/documentation/healthkit/hkanchoredobjectquery), [HKWorkoutBuilder](https://developer.apple.com/documentation/healthkit/hkworkoutbuilder).
+### Other endpoints used by the iPhone
+
+| Method & path | Purpose |
+|---|---|
+| `POST /workout-sessions` | Register the phone-generated session id (idempotent; 201 created, 200 already exists). |
+| `POST /workout-sessions/{id}/complete` | Completion and feedback. Independent of HealthKit: works with access denied. |
+| `GET /workout-sessions/{id}/heart-rate` | Points (each with `kind`: measured / self-reported), gaps > 60 s, sources, summary, `lastSyncedAt`, `latestSampleAt`, `lastRevisedAt`. |
+| `GET /me/health-connections/apple-health` | Status (`NotConnected`/`Connected`/`Paused`/`Revoked`), history, excluded periods, `saveWorkoutsToAppleHealth`, receiving professionals. |
+| `POST /me/health-connections/apple-health/connect` · `/pause` · `/revoke` | Separate client actions. Revoke also stops sharing with professionals and turns off workout saving. |
+| `PUT /me/health-connections/apple-health/workout-saving` | `{ enabled }` — opt-in to saving workouts (independent of import). |
+| `PUT /workout-sessions/{id}/apple-health-workout` | `{ healthKitWorkoutId, savedAt }` — first id wins; a different id → 409 (duplicate saved; delete it). Requires the opt-in. |
+| `GET /me/health-connections/apple-health/reconciliation` | Finished sessions within the 30-day window to re-query; empty unless import is connected. |
+
+### Mean
+
+The module and `averageBeatsPerMinute` use the arithmetic mean of samples. The API stores **both**:
+`averageBeatsPerMinute` (`arithmetic-mean-of-samples`, comparable with the phone) and
+`timeWeightedAverageBeatsPerMinute` (`time-weighted-trapezoidal-excluding-gaps-over-60s`, null when no two samples are
+within 60 s). Neither is a clinical measure.
+
+## Pending Validation (device)
+
+- Compile in Xcode within the actual target.
+- Test on iPhone: denied or partial read access, denied write access, samples from different Apple Health sources, user-entered samples, missing and delayed samples, source deletion, no network connection, reinstall after saving a workout.
+- Local persistence of pending reports and of the reconciliation loop belongs to the host app.
+
+References: [HealthKit authorization](https://developer.apple.com/documentation/HealthKit/authorizing-access-to-health-data), [anchored query](https://developer.apple.com/documentation/healthkit/hkanchoredobjectquery), [HKWorkoutBuilder](https://developer.apple.com/documentation/healthkit/hkworkoutbuilder).

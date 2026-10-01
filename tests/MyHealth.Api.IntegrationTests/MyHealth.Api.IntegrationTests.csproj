@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Full HTTP pipeline against a real PostgreSQL (Testcontainers). Requires Docker; tests are skipped when it is unavailable. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MyHealth.ApiService\MyHealth.ApiService.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.Net" />
+    <Using Include="System.Net.Http.Json" />
+  </ItemGroup>
+
+</Project>
