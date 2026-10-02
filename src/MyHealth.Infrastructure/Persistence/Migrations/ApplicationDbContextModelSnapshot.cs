@@ -442,6 +442,108 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.ToTable("physical_assessments", "myhealth");
                 });
 
+            modelBuilder.Entity("MyHealth.Domain.Assistant.AssistantConsent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<string>("History")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("history");
+
+                    b.PrimitiveCollection<int[]>("Scopes")
+                        .IsRequired()
+                        .HasColumnType("integer[]")
+                        .HasColumnName("scopes");
+
+                    b.Property<int?>("TermsVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("terms_version");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset?>("WithdrawnAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("withdrawn_at");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_assistant_consents");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_assistant_consents_user_id");
+
+                    b.ToTable("assistant_consents", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Assistant.AssistantProposal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_assistant_proposals");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("ix_assistant_proposals_user_id_created_at");
+
+                    b.ToTable("assistant_proposals", "myhealth");
+                });
+
             modelBuilder.Entity("MyHealth.Domain.Billing.Invoice", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2479,15 +2581,15 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_archived");
 
+                    b.Property<string>("Media")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("media");
+
                     b.Property<string>("MediaCaption")
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)")
                         .HasColumnName("media_caption");
-
-                    b.Property<string>("MediaUrl")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("media_url");
 
                     b.PrimitiveCollection<List<string>>("MuscleGroups")
                         .IsRequired()
@@ -2875,6 +2977,11 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid[]")
                         .HasColumnName("allowed_exercise_ids");
 
+                    b.Property<string>("BodyChecks")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("body_checks");
+
                     b.Property<Guid>("ClientId")
                         .HasColumnType("uuid")
                         .HasColumnName("client_id");
@@ -3003,6 +3110,56 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_user_profiles_email");
 
                     b.ToTable("user_profiles", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Wellbeing.WellbeingCheckIn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<int?>("Energy")
+                        .HasColumnType("integer")
+                        .HasColumnName("energy");
+
+                    b.Property<DateOnly>("LocalDate")
+                        .HasColumnType("date")
+                        .HasColumnName("local_date");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<int?>("SleepQuality")
+                        .HasColumnType("integer")
+                        .HasColumnName("sleep_quality");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("WorkoutSessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workout_session_id");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_wellbeing_check_ins");
+
+                    b.HasIndex("ClientId", "LocalDate")
+                        .IsUnique()
+                        .HasDatabaseName("ix_wellbeing_check_ins_client_id_local_date");
+
+                    b.ToTable("wellbeing_check_ins", "myhealth");
                 });
 
             modelBuilder.Entity("MyHealth.Infrastructure.Identity.ApplicationUser", b =>

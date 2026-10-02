@@ -37,7 +37,8 @@ public sealed record WorkoutSessionResponse(
     IReadOnlyList<SetLogResponse> Sets,
     WorkoutFeedback? Feedback,
     FeedbackReply? Reply,
-    ExternalWorkoutExport? AppleHealthWorkout);
+    ExternalWorkoutExport? AppleHealthWorkout,
+    IReadOnlyList<BodyCheck> BodyChecks);
 
 /// <summary>
 /// Readable by the client, or by the responsible trainer while acting for the session's tenant with an active
@@ -349,5 +350,6 @@ internal static class WorkoutMapping
                 x.Notes, x.LoggedAt, x.Corrections)).ToList(),
             s.Feedback,
             s.Reply,
-            s.AppleHealthWorkout);
+            s.AppleHealthWorkout,
+            s.BodyChecks.OrderBy(c => c.At).ToList());
 }

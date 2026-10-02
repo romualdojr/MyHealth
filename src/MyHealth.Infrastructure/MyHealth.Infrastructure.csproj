@@ -13,4 +13,9 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The Claude client is tested against a stubbed HTTP handler (no API key needed). -->
+    <InternalsVisibleTo Include="MyHealth.Api.IntegrationTests" />
+  </ItemGroup>
+
 </Project>

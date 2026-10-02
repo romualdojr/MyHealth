@@ -231,6 +231,21 @@ The phases below re-cut §10 so that every phase ends with a demonstrable, testa
 | Isolation and therapy summary | `TherapyTests.Sessions_are_isolated_*`, `TherapyTests.Summary_inside_the_same_organization_*` |
 | Scheduling and care plans | `TherapyTests.Scheduling_*`, `TherapyTests.Care_plans_*` |
 
+### 2.10 Client experience: assistant, rest-time questions, exercise video — findings and resolutions ✅
+
+From the client prototype: entering everything by hand is too much for clients, so the app asks small questions at
+the right moment and an assistant turns what they say into records.
+
+| # | Finding | Resolution |
+|---|---|---|
+| C1 | An assistant sends health data to an AI provider (LGPD sensitive data). | Separate, versioned consent with chosen areas (training, nutrition, therapies), withdrawable; only the consented areas and recent records go into each request; each message audited. **(decide)** the provider and sign a data processing agreement before enabling `Anthropic` in production. |
+| C2 | The assistant must not practise health care (RNF-10). | Fixed rules in the system prompt; it can only *prepare* records through three tools, and nothing is saved without the client's confirmation. Pain becomes a report to the trainer with server-defined safety text. It never accepts consent terms. |
+| C3 | Records made by the assistant must follow the same rules as the forms. | Confirming runs the existing command as the client (same access checks, sharing, notifications, idempotency). |
+| C4 | "Every exercise needs a video" (RF-12 media). | Several media items per exercise (loop per angle, full video with captions and chapters, images) from the MyHealth media host only; text description required first. **(decide)** who films or licenses the library videos; upload and CDN are pending (RF-27). |
+| C5 | Rest time can be used for questions, but must not disturb the workout. | The server lists at most four pending questions with who receives each answer; the phone shows one per rest, never in the last 15 s, after the heart rate drops, always skippable. |
+| C6 | Sleep and energy are new health data. | `Wellbeing` sharing category (off unless the client grants it), in the data export. **(confirm)** the scales (1–5) and whether mood or stress should be added. |
+| C7 | A pain answer must not be interpreted. | Body checks record better / same / worse / new and notify the trainer only when the client chooses to report. |
+
 ### 3.4 Platform billing mapping (API and back office)
 
 | Requirement | Covered by |
@@ -240,6 +255,14 @@ The phases below re-cut §10 so that every phase ends with a demonstrable, testa
 | B3/B4 past due, suspension, reactivation | `TenantSubscriptionTests.Non_payment_moves_*`, `BillingTests.A_suspended_organization_blocks_*` |
 | B6 webhook signature, idempotency, amount mismatch | `BillingTests.The_organization_administrator_pays_*`, `BillingTests.A_payment_with_a_different_amount_*`, `InvoiceTests` |
 | B7 operator actions and revenue summary | `BillingTests.Operators_set_prices_*`, `WebDashboardContractTests.The_back_office_billing_pages_*` |
+
+### 3.5 Client experience mapping (API)
+
+| Requirement | Covered by |
+|---|---|
+| C4 exercise media and client plan | `ClientExperienceTests.Exercises_carry_videos_*`, `ExerciseMediaTests` |
+| C5/C6/C7 rest-time questions, wellbeing, body checks | `ClientExperienceTests.During_rest_the_client_gets_the_days_questions_*`, `BodyCheckTests`, `WellbeingCheckInTests` |
+| C1/C2/C3 assistant consent, cards, confirmation | `ClientExperienceTests.The_assistant_needs_consent_*`, `AssistantConsentTests`, `AnthropicAssistantModelTests` |
 
 ## 4. Open decisions for the business (carry-over from §12)
 

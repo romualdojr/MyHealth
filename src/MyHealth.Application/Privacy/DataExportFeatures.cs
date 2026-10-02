@@ -4,6 +4,8 @@ using MyHealth.Application.Abstractions.Authentication;
 using MyHealth.Application.Abstractions.Data;
 using MyHealth.Application.Abstractions.Messaging;
 using MyHealth.Application.Assessments;
+using MyHealth.Application.Wellbeing;
+using MyHealth.Domain.Assistant;
 using MyHealth.Domain.Abstractions;
 using MyHealth.Domain.Assessments;
 using MyHealth.Domain.CareRelationships;
@@ -107,6 +109,8 @@ public sealed record DataExportPackage(
     IReadOnlyList<ExportTherapySession> TherapySessions,
     IReadOnlyList<ExportTherapyConsent> TherapyConsents,
     IReadOnlyList<ExportCarePlan> TherapyCarePlans,
+    IReadOnlyList<WellbeingCheckInResponse> WellbeingCheckIns,
+    ExportAssistantConsent? Assistant,
     IReadOnlyList<ExportNotification> Notifications,
     IReadOnlyList<ExportPrivacyRequest> PrivacyRequests,
     IReadOnlyList<ExportAccessLogEntry> AccessLog);
@@ -150,7 +154,10 @@ public sealed record ExportHeartRate(bool IsFinalized, int Revision, HeartRateSu
 public sealed record ExportWorkoutSession(
     Guid Id, string OrganizationName, Guid TrainingPlanId, int PlanVersionNumber, string PlannedSessionName, WorkoutStatus Status, DateTimeOffset StartedAt,
     DateTimeOffset? CompletedAt, DateTimeOffset? AbandonedAt, DateOnly? LocalDate, IReadOnlyList<ExportSet> Sets, WorkoutFeedback? Feedback, string? TrainerReply,
-    DateTimeOffset? TrainerRepliedAt, ExternalWorkoutExport? AppleHealthWorkout, ExportHeartRate? HeartRate);
+    DateTimeOffset? TrainerRepliedAt, ExternalWorkoutExport? AppleHealthWorkout, ExportHeartRate? HeartRate, IReadOnlyList<BodyCheck> BodyChecks);
+
+public sealed record ExportAssistantConsent(int? TermsVersion, IReadOnlyList<AssistantScope> Scopes, DateTimeOffset? AcceptedAt, DateTimeOffset? WithdrawnAt,
+    IReadOnlyList<AssistantConsentChange> History);
 
 public sealed record ExportAppleHealth(HealthConnectionStatus Status, bool SaveWorkouts, IReadOnlyList<ExportConnectionChange> History);
 
@@ -237,6 +244,8 @@ internal sealed class DataExportAssembler(IReadDbContext db, Guid userId)
             await TherapySessionsAsync(ct),
             await TherapyConsentsAsync(ct),
             await CarePlansAsync(ct),
+            await WellbeingMapping.ListAsync(db.WellbeingCheckIns.Where(c => c.ClientId == userId), null, null, ct),
+            await AssistantAsync(ct),
             await NotificationsAsync(ct),
             await PrivacyRequestsAsync(ct),
             await AccessLogAsync(relationships, ct));
@@ -333,8 +342,15 @@ internal sealed class DataExportAssembler(IReadDbContext db, Guid userId)
                         heartRate.Samples.OrderBy(x => x.Timestamp)
                             .Select(x => new ExportHeartRateSample(x.Timestamp, x.BeatsPerMinute, x.SourceName, x.DeviceName, x.Kind, x.ReceivedAt, x.CorrectedAt,
                                 x.RemovedAt))
-                            .ToList()));
+                            .ToList()),
+                s.BodyChecks.OrderBy(c => c.At).ToList());
         }).ToList();
+    }
+
+    private async Task<ExportAssistantConsent?> AssistantAsync(CancellationToken ct)
+    {
+        var consent = await db.AssistantConsents.FirstOrDefaultAsync(c => c.UserId == userId, ct);
+        return consent is null ? null : new ExportAssistantConsent(consent.TermsVersion, consent.Scopes, consent.AcceptedAt, consent.WithdrawnAt, consent.History);
     }
 
     private async Task<ExportAppleHealth> AppleHealthAsync(CancellationToken ct)

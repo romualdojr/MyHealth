@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using MyHealth.Application.Abstractions.Auditing;
 using MyHealth.Application.Abstractions.Data;
+using MyHealth.Domain.Assistant;
+using MyHealth.Domain.Wellbeing;
 using MyHealth.Domain.Assessments;
 using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
@@ -82,6 +84,12 @@ internal sealed class ReadDbContext(ApplicationDbContext db) : IReadDbContext
     public IQueryable<ModulePrice> ModulePrices => db.ModulePrices.AsNoTracking();
 
     public IQueryable<PaymentEvent> PaymentEvents => db.PaymentEvents.AsNoTracking();
+
+    public IQueryable<WellbeingCheckIn> WellbeingCheckIns => db.WellbeingCheckIns.AsNoTracking();
+
+    public IQueryable<AssistantConsent> AssistantConsents => db.AssistantConsents.AsNoTracking();
+
+    public IQueryable<AssistantProposal> AssistantProposals => db.AssistantProposals.AsNoTracking();
 
     public IQueryable<Notification> Notifications => db.Notifications.AsNoTracking();
 

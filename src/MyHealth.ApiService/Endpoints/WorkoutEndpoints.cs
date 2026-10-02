@@ -2,6 +2,7 @@ using MyHealth.ApiService.Infrastructure;
 using MyHealth.Application.Abstractions.Messaging;
 using MyHealth.Application.HealthData;
 using MyHealth.Application.Workouts;
+using MyHealth.Domain.Training.Workouts;
 
 namespace MyHealth.ApiService.Endpoints;
 
@@ -20,6 +21,8 @@ internal static class WorkoutEndpoints
     public sealed record CompleteRequest(DateTimeOffset CompletedAt, int PerceivedExertion, bool ReportedDiscomfort, string? DiscomfortDetails, string? Comments);
 
     public sealed record ReplyRequest(string Message);
+
+    public sealed record BodyCheckRequest(string Subject, BodyCheckAnswer Answer, string? Details, bool ReportToTrainer, DateTimeOffset? At);
 
     /// <summary>Wire format of the iOS <c>WorkoutHeartRateReport</c> (property matching is case-insensitive).</summary>
     public sealed record HeartRateReportRequest(
@@ -75,6 +78,13 @@ internal static class WorkoutEndpoints
                 Guid sessionId, CompleteRequest request, ICommandHandler<CompleteWorkoutCommand> handler, CancellationToken ct) =>
             (await handler.Handle(
                 new CompleteWorkoutCommand(sessionId, request.CompletedAt, request.PerceivedExertion, request.ReportedDiscomfort, request.DiscomfortDetails, request.Comments),
+                ct)).ToHttp());
+
+        // During rest or through the assistant: "como está o joelho?". Reporting it notifies the trainer.
+        group.MapPut("/{sessionId:guid}/body-checks/{checkId:guid}", async (
+                Guid sessionId, Guid checkId, BodyCheckRequest request, ICommandHandler<RecordBodyCheckCommand> handler, TimeProvider clock, CancellationToken ct) =>
+            (await handler.Handle(
+                new RecordBodyCheckCommand(sessionId, checkId, request.Subject, request.Answer, request.Details, request.ReportToTrainer, request.At ?? clock.GetUtcNow()),
                 ct)).ToHttp());
 
         group.MapPost("/{sessionId:guid}/feedback-reply", async (

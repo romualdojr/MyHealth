@@ -82,6 +82,10 @@ internal static class AdminEndpoints
                 Guid exerciseId, ExerciseInput exercise, ICommandHandler<UpdateSystemExerciseCommand> handler, CancellationToken ct) =>
             (await handler.Handle(new UpdateSystemExerciseCommand(exerciseId, exercise), ct)).ToHttp());
 
+        group.MapPut("/exercises/{exerciseId:guid}/media", async (
+                Guid exerciseId, ExerciseEndpoints.ExerciseMediaRequest request, ICommandHandler<SetSystemExerciseMediaCommand> handler, CancellationToken ct) =>
+            (await handler.Handle(new SetSystemExerciseMediaCommand(exerciseId, request.Media), ct)).ToHttp());
+
         group.MapPost("/exercises/{exerciseId:guid}/archive", async (Guid exerciseId, ICommandHandler<ArchiveSystemExerciseCommand> handler, CancellationToken ct) =>
             (await handler.Handle(new ArchiveSystemExerciseCommand(exerciseId, Archived: true), ct)).ToHttp());
 

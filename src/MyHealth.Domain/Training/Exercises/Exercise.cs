@@ -38,11 +38,14 @@ public sealed class Exercise : AggregateRoot<Guid>
 
     public string? Precautions { get; private set; }
 
-    /// <summary>Owned or licensed media only.</summary>
-    public string? MediaUrl { get; private set; }
-
-    /// <summary>Instructional text or captions for the media (accessibility).</summary>
+    /// <summary>Text description of the movement for people who cannot watch the video (accessibility). Required once the exercise has video.</summary>
     public string? MediaCaption { get; private set; }
+
+    /// <summary>
+    /// Videos and images of the movement, owned or licensed only. Changing them does not change the prescription, so it
+    /// does not bump <see cref="Version"/>; clients always get the current media.
+    /// </summary>
+    public List<ExerciseMedia> Media { get; private set; } = [];
 
     public int Version { get; private set; }
 
@@ -113,6 +116,51 @@ public sealed class Exercise : AggregateRoot<Guid>
         return Result.Success();
     }
 
+    /// <summary>The creator replaces the media of their own exercise.</summary>
+    public Result SetMedia(Guid profileId, IReadOnlyList<ExerciseMedia> media, DateTimeOffset now) =>
+        CanBeEditedBy(profileId) ? ReplaceMedia(media, now) : ExerciseErrors.NotOwner;
+
+    /// <summary>Platform operators maintain the media of the curated library.</summary>
+    public Result SetSystemMedia(IReadOnlyList<ExerciseMedia> media, DateTimeOffset now) =>
+        IsSystem ? ReplaceMedia(media, now) : ExerciseErrors.NotSystem;
+
+    private Result ReplaceMedia(IReadOnlyList<ExerciseMedia> media, DateTimeOffset now)
+    {
+        if (media.Count > ExerciseMedia.MaxItems)
+        {
+            return ExerciseErrors.TooManyMedia;
+        }
+
+        if (media.Select(m => m.Id).Distinct().Count() != media.Count)
+        {
+            return ExerciseErrors.DuplicateMedia;
+        }
+
+        // One loop per camera angle: the workout screen picks it without asking.
+        if (media.Where(m => m.Kind == MediaKind.Loop).GroupBy(m => m.Angle).Any(g => g.Count() > 1))
+        {
+            return ExerciseErrors.DuplicateLoop;
+        }
+
+        foreach (var item in media)
+        {
+            var valid = item.Validate();
+            if (valid.IsFailure)
+            {
+                return valid;
+            }
+        }
+
+        if (media.Any(m => m.IsVideo) && string.IsNullOrWhiteSpace(MediaCaption))
+        {
+            return ExerciseErrors.MediaDescriptionRequired;
+        }
+
+        Media = media.Select(m => m.Normalized()).ToList();
+        UpdatedAt = now;
+        return Result.Success();
+    }
+
     private void Apply(ExerciseDetails details)
     {
         Name = details.Name.Trim();
@@ -121,7 +169,6 @@ public sealed class Exercise : AggregateRoot<Guid>
         Equipment = Normalize(details.Equipment);
         Purpose = details.Purpose;
         Precautions = details.Precautions;
-        MediaUrl = details.MediaUrl;
         MediaCaption = details.MediaCaption;
     }
 
@@ -136,7 +183,6 @@ public sealed record ExerciseDetails(
     IReadOnlyCollection<string> Equipment,
     string? Purpose,
     string? Precautions,
-    string? MediaUrl,
     string? MediaCaption);
 
 public static class ExerciseErrors
@@ -144,6 +190,14 @@ public static class ExerciseErrors
     public static readonly Error NotFound = Error.NotFound("Exercise.NotFound", "The exercise was not found.");
     public static readonly Error NotOwner = Error.Forbidden("Exercise.NotOwner", "Only the professional who created this exercise can change it.");
     public static readonly Error NotSystem = Error.Validation("Exercise.NotSystem", "Only curated library entries are managed by platform operators.");
+    public static readonly Error TooManyMedia = Error.Validation("Exercise.TooManyMedia", $"An exercise has at most {ExerciseMedia.MaxItems} media items.");
+    public static readonly Error DuplicateMedia = Error.Validation("Exercise.DuplicateMedia", "Media ids must be unique.");
+    public static readonly Error DuplicateLoop = Error.Validation("Exercise.DuplicateLoop", "Only one loop per camera angle.");
+    public static readonly Error MediaDescriptionRequired = Error.Validation(
+        "Exercise.MediaDescriptionRequired", "Add a text description of the movement (mediaCaption) before adding video, for people who cannot watch it.");
+    public static readonly Error InvalidMedia = Error.Validation("Exercise.InvalidMedia", "Each media item needs an https URL, and a video needs its duration.");
+    public static readonly Error InvalidChapters = Error.Validation(
+        "Exercise.InvalidChapters", "Chapters need a title and must be in order, inside the video's duration.");
 
     public static Error Unknown(IEnumerable<Guid> ids) =>
         Error.Validation("Exercise.Unknown", $"Unknown or unavailable exercises: {string.Join(", ", ids)}.");

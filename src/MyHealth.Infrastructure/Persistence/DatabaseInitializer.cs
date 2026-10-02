@@ -44,16 +44,16 @@ public static class DatabaseInitializer
         var now = clock.GetUtcNow();
         ExerciseDetails[] library =
         [
-            new("Agachamento livre", "Barra apoiada no trapézio; desça controlando até a coxa ficar paralela ao chão.", ["quadriceps", "gluteos"], ["barra"], "força", "Mantenha a coluna neutra.", null, null),
-            new("Supino reto", "Deitado no banco, desça a barra até o peito e empurre até estender os cotovelos.", ["peitoral", "triceps"], ["barra", "banco"], "força", "Use apoio de segurança ou um parceiro.", null, null),
-            new("Remada curvada", "Tronco inclinado, puxe a barra em direção ao abdômen.", ["dorsais", "biceps"], ["barra"], "força", "Evite arredondar a lombar.", null, null),
-            new("Levantamento terra", "Puxe a barra do chão estendendo quadril e joelhos ao mesmo tempo.", ["posterior de coxa", "gluteos", "lombar"], ["barra"], "força", "Requer técnica supervisionada.", null, null),
-            new("Desenvolvimento com halteres", "Sentado, empurre os halteres acima da cabeça.", ["ombros", "triceps"], ["halteres", "banco"], "força", null, null, null),
-            new("Puxada frontal", "Puxe a barra da polia até a altura do queixo.", ["dorsais", "biceps"], ["polia"], "força", null, null, null),
-            new("Leg press 45°", "Empurre a plataforma estendendo os joelhos sem travá-los.", ["quadriceps", "gluteos"], ["maquina"], "força", "Não tire o quadril do banco.", null, null),
-            new("Prancha", "Apoio nos antebraços e pés, corpo alinhado.", ["core"], [], "estabilidade", null, null, null),
-            new("Esteira", "Caminhada ou corrida em esteira.", ["cardiorrespiratorio"], ["esteira"], "aeróbico", null, null, null),
-            new("Bicicleta ergométrica", "Pedalada em bicicleta estacionária.", ["cardiorrespiratorio"], ["bicicleta"], "aeróbico", null, null, null),
+            new("Agachamento livre", "Barra apoiada no trapézio; desça controlando até a coxa ficar paralela ao chão.", ["quadriceps", "gluteos"], ["barra"], "força", "Mantenha a coluna neutra.", null),
+            new("Supino reto", "Deitado no banco, desça a barra até o peito e empurre até estender os cotovelos.", ["peitoral", "triceps"], ["barra", "banco"], "força", "Use apoio de segurança ou um parceiro.", null),
+            new("Remada curvada", "Tronco inclinado, puxe a barra em direção ao abdômen.", ["dorsais", "biceps"], ["barra"], "força", "Evite arredondar a lombar.", null),
+            new("Levantamento terra", "Puxe a barra do chão estendendo quadril e joelhos ao mesmo tempo.", ["posterior de coxa", "gluteos", "lombar"], ["barra"], "força", "Requer técnica supervisionada.", null),
+            new("Desenvolvimento com halteres", "Sentado, empurre os halteres acima da cabeça.", ["ombros", "triceps"], ["halteres", "banco"], "força", null, null),
+            new("Puxada frontal", "Puxe a barra da polia até a altura do queixo.", ["dorsais", "biceps"], ["polia"], "força", null, null),
+            new("Leg press 45°", "Empurre a plataforma estendendo os joelhos sem travá-los.", ["quadriceps", "gluteos"], ["maquina"], "força", "Não tire o quadril do banco.", null),
+            new("Prancha", "Apoio nos antebraços e pés, corpo alinhado.", ["core"], [], "estabilidade", null, null),
+            new("Esteira", "Caminhada ou corrida em esteira.", ["cardiorrespiratorio"], ["esteira"], "aeróbico", null, null),
+            new("Bicicleta ergométrica", "Pedalada em bicicleta estacionária.", ["cardiorrespiratorio"], ["bicicleta"], "aeróbico", null, null),
         ];
 
         db.Exercises.AddRange(library.Select(details => Exercise.CreateSystem(details, now)));

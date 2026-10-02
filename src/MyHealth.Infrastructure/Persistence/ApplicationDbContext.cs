@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using MyHealth.Application.Abstractions.Auditing;
+using MyHealth.Domain.Assistant;
+using MyHealth.Domain.Wellbeing;
 using MyHealth.Domain.Assessments;
 using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
@@ -87,6 +89,12 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<ModulePrice> ModulePrices => Set<ModulePrice>();
 
     public DbSet<PaymentEvent> PaymentEvents => Set<PaymentEvent>();
+
+    public DbSet<WellbeingCheckIn> WellbeingCheckIns => Set<WellbeingCheckIn>();
+
+    public DbSet<AssistantConsent> AssistantConsents => Set<AssistantConsent>();
+
+    public DbSet<AssistantProposal> AssistantProposals => Set<AssistantProposal>();
 
     public DbSet<Notification> Notifications => Set<Notification>();
 

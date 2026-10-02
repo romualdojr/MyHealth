@@ -18,7 +18,7 @@ internal sealed class ExerciseConfiguration : IEntityTypeConfiguration<Exercise>
         builder.Property(e => e.Description).HasMaxLength(4000).IsRequired();
         builder.Property(e => e.Purpose).HasMaxLength(200);
         builder.Property(e => e.Precautions).HasMaxLength(4000);
-        builder.Property(e => e.MediaUrl).HasMaxLength(2048);
+        builder.Property(e => e.Media).HasJsonConversion();
         builder.Property(e => e.MediaCaption).HasMaxLength(4000);
         builder.HasOne<Tenant>().WithMany().HasForeignKey(e => e.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(e => e.TenantId);
@@ -86,6 +86,7 @@ internal sealed class WorkoutSessionConfiguration : IEntityTypeConfiguration<Wor
         builder.Property<uint>("version").IsRowVersion();
         builder.Ignore(s => s.EndedAt);
         builder.Ignore(s => s.IsOpen);
+        builder.Property(s => s.BodyChecks).HasJsonConversion();
 
         builder.OwnsOne(s => s.Feedback, feedback =>
         {

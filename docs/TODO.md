@@ -16,6 +16,9 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] Real module prices, trial length, due and grace days (2.9 B1–B3) — placeholders are seeded.
 - [ ] Payment provider (Pix + card; e.g. Asaas, Pagar.me, Mercado Pago, Stripe) and NF-e/NFS-e issuing (2.9 B8).
 - [ ] Will professionals charge their own clients through MyHealth (RF-47 for clients)?
+- [ ] AI provider for the assistant and its data processing agreement; review of the assistant terms text by legal (2.10 C1).
+- [ ] Who films or licenses the exercise library videos (2.10 C4).
+- [ ] Wellbeing scales (sleep, energy 1–5) and whether to add mood or stress (2.10 C6).
 - [ ] Onboarding: should a solo practice be created automatically for independent professionals (2.6)?
 - [ ] Confirm the RF-45/RF-46 numbering gap.
 
@@ -45,6 +48,15 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] RF-05 client reassignment between professionals of a tenant, with a transfer audit trail.
 - [x] Tenant suspension through platform billing (per-module subscriptions, invoices, fake payment provider, back office).
 - [ ] Per-tenant settings.
+
+## Client experience — follow-ups (API side built, 2.10)
+
+- [x] Exercise media (loops per angle, full video with captions and chapters) in the client plan; body checks; wellbeing check-ins and sharing; rest-time prompts; assistant consent, messages, confirm/discard; fake and Claude models.
+- [ ] Media upload and CDN (signed uploads, transcoding to adaptive streaming, thumbnails) with tenant checks for trainers' videos (RF-27).
+- [ ] Notification quick actions ("Segui o plano" from the lock screen) and reminders ("Lembrar às 19h") — with RF-07 and real push.
+- [ ] Assistant: streaming replies, speech-to-text on the phone, evaluation set of Portuguese phrases before enabling Claude, cost limits per tenant.
+- [ ] Assistant as a paid module, if wanted (billing has per-module prices).
+- [ ] Back office: library media management screen.
 
 ## Platform billing — follow-ups
 

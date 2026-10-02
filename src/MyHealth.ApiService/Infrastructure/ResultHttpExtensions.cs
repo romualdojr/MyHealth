@@ -44,4 +44,7 @@ internal static class AuthorizationPolicies
 internal static class RateLimitPolicies
 {
     public const string Authentication = "authentication";
+
+    /// <summary>Messages to the assistant, per user: each one calls the AI provider.</summary>
+    public const string Assistant = "assistant";
 }

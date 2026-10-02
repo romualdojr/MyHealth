@@ -14,6 +14,9 @@ public enum DataCategory
 
     /// <summary>The client's health history (RF-23). Every professional needs it shared, including trainers.</summary>
     HealthHistory = 6,
+
+    /// <summary>Sleep and energy check-ins, often answered during rest.</summary>
+    Wellbeing = 7,
 }
 
 public enum RelationshipStatus

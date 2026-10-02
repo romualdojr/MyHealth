@@ -71,6 +71,9 @@ public sealed class WorkoutSession : AggregateRoot<Guid>
     /// <summary>The HKWorkout the phone saved for this session, if the client opted in (HK-06).</summary>
     public ExternalWorkoutExport? AppleHealthWorkout { get; private set; }
 
+    /// <summary>Answers to "como está o joelho?" during rest or told to the assistant (stored as jsonb).</summary>
+    public List<BodyCheck> BodyChecks { get; private set; } = [];
+
     public IReadOnlyCollection<SetLog> Sets => _sets.AsReadOnly();
 
     public IReadOnlyCollection<WorkoutPause> Pauses => _pauses.AsReadOnly();
@@ -348,6 +351,69 @@ public sealed class WorkoutSession : AggregateRoot<Guid>
 
         AppleHealthWorkout = new ExternalWorkoutExport(healthKitWorkoutId, savedAt, now);
         return Result.Success();
+    }
+
+    /// <summary>How long after a workout ended the client can still add a body check to it ("ontem doeu o joelho").</summary>
+    public static readonly TimeSpan BodyCheckWindow = TimeSpan.FromDays(7);
+
+    /// <summary>
+    /// Records how a body part feels, during the workout or within <see cref="BodyCheckWindow"/> after it. The id comes
+    /// from the phone, so a retry with the same answers is a no-op. Reporting it notifies the responsible trainer.
+    /// </summary>
+    public Result RecordBodyCheck(BodyCheck check, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(check.Subject))
+        {
+            return WorkoutErrors.BodyCheckSubjectRequired;
+        }
+
+        if (check.At > now + ClockSkewTolerance)
+        {
+            return WorkoutErrors.FutureTimestamp;
+        }
+
+        var normalized = check with
+        {
+            Subject = check.Subject.Trim(),
+            Details = string.IsNullOrWhiteSpace(check.Details) ? null : check.Details.Trim(),
+            At = check.At < StartedAt ? StartedAt : check.At,
+        };
+
+        var existing = BodyChecks.Find(c => c.Id == check.Id);
+        if (existing is not null)
+        {
+            return existing with { At = normalized.At } == normalized ? Result.Success() : WorkoutErrors.BodyCheckIdConflict;
+        }
+
+        if (!IsOpen && (EndedAt is not { } ended || now - ended > BodyCheckWindow))
+        {
+            return WorkoutErrors.BodyCheckClosed;
+        }
+
+        BodyChecks = [.. BodyChecks, normalized];
+        if (normalized.ReportedToTrainer)
+        {
+            Raise(new DiscomfortReported(Id, TenantId, ClientId, TrainerUserId, now));
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// The most recent discomfort the client told the trainer about in this session: a reported body check, or the
+    /// discomfort flag of the end-of-workout feedback (whose subject is unknown).
+    /// </summary>
+    public ReportedDiscomfort? LatestReportedDiscomfort()
+    {
+        var check = BodyChecks
+            .Where(c => c.ReportedToTrainer && c.Answer is BodyCheckAnswer.Worse or BodyCheckAnswer.New)
+            .MaxBy(c => c.At);
+        if (check is not null)
+        {
+            return new ReportedDiscomfort(check.Subject, check.Details);
+        }
+
+        return Feedback is { ReportedDiscomfort: true } feedback ? new ReportedDiscomfort(null, feedback.DiscomfortDetails) : null;
     }
 
     /// <summary>Time spent exercising, excluding pauses. Null while the session is open.</summary>

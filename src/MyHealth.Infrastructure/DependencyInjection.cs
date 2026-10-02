@@ -4,12 +4,15 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MyHealth.Application.Abstractions.Administration;
+using MyHealth.Application.Abstractions.Assistant;
 using MyHealth.Application.Abstractions.Auditing;
 using MyHealth.Application.Abstractions.Authentication;
 using MyHealth.Application.Abstractions.Data;
+using MyHealth.Application.Abstractions.Media;
 using MyHealth.Application.Abstractions.Payments;
 using MyHealth.Domain.Abstractions;
 using MyHealth.Domain.Assessments;
+using MyHealth.Domain.Assistant;
 using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
@@ -23,7 +26,9 @@ using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
 using MyHealth.Domain.Users;
+using MyHealth.Domain.Wellbeing;
 using MyHealth.Infrastructure.Auditing;
+using MyHealth.Infrastructure.ClientExperience;
 using MyHealth.Infrastructure.Identity;
 using MyHealth.Infrastructure.Notifications;
 using MyHealth.Infrastructure.Payments;
@@ -84,6 +89,30 @@ public static class DependencyInjection
         services.AddScoped<ITenantSubscriptionRepository, TenantSubscriptionRepository>();
         services.AddScoped<IInvoiceRepository, InvoiceRepository>();
         services.AddScoped<IPaymentEventRepository, PaymentEventRepository>();
+
+        services.AddScoped<IWellbeingCheckInRepository, WellbeingCheckInRepository>();
+        services.AddScoped<IAssistantConsentRepository, AssistantConsentRepository>();
+        services.AddScoped<IAssistantProposalRepository, AssistantProposalRepository>();
+        services.AddSingleton<IMediaHostPolicy, ConfiguredMediaHostPolicy>();
+
+        // Assistant: the rule-based fake unless Claude is configured (Assistant:Provider=Anthropic plus an API key).
+        if (string.Equals(builder.Configuration["Assistant:Provider"], "Anthropic", StringComparison.OrdinalIgnoreCase))
+        {
+            var apiKey = builder.Configuration["Assistant:Anthropic:ApiKey"]
+                         ?? throw new InvalidOperationException("Assistant:Provider is Anthropic but Assistant:Anthropic:ApiKey is not set.");
+            services.AddHttpClient<AnthropicAssistantModel>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.anthropic.com/");
+                client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+                client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
+            services.AddScoped<IAssistantModel>(sp => sp.GetRequiredService<AnthropicAssistantModel>());
+        }
+        else
+        {
+            services.AddSingleton<IAssistantModel, FakeAssistantModel>();
+        }
 
         // Payments (§8): a fake provider until one is chosen. A real one replaces both registrations; it simulates nothing.
         services.AddSingleton<FakePaymentProvider>();

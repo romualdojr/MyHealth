@@ -9,6 +9,8 @@ namespace MyHealth.ApiService.Endpoints;
 
 internal static class ExerciseEndpoints
 {
+    public sealed record ExerciseMediaRequest(IReadOnlyList<ExerciseMediaInput> Media);
+
     public static void MapExerciseEndpoints(this IEndpointRouteBuilder routes)
     {
         var group = routes.MapGroup("/exercises").WithTags("Exercise library");
@@ -26,6 +28,10 @@ internal static class ExerciseEndpoints
 
         group.MapPut("/{exerciseId:guid}", async (Guid exerciseId, ExerciseInput exercise, ICommandHandler<UpdateExerciseCommand> handler, CancellationToken ct) =>
             (await handler.Handle(new UpdateExerciseCommand(exerciseId, exercise), ct)).ToHttp());
+
+        // Videos and images of an exercise the trainer created; library media is managed under /admin/exercises.
+        group.MapPut("/{exerciseId:guid}/media", async (Guid exerciseId, ExerciseMediaRequest request, ICommandHandler<SetExerciseMediaCommand> handler, CancellationToken ct) =>
+            (await handler.Handle(new SetExerciseMediaCommand(exerciseId, request.Media), ct)).ToHttp());
     }
 }
 

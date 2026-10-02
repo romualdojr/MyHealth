@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using MyHealth.Domain.Abstractions;
 using MyHealth.Domain.Assessments;
+using MyHealth.Domain.Assistant;
 using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
 using MyHealth.Domain.HealthData;
@@ -14,6 +15,7 @@ using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
 using MyHealth.Domain.Users;
+using MyHealth.Domain.Wellbeing;
 
 namespace MyHealth.Infrastructure.Persistence;
 
@@ -256,4 +258,22 @@ internal sealed class PaymentEventRepository(ApplicationDbContext db) : Reposito
 {
     public Task<bool> ExistsAsync(string provider, string providerEventId, CancellationToken cancellationToken = default) =>
         Db.PaymentEvents.AnyAsync(e => e.Provider == provider && e.ProviderEventId == providerEventId, cancellationToken);
+}
+
+internal sealed class WellbeingCheckInRepository(ApplicationDbContext db) : Repository<WellbeingCheckIn>(db), IWellbeingCheckInRepository
+{
+    public Task<WellbeingCheckIn?> GetByDateAsync(Guid clientId, DateOnly localDate, CancellationToken cancellationToken = default) =>
+        Db.WellbeingCheckIns.FirstOrDefaultAsync(c => c.ClientId == clientId && c.LocalDate == localDate, cancellationToken);
+}
+
+internal sealed class AssistantConsentRepository(ApplicationDbContext db) : Repository<AssistantConsent>(db), IAssistantConsentRepository
+{
+    public Task<AssistantConsent?> GetByUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        Db.AssistantConsents.FirstOrDefaultAsync(c => c.UserId == userId, cancellationToken);
+}
+
+internal sealed class AssistantProposalRepository(ApplicationDbContext db) : Repository<AssistantProposal>(db), IAssistantProposalRepository
+{
+    public Task DeleteStaleAsync(Guid userId, DateTimeOffset olderThan, CancellationToken cancellationToken = default) =>
+        Db.AssistantProposals.Where(p => p.UserId == userId && p.CreatedAt < olderThan).ExecuteDeleteAsync(cancellationToken);
 }

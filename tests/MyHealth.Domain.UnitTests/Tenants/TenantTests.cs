@@ -102,7 +102,7 @@ public sealed class TenantTests
     [Fact]
     public void Custom_exercises_are_only_available_in_their_tenant()
     {
-        var details = new ExerciseDetails("Afundo", "Passada à frente.", ["quadriceps"], [], null, null, null, null);
+        var details = new ExerciseDetails("Afundo", "Passada à frente.", ["quadriceps"], [], null, null, null);
         var custom = Exercise.CreateCustom(TestData.TenantId, Guid.CreateVersion7(), details, TestData.Now);
         var system = Exercise.CreateSystem(details, TestData.Now);
 

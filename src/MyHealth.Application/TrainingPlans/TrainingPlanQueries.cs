@@ -6,6 +6,7 @@ using MyHealth.Application.Abstractions.Tenancy;
 using MyHealth.Application.Common;
 using MyHealth.Domain.Abstractions;
 using MyHealth.Domain.Professionals;
+using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
 
@@ -170,6 +171,9 @@ public sealed record SessionStats(int CompletedCount, DateTimeOffset? LastComple
 
 public sealed record ClientPlanSession(PlannedSession Session, SessionStats Stats);
 
+/// <summary>How to perform an exercise of the plan: the current media and texts, for the workout screen and offline download.</summary>
+public sealed record ClientPlanExercise(Guid ExerciseId, string Name, string? Precautions, string? MediaCaption, IReadOnlyList<ExerciseMedia> Media);
+
 public sealed record ClientPlanResponse(
     Guid PlanId,
     Guid TenantId,
@@ -180,7 +184,8 @@ public sealed record ClientPlanResponse(
     string ChangeDescription,
     DateTimeOffset PublishedAt,
     PlanDetails Details,
-    IReadOnlyList<ClientPlanSession> Sessions);
+    IReadOnlyList<ClientPlanSession> Sessions,
+    IReadOnlyList<ClientPlanExercise> Exercises);
 
 /// <summary>The current published version with per-session execution count, last execution and feedback (RF-17).</summary>
 public sealed record GetMyPlanQuery(Guid PlanId) : IQuery<ClientPlanResponse>;
@@ -214,7 +219,16 @@ internal sealed class GetMyPlanHandler(IReadDbContext db, IUserContext user) : I
             return new ClientPlanSession(session, new SessionStats(executions.Count, last?.CompletedAt, last?.PerceivedExertion, last?.HasReply ?? false));
         }).ToList();
 
+        // Every exercise the client may perform, alternatives included, with its current media.
+        var exerciseIds = row.Version.Content.Sessions.SelectMany(s => s.AllowedExerciseIds()).Distinct().ToList();
+        var exercises = await db.Exercises
+            .Where(e => exerciseIds.Contains(e.Id))
+            .Select(e => new ClientPlanExercise(e.Id, e.Name, e.Precautions, e.MediaCaption, e.Media))
+            .ToListAsync(cancellationToken);
+
         var v = row.Version;
-        return new ClientPlanResponse(v.TrainingPlanId, row.TenantId, row.OrganizationName, row.Status, v.Id, v.VersionNumber, v.ChangeDescription, v.PublishedAt, v.Details, sessions);
+        return new ClientPlanResponse(
+            v.TrainingPlanId, row.TenantId, row.OrganizationName, row.Status, v.Id, v.VersionNumber, v.ChangeDescription, v.PublishedAt, v.Details, sessions,
+            exercises.OrderBy(e => e.Name).ToList());
     }
 }

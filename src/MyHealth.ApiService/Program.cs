@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
@@ -28,12 +29,18 @@ builder.Services.AddAuthorizationBuilder()
 
 // Brute-force protection for login, registration and password reset (per client IP and minute).
 var authPermitLimit = builder.Configuration.GetValue("RateLimiting:AuthenticationPerMinute", 20);
+var assistantPermitLimit = builder.Configuration.GetValue("RateLimiting:AssistantPerMinute", 20);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy(RateLimitPolicies.Authentication, context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = authPermitLimit, Window = TimeSpan.FromMinutes(1) }));
+
+    // Each assistant message calls the AI provider: limited per signed-in user.
+    options.AddPolicy(RateLimitPolicies.Assistant, context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = assistantPermitLimit, Window = TimeSpan.FromMinutes(1) }));
 });
 
 var app = builder.Build();
@@ -47,8 +54,9 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-app.UseRateLimiter();
+// After authentication, so per-user limits (assistant) see who is calling; login stays limited per IP.
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapDefaultEndpoints();
@@ -71,6 +79,7 @@ authenticated.MapAssessmentEndpoints();
 authenticated.MapNutritionEndpoints();
 authenticated.MapTherapyEndpoints();
 authenticated.MapBillingEndpoints(api);
+authenticated.MapClientExperienceEndpoints();
 authenticated.MapAdminEndpoints();
 
 if (app.Configuration.GetValue("Database:InitializeOnStartup", app.Environment.IsDevelopment()))

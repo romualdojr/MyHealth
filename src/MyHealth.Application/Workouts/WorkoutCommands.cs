@@ -318,3 +318,44 @@ internal sealed class ReplyToFeedbackHandler(
         return result;
     }
 }
+
+/// <summary>
+/// The client says how a body part feels, during rest or through the assistant ("como está o joelho?"). With
+/// <paramref name="ReportToTrainer"/> the responsible trainer is notified. Nothing is interpreted. The id comes from the
+/// phone, so retries are safe.
+/// </summary>
+public sealed record RecordBodyCheckCommand(
+    Guid SessionId, Guid CheckId, string Subject, BodyCheckAnswer Answer, string? Details, bool ReportToTrainer, DateTimeOffset At) : ICommand;
+
+internal sealed class RecordBodyCheckValidator : AbstractValidator<RecordBodyCheckCommand>
+{
+    public RecordBodyCheckValidator()
+    {
+        RuleFor(c => c.CheckId).NotEmpty();
+        RuleFor(c => c.Subject).NotEmpty().MaximumLength(100);
+        RuleFor(c => c.Answer).IsInEnum();
+        RuleFor(c => c.Details).MaximumLength(1000);
+    }
+}
+
+internal sealed class RecordBodyCheckHandler(IUserContext user, IWorkoutSessionRepository sessions, IUnitOfWork unitOfWork, TimeProvider clock)
+    : ICommandHandler<RecordBodyCheckCommand>
+{
+    public async Task<Result> Handle(RecordBodyCheckCommand command, CancellationToken cancellationToken)
+    {
+        var session = await sessions.GetByIdAsync(command.SessionId, cancellationToken);
+        if (session is null || session.ClientId != user.UserId)
+        {
+            return WorkoutErrors.NotFound;
+        }
+
+        var result = session.RecordBodyCheck(
+            new BodyCheck(command.CheckId, command.Subject, command.Answer, command.Details, command.ReportToTrainer, command.At), clock.GetUtcNow());
+        if (result.IsSuccess)
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        return result;
+    }
+}

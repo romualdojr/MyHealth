@@ -70,6 +70,12 @@ public static class AuditActions
     public const string Refer = "refer";
     public const string Withdraw = "withdraw";
 
+    /// <summary>A message sent to the AI assistant: data was disclosed to the AI provider (no content is stored).</summary>
+    public const string Assist = "assist";
+
+    /// <summary>The client confirmed a record the assistant prepared.</summary>
+    public const string Confirm = "confirm";
+
     /// <summary>An attempt to reach another tenant's resource or a tenant the caller does not belong to (MT-09).</summary>
     public const string Deny = "deny";
 }

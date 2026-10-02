@@ -1,4 +1,5 @@
 using MyHealth.Application.Abstractions.Auditing;
+using MyHealth.Domain.Assistant;
 using MyHealth.Domain.Assessments;
 using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
@@ -13,6 +14,7 @@ using MyHealth.Domain.Training.Exercises;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
 using MyHealth.Domain.Users;
+using MyHealth.Domain.Wellbeing;
 
 namespace MyHealth.Application.Abstractions.Data;
 
@@ -83,6 +85,12 @@ public interface IReadDbContext
     IQueryable<ModulePrice> ModulePrices { get; }
 
     IQueryable<PaymentEvent> PaymentEvents { get; }
+
+    IQueryable<WellbeingCheckIn> WellbeingCheckIns { get; }
+
+    IQueryable<AssistantConsent> AssistantConsents { get; }
+
+    IQueryable<AssistantProposal> AssistantProposals { get; }
 
     IQueryable<Notification> Notifications { get; }
 

@@ -30,6 +30,7 @@ public static class DependencyInjection
 
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddScoped<ICareAccess, CareAccess>();
+        services.AddScoped<Assistant.AssistantContextBuilder>();
 
         return services;
     }

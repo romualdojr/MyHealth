@@ -114,6 +114,25 @@ Training (personal trainers), Nutrition (dietitians), Therapies (therapy practit
 
 Prices are seeded as placeholders (Training R$ 99, Nutrition R$ 49, Therapies R$ 49) and are meant to be set in the back office.
 
+## Client experience (less typing for the client)
+
+What the client prototype needs from the API: exercise videos, small questions during rest, wellbeing check-ins, body
+checks and an assistant that turns what the client says into records they confirm.
+
+| Concern | Decision |
+|---|---|
+| Exercise media | `Exercise.Media` (jsonb): up to 8 items, each a `Loop` (muted, for the workout screen; one per camera angle), `FullVideo` (duration, captions, poster, chapters) or `Image`. URLs must be https on `Media:AllowedHosts` (default `media.myhealth.app`) — owned or licensed media only. Video requires the text description (`mediaCaption`) first, for accessibility. Changing media does not bump the exercise version. Operators manage library media (`PUT /admin/exercises/{id}/media`), trainers their own exercises (`PUT /exercises/{id}/media`). The client plan response lists every exercise of the plan with its media, so the phone can download them for offline use. Upload and the CDN itself are not built yet (RF-27). |
+| Body checks | `WorkoutSession.BodyChecks` (jsonb): subject ("joelho direito"), answer (better / same / worse / new), details, reported to trainer. Allowed during the workout and up to 7 days after it; idempotent on a phone-generated id. Reporting raises `DiscomfortReported`, the same notification as the end-of-workout flag. Never interpreted. |
+| Wellbeing | `WellbeingCheckIn`: sleep and energy, 1–5, one per local day (answering again updates), up to 7 days back. Owned by the client (no tenant); professionals read it only with the new `Wellbeing` sharing category. In the data export. |
+| Prompts | `GET /me/prompts?workoutSessionId=` builds, from existing records, at most four questions in priority order: follow-up of a discomfort reported to this trainer in the last 14 days (only during a workout, once), the latest planned meal of the last 5 hours not yet in the diary, the daily wellbeing check-in, and feedback on a therapy session completed in the last 7 days. Each names who receives the answer (the meal one says the trainer never sees the diary) and the existing endpoint that answers it, so answering removes it. When to show them (one per rest, never in the last 15 s, after the heart rate drops) is the phone's decision; skipping is local. |
+| Assistant consent | `AssistantConsent`, one per user: terms version (currently 1, text served by `GET /me/assistant`), the areas it may read (training, nutrition, therapies), history. A new terms version needs a new acceptance; withdrawing stops messages and confirmations. |
+| Assistant messages | `POST /me/assistant/messages` (rate-limited per user, `RateLimiting:AssistantPerMinute`, default 20). The server builds a context from the consented areas only (today's plan and meals, recent workouts, last sets, upcoming therapy sessions) and calls `IAssistantModel` with fixed rules: no diagnosis, no plan changes, no consent on the client's behalf, Portuguese, only ids from the context. The model writes through tools (`log_meal`, `report_body_check`, `log_set`) that never run: each becomes an `AssistantProposal` (1 hour) returned as a card. Ids the model invents are dropped. Pain cards carry fixed safety text set by the server. Each message is audited as `assist` (no content). |
+| Confirming | `POST /me/assistant/proposals/{id}/confirm` runs the same command the forms use (`SaveFoodDiaryEntry`, `RecordBodyCheck`, `LogSet`) as the client, so access checks, sharing and notifications are unchanged; the payload carries client-style ids, so confirming twice creates one record. `discard` closes it. Proposals older than a day are deleted on the user's next message. |
+| Models | `FakeAssistantModel` (rule-based Portuguese: sets by voice, meals, pain, last load, next meal) is the default and is used in tests. `AnthropicAssistantModel` (Claude Messages API with tool use) with `Assistant:Provider=Anthropic`, `Assistant:Anthropic:ApiKey` (secret) and optional `Assistant:Anthropic:Model` (default `claude-sonnet-5`); failures return "unavailable" and the app falls back to the forms. |
+
+Not built: notification quick actions and reminders ("Lembrar às 19h", lock-screen answers) wait for RF-07 reminders and
+real push; meal photos wait for file storage.
+
 ## Running
 
 ```bash

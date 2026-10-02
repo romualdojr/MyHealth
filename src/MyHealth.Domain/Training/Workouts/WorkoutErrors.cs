@@ -23,4 +23,8 @@ public static class WorkoutErrors
     public static readonly Error SetNotFound = Error.NotFound("Workout.SetNotFound", "The set was not found in this workout.");
     public static readonly Error CorrectionReasonRequired = Error.Validation("Workout.CorrectionReasonRequired", "A correction after the workout needs a reason.");
     public static readonly Error NotResponsibleTrainer = Error.Forbidden("Workout.NotResponsibleTrainer", "Only the trainer responsible for this plan can reply.");
+    public static readonly Error BodyCheckClosed = Error.Conflict(
+        "Workout.BodyCheckClosed", "Body checks can be added during the workout and up to 7 days after it ended.");
+    public static readonly Error BodyCheckSubjectRequired = Error.Validation("Workout.BodyCheckSubjectRequired", "Say what the check is about, for example \"joelho direito\".");
+    public static readonly Error BodyCheckIdConflict = Error.Conflict("Workout.BodyCheckIdConflict", "This body check id was already used with different answers.");
 }
