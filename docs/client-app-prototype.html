@@ -1,0 +1,1916 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>MyHealth Client App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+:root {
+  --page: #eceef5;
+  --app-bg: #f6f7fb;
+  --card: #ffffff;
+  --ink: #1b1d33;
+  --muted: #636a86;
+  --line: #e0e3ee;
+  --primary: #3346d3;
+  --primary-soft: #e3e7fb;
+  --on-primary: #ffffff;
+  --treino: #d35a24;
+  --treino-soft: #fde9df;
+  --treino-deep: #a3431a;
+  --flame: #f07c00;
+  --gold: #f1b100;
+  --gold-deep: #c28a00;
+  --gold-ink: #8a6100;
+  --locked: #e3e5ee;
+  --locked-deep: #c9cddb;
+  --nutri: #23834c;
+  --nutri-soft: #def1e5;
+  --terapia: #7148c7;
+  --terapia-soft: #ece4fa;
+  --warn: #9d5f00;
+  --warn-soft: #fff0d3;
+  --danger: #b83434;
+  --bezel: #16182a;
+  --on-module: #ffffff;
+  --font: "Onest", "Segoe UI", system-ui, sans-serif;
+  --num: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0b0d18; --app-bg: #11142a; --card: #1a1e38; --ink: #e8eaf6; --muted: #9ba2c3; --line: #2a2f50;
+    --primary: #8796ff; --primary-soft: #252c5c; --on-primary: #0b0d18;
+    --treino: #ff8d5c; --treino-soft: #3b2317; --treino-deep: #b8582c; --flame: #ffa53d; --gold: #f5c04a; --gold-deep: #b88b1f; --gold-ink: #f5c04a; --locked: #2a2f50; --locked-deep: #1c2040; --nutri: #5fcd8d; --nutri-soft: #142f20;
+    --terapia: #b598ff; --terapia-soft: #2a2046; --warn: #f2b64d; --warn-soft: #3a2b0f; --danger: #ff8080; --bezel: #000000; --on-module: #14162b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0b0d18; --app-bg: #11142a; --card: #1a1e38; --ink: #e8eaf6; --muted: #9ba2c3; --line: #2a2f50;
+  --primary: #8796ff; --primary-soft: #252c5c; --on-primary: #0b0d18;
+  --treino: #ff8d5c; --treino-soft: #3b2317; --treino-deep: #b8582c; --flame: #ffa53d; --gold: #f5c04a; --gold-deep: #b88b1f; --gold-ink: #f5c04a; --locked: #2a2f50; --locked-deep: #1c2040; --nutri: #5fcd8d; --nutri-soft: #142f20;
+  --terapia: #b598ff; --terapia-soft: #2a2046; --warn: #f2b64d; --warn-soft: #3a2b0f; --danger: #ff8080; --bezel: #000000; --on-module: #14162b;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font: 15px/1.5 var(--font); padding-inline: 16px; padding-block: 0 48px; }
+.num { font-family: var(--num); font-variant-numeric: tabular-nums; }
+
+/* ---------- page shell ---------- */
+.intro { max-width: 1100px; margin: 0 auto; padding-block: 36px 24px; display: grid; gap: 10px; }
+.intro .eyebrow { font: 600 12px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--primary); }
+.intro h1 { margin: 0; font: 800 clamp(28px, 4.6vw, 42px)/1.08 var(--font); letter-spacing: -.02em; text-wrap: balance; }
+.intro p { margin: 0; max-width: 66ch; color: var(--muted); }
+
+.stage { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 40px; align-items: start; }
+.nav-radio { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
+
+/* ---------- journey panel ---------- */
+.journey { grid-column: 1; grid-row: 1; display: grid; gap: 20px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
+.flow { display: grid; gap: 14px; }
+.flow-group { display: grid; gap: 6px; }
+.flow-group h2 { margin: 0; font: 600 11.5px/1 var(--font); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.flow-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.flow-steps label {
+  cursor: pointer; font: 500 13.5px/1 var(--font); padding: 9px 12px; border-radius: 8px;
+  border: 1.5px solid var(--line); background: var(--card); color: var(--ink);
+}
+.flow-steps label:hover { border-color: var(--primary); }
+.flow-steps .arrow { align-self: center; color: var(--muted); font-size: 13px; }
+.notes { background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+.note { display: none; gap: 10px; }
+.note h3 { margin: 0; font: 700 19px/1.25 var(--font); text-wrap: balance; }
+.note p { margin: 0; color: var(--muted); max-width: 62ch; }
+.note ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--muted); }
+.note li b { color: var(--ink); font-weight: 600; }
+.note .refs { font: 500 12px/1.4 var(--num); color: var(--primary); }
+.disclaimer { font-size: 13px; color: var(--muted); }
+
+/* ---------- device ---------- */
+.phone { grid-column: 2; grid-row: 1; justify-self: center; }
+.device {
+  position: relative; width: 390px; max-width: 100%; height: 800px; border-radius: 48px; overflow: hidden;
+  background: var(--app-bg); border: 12px solid var(--bezel);
+  box-shadow: 0 30px 60px -20px rgba(20, 24, 60, .35);
+}
+.status {
+  position: absolute; inset: 0 0 auto 0; height: 46px; z-index: 5; display: flex; justify-content: space-between; align-items: center;
+  padding: 0 26px; font: 600 14px/1 var(--font); background: var(--app-bg);
+}
+.status .island { position: absolute; left: 50%; top: 9px; transform: translateX(-50%); width: 104px; height: 28px; border-radius: 20px; background: var(--bezel); }
+.status .sys { display: flex; gap: 5px; align-items: center; }
+.bars { display: flex; gap: 2px; align-items: flex-end; height: 11px; }
+.bars i { width: 3px; background: var(--ink); border-radius: 1px; }
+.bars i:nth-child(1) { height: 4px; } .bars i:nth-child(2) { height: 6px; } .bars i:nth-child(3) { height: 8px; } .bars i:nth-child(4) { height: 11px; }
+.battery { width: 24px; height: 12px; border: 1.5px solid var(--ink); border-radius: 3px; padding: 1.5px; }
+.battery i { display: block; height: 100%; width: 72%; background: var(--ink); border-radius: 1px; }
+
+.screens { position: absolute; inset: 46px 0 78px 0; }
+.screen { display: none; height: 100%; overflow-y: auto; flex-direction: column; gap: 14px; padding: 8px 18px 24px; scrollbar-width: none; }
+.screen::-webkit-scrollbar { display: none; }
+.screen > * { flex-shrink: 0; }
+
+.tabbar {
+  position: absolute; inset: auto 0 0 0; height: 78px; z-index: 5; display: grid; grid-template-columns: repeat(5, 1fr);
+  padding: 8px 6px 22px; background: var(--card); border-top: 1px solid var(--line);
+}
+.tabbar label { cursor: pointer; display: grid; justify-items: center; gap: 3px; font: 500 10.5px/1 var(--font); color: var(--muted); }
+.tabbar svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- screen routing (radio buttons, no script) ---------- */
+#s-home:checked ~ .phone .sc-home,
+#s-notif:checked ~ .phone .sc-notif,
+#s-perfil:checked ~ .phone .sc-perfil,
+#s-treino:checked ~ .phone .sc-treino,
+#s-ativo:checked ~ .phone .sc-ativo,
+#s-fim:checked ~ .phone .sc-fim,
+#s-nutri:checked ~ .phone .sc-nutri,
+#s-diario:checked ~ .phone .sc-diario,
+#s-terapia:checked ~ .phone .sc-terapia,
+#s-consent:checked ~ .phone .sc-consent,
+#s-progresso:checked ~ .phone .sc-progresso,
+#s-conquista:checked ~ .phone .sc-conquista,
+#s-sessao:checked ~ .phone .sc-sessao, #s-lista:checked ~ .phone .sc-sessao { display: flex; }
+
+#s-home:checked ~ .journey .n-home,
+#s-notif:checked ~ .journey .n-notif,
+#s-perfil:checked ~ .journey .n-perfil,
+#s-treino:checked ~ .journey .n-treino,
+#s-ativo:checked ~ .journey .n-ativo,
+#s-fim:checked ~ .journey .n-fim,
+#s-nutri:checked ~ .journey .n-nutri,
+#s-diario:checked ~ .journey .n-diario,
+#s-terapia:checked ~ .journey .n-terapia,
+#s-consent:checked ~ .journey .n-consent,
+#s-progresso:checked ~ .journey .n-progresso,
+#s-conquista:checked ~ .journey .n-conquista,
+#s-sessao:checked ~ .journey .n-sessao, #s-lista:checked ~ .journey .n-sessao { display: grid; }
+
+#s-home:checked ~ .journey .j-home,
+#s-notif:checked ~ .journey .j-notif,
+#s-perfil:checked ~ .journey .j-perfil,
+#s-treino:checked ~ .journey .j-treino,
+#s-ativo:checked ~ .journey .j-ativo,
+#s-fim:checked ~ .journey .j-fim,
+#s-nutri:checked ~ .journey .j-nutri,
+#s-diario:checked ~ .journey .j-diario,
+#s-terapia:checked ~ .journey .j-terapia,
+#s-consent:checked ~ .journey .j-consent,
+#s-progresso:checked ~ .journey .j-progresso,
+#s-conquista:checked ~ .journey .j-conquista,
+#s-sessao:checked ~ .journey .j-sessao, #s-lista:checked ~ .journey .j-sessao { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+
+#s-home:checked ~ .phone .t-home, #s-notif:checked ~ .phone .t-home, #s-perfil:checked ~ .phone .t-home { color: var(--primary); }
+#s-treino:checked ~ .phone .t-treino, #s-sessao:checked ~ .phone .t-treino { color: var(--treino); }
+#s-nutri:checked ~ .phone .t-nutri { color: var(--nutri); }
+#s-terapia:checked ~ .phone .t-terapia { color: var(--terapia); }
+#s-progresso:checked ~ .phone .t-home { color: var(--primary); }
+
+/* assistant screens */
+#s-iaconsent:checked ~ .phone .sc-iaconsent,
+#s-chat:checked ~ .phone .sc-chat,
+#s-voz:checked ~ .phone .sc-voz { display: flex; }
+#s-iaconsent:checked ~ .journey .n-iaconsent,
+#s-chat:checked ~ .journey .n-chat,
+#s-voz:checked ~ .journey .n-voz { display: grid; }
+#s-iaconsent:checked ~ .journey .j-iaconsent,
+#s-chat:checked ~ .journey .j-chat,
+#s-voz:checked ~ .journey .j-voz { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+#s-chat:checked ~ .phone .t-chat .fab { box-shadow: 0 0 0 4px var(--primary-soft); }
+
+/* video and rest-time questions */
+#s-video:checked ~ .phone .sc-video,
+#s-rest1:checked ~ .phone .sc-rest, #s-rest2:checked ~ .phone .sc-rest,
+#s-rest3:checked ~ .phone .sc-rest, #s-rest4:checked ~ .phone .sc-rest { display: flex; }
+#s-video:checked ~ .journey .n-video,
+#s-rest1:checked ~ .journey .n-rest, #s-rest2:checked ~ .journey .n-rest,
+#s-rest3:checked ~ .journey .n-rest, #s-rest4:checked ~ .journey .n-rest { display: grid; }
+#s-video:checked ~ .journey .j-video,
+#s-rest1:checked ~ .journey .j-rest, #s-rest2:checked ~ .journey .j-rest,
+#s-rest3:checked ~ .journey .j-rest, #s-rest4:checked ~ .journey .j-rest { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+#s-rest1:checked ~ .phone .q-r1, #s-rest2:checked ~ .phone .q-r2,
+#s-rest3:checked ~ .phone .q-r3, #s-rest4:checked ~ .phone .q-r4 { display: grid; }
+#s-rest1:checked ~ .phone .qn-r1, #s-rest2:checked ~ .phone .qn-r2,
+#s-rest3:checked ~ .phone .qn-r3, #s-rest4:checked ~ .phone .qn-r4 { background: var(--treino); border-color: var(--treino); color: var(--on-module); }
+#s-video:checked ~ .phone .tabbar,
+#s-rest1:checked ~ .phone .tabbar, #s-rest2:checked ~ .phone .tabbar,
+#s-rest3:checked ~ .phone .tabbar, #s-rest4:checked ~ .phone .tabbar { display: none; }
+#s-video:checked ~ .phone .screens,
+#s-rest1:checked ~ .phone .screens, #s-rest2:checked ~ .phone .screens,
+#s-rest3:checked ~ .phone .screens, #s-rest4:checked ~ .phone .screens { bottom: 0; }
+
+/* focused flows hide the tab bar */
+#s-ativo:checked ~ .phone .tabbar, #s-fim:checked ~ .phone .tabbar,
+#s-diario:checked ~ .phone .tabbar, #s-consent:checked ~ .phone .tabbar,
+#s-iaconsent:checked ~ .phone .tabbar, #s-voz:checked ~ .phone .tabbar,
+#s-conquista:checked ~ .phone .tabbar, #s-lista:checked ~ .phone .tabbar { display: none; }
+#s-ativo:checked ~ .phone .screens, #s-fim:checked ~ .phone .screens,
+#s-diario:checked ~ .phone .screens, #s-consent:checked ~ .phone .screens,
+#s-iaconsent:checked ~ .phone .screens, #s-voz:checked ~ .phone .screens,
+#s-conquista:checked ~ .phone .screens, #s-lista:checked ~ .phone .screens { bottom: 0; }
+
+.nav-radio:focus-visible ~ .journey .flow { outline: 2px solid var(--primary); outline-offset: 6px; border-radius: 8px; }
+
+/* ---------- app components ---------- */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 6px; }
+.top .title { display: grid; gap: 2px; }
+.top .kicker { font: 500 13px/1.2 var(--font); color: var(--muted); }
+.top h2 { margin: 0; font: 800 26px/1.1 var(--font); letter-spacing: -.02em; }
+.icon-btn {
+  cursor: pointer; position: relative; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--card); border: 1px solid var(--line); color: var(--ink); flex: none;
+}
+.icon-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn .dot { position: absolute; top: 7px; right: 8px; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); border: 2px solid var(--card); }
+.avatar { cursor: pointer; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary); font: 700 15px/1 var(--font); flex: none; }
+.back { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font: 600 15px/1 var(--font); color: var(--primary); padding: 8px 0; }
+
+.card { background: var(--card); border-radius: 18px; padding: 16px; display: grid; gap: 10px; border: 1px solid var(--line); }
+.card.treino { border-left: 5px solid var(--treino); }
+.card.nutri { border-left: 5px solid var(--nutri); }
+.card.terapia { border-left: 5px solid var(--terapia); }
+.card h3 { margin: 0; font: 700 17px/1.25 var(--font); }
+.card p { margin: 0; font-size: 14px; color: var(--muted); }
+.module { font: 700 11px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; }
+.module.treino { color: var(--treino); } .module.nutri { color: var(--nutri); } .module.terapia { color: var(--terapia); }
+.who { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.who .org { padding: 3px 7px; border-radius: 6px; background: var(--app-bg); border: 1px solid var(--line); font-weight: 500; color: var(--ink); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sec-title { margin: 6px 0 -4px; font: 700 15px/1.2 var(--font); }
+
+.btn {
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 46px; padding: 0 18px;
+  border-radius: 14px; font: 700 15px/1 var(--font); border: 0; background: var(--primary); color: var(--on-primary); text-align: center;
+}
+.btn.block { width: 100%; }
+.btn.treino { background: var(--treino); color: var(--on-module); }
+.btn.nutri { background: var(--nutri); color: var(--on-module); }
+.btn.terapia { background: var(--terapia); color: var(--on-module); }
+.btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+.btn.small { min-height: 36px; padding: 0 14px; font-size: 13.5px; border-radius: 11px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; font: 600 12px/1 var(--font); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.ok { background: var(--nutri-soft); color: var(--nutri); }
+.pill.info { background: var(--primary-soft); color: var(--primary); }
+.pill.terapia { background: var(--terapia-soft); color: var(--terapia); }
+.verified { display: inline-flex; align-items: center; gap: 4px; font: 600 12px/1 var(--font); color: var(--nutri); }
+.verified::before { content: "✓"; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--nutri); color: var(--on-module); font-size: 10px; }
+
+/* week strip */
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day { display: grid; justify-items: center; gap: 6px; font: 600 11.5px/1 var(--font); color: var(--muted); }
+.day i { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 1.5px dashed var(--line); font-style: normal; color: var(--muted); }
+.day.done i { background: var(--treino); border: 0; color: var(--on-module); }
+.day.today i { border: 2px solid var(--treino); color: var(--treino); }
+.day.today { color: var(--ink); }
+
+/* list rows */
+.list { display: grid; }
+.li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.li:first-child { border-top: 0; }
+.li .grow { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.li b { font-weight: 600; font-size: 14.5px; }
+.li span { font-size: 13px; color: var(--muted); }
+.badge { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; font: 700 14px/1 var(--font); flex: none; }
+.badge.treino { background: var(--treino-soft); color: var(--treino); }
+.badge.nutri { background: var(--nutri-soft); color: var(--nutri); }
+.badge.terapia { background: var(--terapia-soft); color: var(--terapia); }
+.badge.info { background: var(--primary-soft); color: var(--primary); }
+.chev { color: var(--muted); font-size: 18px; }
+.unread { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex: none; }
+
+/* workout */
+.timerbar { display: flex; justify-content: space-between; align-items: center; }
+.clock { font: 600 30px/1 var(--num); letter-spacing: -.02em; }
+.hr { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
+.hr .heart { width: 12px; height: 12px; border-radius: 50%; background: var(--danger); animation: beat 1s ease-in-out infinite; }
+.hr b { font: 600 20px/1 var(--num); }
+.hr small { font-size: 11px; color: var(--muted); line-height: 1.2; }
+@keyframes beat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.35); } 30% { transform: scale(1); } }
+.ex-head { display: grid; gap: 4px; }
+.ex-head .step { font: 600 12px/1 var(--font); color: var(--muted); }
+.ex-head h3 { margin: 0; font: 800 22px/1.15 var(--font); letter-spacing: -.01em; }
+.target { display: flex; flex-wrap: wrap; gap: 6px; }
+.sets { display: grid; gap: 8px; }
+.set { display: grid; grid-template-columns: 44px 1fr 1fr 40px; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); }
+.set .n { font: 600 14px/1 var(--num); color: var(--muted); text-align: center; }
+.set .val { font: 600 16px/1 var(--num); }
+.set .val small { font: 500 11px/1 var(--font); color: var(--muted); margin-left: 3px; }
+.set .ok { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--treino); color: var(--on-module); font-weight: 800; justify-self: end; }
+.set.current { border: 2px solid var(--treino); }
+.set.todo { opacity: .55; }
+.set input { width: 100%; min-width: 0; height: 38px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--app-bg); color: var(--ink); font: 600 16px/1 var(--num); text-align: center; }
+.set input:focus-visible { outline: 2px solid var(--treino); border-color: transparent; }
+.set .ok.empty { background: transparent; border: 2px solid var(--treino); color: var(--treino); }
+.set-head { display: grid; grid-template-columns: 44px 1fr 1fr 40px; gap: 8px; padding: 0 10px; font: 600 11px/1 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.rest { display: flex; align-items: center; gap: 14px; }
+@property --p { syntax: "<number>"; inherits: false; initial-value: 100; }
+.ring {
+  --p: 100; width: 64px; height: 64px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  background: conic-gradient(var(--treino) calc(var(--p) * 1%), var(--treino-soft) 0);
+  animation: rest 90s linear infinite;
+}
+.ring span { width: 50px; height: 50px; border-radius: 50%; background: var(--card); display: grid; place-items: center; font: 600 14px/1 var(--num); }
+@keyframes rest { from { --p: 100; } to { --p: 0; } }
+.cue { padding: 12px 14px; border-radius: 14px; background: var(--warn-soft); color: var(--warn); font-size: 13.5px; }
+.actions { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 8px; margin-top: auto; }
+
+/* scales */
+.scale { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.scale.five { grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.scale input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.scale label { cursor: pointer; height: 40px; border-radius: 10px; display: grid; place-items: center; font: 600 14px/1 var(--num); border: 1.5px solid var(--line); background: var(--card); }
+.scale input:checked + label { background: var(--treino); color: var(--on-module); border-color: var(--treino); }
+.scale.terapia input:checked + label { background: var(--terapia); border-color: var(--terapia); }
+.scale input:focus-visible + label { outline: 2px solid var(--primary); outline-offset: 2px; }
+.scale-ends { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); }
+
+.toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.toggle:first-child { border-top: 0; }
+.toggle .txt { display: grid; gap: 2px; }
+.toggle .txt b { font-weight: 600; font-size: 14.5px; }
+.toggle .txt span { font-size: 12.5px; color: var(--muted); }
+.toggle input { appearance: none; -webkit-appearance: none; flex: none; width: 46px; height: 28px; border-radius: 999px; background: var(--line); position: relative; cursor: pointer; transition: background .2s; }
+.toggle input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.toggle input:checked { background: var(--nutri); }
+.toggle input:checked::after { transform: translateX(18px); }
+.toggle input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.toggle input:disabled { opacity: .6; cursor: default; }
+
+textarea.field, select.field, input.field {
+  width: 100%; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink);
+  font: 400 14.5px/1.4 var(--font); padding: 10px 12px;
+}
+textarea.field { resize: none; }
+.field:focus-visible { outline: 2px solid var(--primary); border-color: transparent; }
+.flabel { font: 600 13px/1.2 var(--font); margin-bottom: -4px; }
+
+.summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; display: grid; gap: 4px; }
+.stat b { font: 600 18px/1 var(--num); }
+.stat span { font-size: 11.5px; color: var(--muted); line-height: 1.2; }
+
+.reply { display: grid; gap: 4px; padding: 10px 12px; border-radius: 14px 14px 14px 4px; background: var(--treino-soft); font-size: 13.5px; }
+.reply small { font-weight: 600; color: var(--treino); }
+.reply.nutri { background: var(--nutri-soft); }
+.reply.nutri small { color: var(--nutri); }
+
+/* meals */
+.meals { display: grid; gap: 0; }
+.meal { display: grid; grid-template-columns: 54px 1fr; gap: 10px; position: relative; padding-bottom: 14px; }
+.meal::before { content: ""; position: absolute; left: 26px; top: 26px; bottom: 0; width: 2px; background: var(--line); }
+.meal:last-child::before { display: none; }
+.meal .time { font: 600 13px/1 var(--num); color: var(--muted); padding-top: 8px; text-align: center; position: relative; }
+.meal .time::after { content: ""; display: block; margin: 6px auto 0; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--nutri); background: var(--app-bg); }
+.meal.logged .time::after { background: var(--nutri); }
+.meal.next .card { border: 2px solid var(--nutri); }
+.items { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13.5px; }
+.items li { display: flex; justify-content: space-between; gap: 8px; }
+.items .qty { font: 500 12.5px/1.4 var(--num); color: var(--muted); white-space: nowrap; }
+.sub { font-size: 12px; color: var(--muted); }
+.water { display: grid; gap: 6px; }
+.meter { height: 10px; border-radius: 999px; background: var(--nutri-soft); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 62.5%; background: var(--nutri); border-radius: 999px; }
+.seg { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg label { cursor: pointer; padding: 11px 8px; border-radius: 12px; text-align: center; font: 600 13px/1.2 var(--font); border: 1.5px solid var(--line); background: var(--card); }
+.seg input:checked + label { border-color: var(--nutri); background: var(--nutri-soft); color: var(--nutri); }
+.seg input:focus-visible + label { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* therapy */
+.appt { display: grid; grid-template-columns: 62px 1fr; gap: 14px; align-items: center; }
+.cal { border-radius: 14px; overflow: hidden; text-align: center; border: 1px solid var(--line); background: var(--card); }
+.cal span { display: block; padding: 4px 0; background: var(--terapia); color: var(--on-module); font: 700 11px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; }
+.cal b { display: block; padding: 6px 0 8px; font: 700 24px/1 var(--num); }
+.progress-dots { display: flex; gap: 5px; }
+.progress-dots i { flex: 1; height: 8px; border-radius: 4px; background: var(--terapia-soft); }
+.progress-dots i.on { background: var(--terapia); }
+.doc { font-size: 14px; display: grid; gap: 10px; }
+.doc h4 { margin: 0; font: 700 14px/1.3 var(--font); }
+.doc p { margin: 0; color: var(--ink); }
+.risks { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.version-note { padding: 12px 14px; border-radius: 14px; background: var(--terapia-soft); color: var(--terapia); font-size: 13.5px; }
+.sticky-actions { position: sticky; bottom: 0; margin: auto -18px -24px; padding: 14px 18px 22px; background: var(--app-bg); border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px; }
+
+/* progress chart */
+.chart { display: grid; grid-template-columns: 34px 1fr; gap: 6px; }
+.axis { height: 156px; margin-top: -3px; display: flex; flex-direction: column; justify-content: space-between; font: 500 10.5px/1 var(--num); color: var(--muted); text-align: right; }
+.plot { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: 150px; gap: 14px; align-items: end; margin-bottom: 22px;
+  border-bottom: 1px solid var(--muted); background: repeating-linear-gradient(to top, transparent 0 29px, var(--line) 29px 30px); }
+.bar { position: relative; height: var(--h); border-radius: 8px 8px 3px 3px; background: var(--primary-soft); }
+.bar.last { background: var(--primary); }
+.bar b { position: absolute; top: -18px; left: 0; right: 0; text-align: center; font: 600 11px/1 var(--num); }
+.bar span { position: absolute; bottom: -18px; left: 0; right: 0; text-align: center; font: 500 10.5px/1 var(--font); color: var(--muted); }
+.metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.metric { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 4px; }
+.metric b { font: 600 20px/1 var(--num); }
+.metric .delta { font: 600 12px/1 var(--num); color: var(--nutri); }
+.metric span { font-size: 11.5px; color: var(--muted); line-height: 1.3; }
+
+/* ---------- assistant ---------- */
+.tabbar .t-chat { position: relative; color: var(--primary); }
+.fab {
+  width: 52px; height: 52px; margin-top: -24px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--primary); color: var(--on-primary); border: 4px solid var(--card);
+}
+.tabbar .fab svg { width: 24px; height: 24px; }
+.spark { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: var(--on-primary); flex: none; }
+.spark svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
+
+.sc-chat { padding-bottom: 0; }
+.chat-head { display: flex; align-items: center; gap: 10px; padding-top: 4px; }
+.chat-head .spark { width: 38px; height: 38px; }
+.chat-head .spark svg { width: 20px; height: 20px; }
+.chat-head h2 { margin: 0; font: 800 20px/1.1 var(--font); }
+.chat-head span { font-size: 12.5px; color: var(--muted); }
+.chat-head .gear { margin-left: auto; }
+.thread { display: grid; gap: 10px; }
+.day-sep { justify-self: center; font: 600 11.5px/1 var(--font); color: var(--muted); padding: 4px 10px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); }
+.msg { max-width: 86%; padding: 10px 13px; font-size: 14.5px; line-height: 1.45; }
+.msg.ai { justify-self: start; background: var(--card); border: 1px solid var(--line); border-radius: 18px 18px 18px 6px; }
+.msg.me { justify-self: end; background: var(--primary); color: var(--on-primary); border-radius: 18px 18px 6px 18px; }
+.msg.me .voice { display: flex; align-items: center; gap: 8px; font-size: 12px; opacity: .85; margin-bottom: 4px; }
+.wave { display: inline-flex; gap: 2px; align-items: center; height: 14px; }
+.wave i { width: 2px; border-radius: 1px; background: currentColor; }
+.source { display: inline-flex; margin-top: 6px; font: 500 11.5px/1 var(--font); color: var(--muted); padding: 4px 8px; border-radius: 6px; background: var(--app-bg); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { cursor: pointer; font: 600 13px/1 var(--font); padding: 9px 12px; border-radius: 999px; background: var(--card); border: 1.5px solid var(--primary-soft); color: var(--primary); }
+
+.confirm { justify-self: start; width: 92%; background: var(--card); border: 1.5px solid var(--line); border-radius: 18px; padding: 14px; display: grid; gap: 10px; }
+.confirm.nutri { border-top: 4px solid var(--nutri); }
+.confirm.treino { border-top: 4px solid var(--treino); }
+.confirm .what { font: 700 11px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.confirm dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 13.5px; }
+.confirm dt { color: var(--muted); }
+.confirm dd { margin: 0; font-weight: 500; }
+.confirm .acts { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; }
+.confirm .done { display: none; align-items: center; gap: 8px; font: 600 13.5px/1.3 var(--font); color: var(--nutri); }
+.confirm .done::before { content: "✓"; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--nutri); color: var(--on-module); font-size: 12px; }
+.confirm input.flag { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.confirm:has(input.flag:checked) .acts { display: none; }
+.confirm:has(input.flag:checked) .done { display: flex; }
+.confirm:has(input.flag:focus-visible) .acts label:last-child { outline: 2px solid var(--primary); outline-offset: 2px; }
+.safety { font-size: 12.5px; color: var(--warn); background: var(--warn-soft); border-radius: 10px; padding: 8px 10px; }
+
+.composer {
+  position: sticky; bottom: 0; margin: auto -18px 0; padding: 10px 14px 12px; background: var(--app-bg);
+  border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: center;
+}
+.composer input { flex: 1; min-width: 0; height: 44px; border-radius: 22px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); padding: 0 16px; font: 400 14.5px/1 var(--font); }
+.composer input:focus-visible { outline: 2px solid var(--primary); border-color: transparent; }
+.composer .mic { cursor: pointer; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: var(--on-primary); flex: none; }
+.composer .mic svg, .mic-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.mic-btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
+.consent-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; font-size: 14px; }
+.consent-list li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: start; }
+.consent-list li i { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-style: normal; font-weight: 700; font-size: 13px; }
+.consent-list.yes li i { background: var(--nutri-soft); color: var(--nutri); }
+.consent-list.no li i { background: var(--warn-soft); color: var(--warn); }
+
+.sc-voz { background: var(--bezel); color: #f2f3fb; justify-content: space-between; padding-top: 20px; }
+.sc-voz .back { color: #b9c1ff; }
+.listen { display: grid; justify-items: center; gap: 22px; text-align: center; }
+.listen .ctx { font: 600 13px/1.3 var(--font); color: #a8aed0; }
+.orb { width: 132px; height: 132px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #8796ff, #3346d3 70%); animation: breathe 2.4s ease-in-out infinite; }
+.orb svg { width: 44px; height: 44px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; }
+@keyframes breathe { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(135, 150, 255, .5); } 50% { transform: scale(1.05); box-shadow: 0 0 0 18px rgba(135, 150, 255, 0); } }
+.transcript { font: 600 22px/1.35 var(--font); max-width: 300px; text-wrap: balance; }
+.transcript small { display: block; font: 400 13px/1.4 var(--font); color: #a8aed0; margin-top: 6px; }
+.parsed { width: 100%; background: #23263f; border-radius: 18px; padding: 14px 16px; display: grid; gap: 10px; text-align: left; }
+.parsed .what { font: 700 11px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; color: #a8aed0; }
+.parsed .vals { display: flex; gap: 18px; font: 600 22px/1 var(--num); }
+.parsed .vals small { font: 500 11px/1 var(--font); color: #a8aed0; display: block; margin-top: 4px; }
+.voz-acts { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+.voz-acts .btn.ghost { color: #f2f3fb; border-color: #3a3e5e; }
+.voz-acts .btn.treino { color: #14162b; background: #ff8d5c; }
+
+.quick { background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.quick .lock { padding: 12px 14px; display: grid; gap: 4px; }
+.quick .lock .app { display: flex; align-items: center; gap: 8px; font: 600 12px/1 var(--font); color: var(--muted); }
+.quick .lock .app i { width: 18px; height: 18px; border-radius: 5px; background: var(--primary); }
+.quick .lock b { font-size: 14.5px; }
+.quick .lock span { font-size: 13.5px; color: var(--muted); }
+.quick .qa { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); }
+.quick .qa label { cursor: pointer; padding: 12px 6px; text-align: center; font: 600 13px/1.2 var(--font); color: var(--primary); border-left: 1px solid var(--line); }
+.quick .qa label:first-child { border-left: 0; }
+
+/* ---------- exercise video (drawn loop) ---------- */
+.video {
+  --dur: 2.6s;
+  position: relative; width: 100%; aspect-ratio: 16 / 10; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(180deg, #2a2f52 0%, #1b1e36 72%, #14162b 72%, #14162b 100%); color: #f2f3fb;
+}
+.video .floor { position: absolute; left: 0; right: 0; bottom: 28%; height: 2px; background: #3a3f66; }
+.lifter { position: absolute; left: 48%; bottom: 28%; transform: scale(.72); transform-origin: 50% 100%; }
+.lifter .foot { position: absolute; left: -4px; bottom: 0; width: 22px; height: 6px; border-radius: 3px; background: #f2f3fb; }
+.lifter .shin, .lifter .thigh, .lifter .torso { position: absolute; transform-origin: 50% 100%; background: #f2f3fb; border-radius: 4px; animation: var(--dur) ease-in-out infinite; }
+.lifter .shin { left: 0; bottom: 4px; width: 7px; height: 40px; animation-name: shin; }
+.lifter .thigh { left: 0; bottom: 100%; width: 7px; height: 42px; animation-name: thigh; }
+.lifter .torso { left: -1px; bottom: 100%; width: 9px; height: 50px; animation-name: torso; }
+.lifter .head { position: absolute; left: -6px; bottom: calc(100% + 4px); width: 21px; height: 21px; border-radius: 50%; background: #f2f3fb; }
+.lifter .bar { position: absolute; left: -36px; top: 4px; width: 80px; height: 5px; border-radius: 3px; background: #ff8d5c; }
+.lifter .bar::before, .lifter .bar::after { content: ""; position: absolute; top: -9px; width: 8px; height: 23px; border-radius: 3px; background: #ff8d5c; }
+.lifter .bar::before { left: 0; } .lifter .bar::after { right: 0; }
+@keyframes shin { 0%, 12%, 88%, 100% { transform: rotate(0deg); } 45%, 55% { transform: rotate(28deg); } }
+@keyframes thigh { 0%, 12%, 88%, 100% { transform: rotate(0deg); } 45%, 55% { transform: rotate(-112deg); } }
+@keyframes torso { 0%, 12%, 88%, 100% { transform: rotate(0deg); } 45%, 55% { transform: rotate(112deg); } }
+.video .vtop { position: absolute; inset: 10px 12px auto 12px; display: flex; justify-content: space-between; align-items: center; font: 600 11.5px/1 var(--font); }
+.video .vtag { padding: 5px 8px; border-radius: 6px; background: rgba(0, 0, 0, .45); }
+.video .vtag.off { background: rgba(35, 131, 76, .85); }
+.video .cap { position: absolute; left: 12px; right: 12px; bottom: 30px; text-align: center; font: 600 12.5px/1.3 var(--font); }
+.video .cap span { padding: 3px 8px; border-radius: 5px; background: rgba(0, 0, 0, .6); }
+.video .track { position: absolute; left: 12px; right: 12px; bottom: 12px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .25); overflow: hidden; }
+.video .track i { display: block; height: 100%; width: 100%; background: #ff8d5c; transform-origin: left; animation: track var(--dur) linear infinite; }
+@keyframes track { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.video .expand { cursor: pointer; position: absolute; right: 10px; bottom: 22px; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: rgba(0, 0, 0, .5); color: #fff; }
+.video .expand svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.video.big { aspect-ratio: 4 / 5; border-radius: 18px; }
+.video.big .lifter { transform: scale(1.35); transform-origin: 50% 100%; }
+.speed { display: flex; gap: 6px; }
+.speed input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.speed label { cursor: pointer; padding: 8px 12px; border-radius: 999px; font: 600 13px/1 var(--font); border: 1.5px solid var(--line); background: var(--card); }
+.speed input:checked + label { background: var(--treino); border-color: var(--treino); color: var(--on-module); }
+.speed input:focus-visible + label { outline: 2px solid var(--primary); outline-offset: 2px; }
+.sc-video:has(#spd-slow:checked) .video { --dur: 5.2s; }
+.sc-video:has(#cc-off:checked) .video .cap { display: none; }
+.chapters { display: grid; gap: 0; }
+.chapters div { display: grid; grid-template-columns: 46px 1fr; gap: 8px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+.chapters div:first-child { border-top: 0; }
+.chapters .num { color: var(--muted); font-size: 12.5px; }
+
+/* ---------- rest-time questions ---------- */
+.sc-rest { gap: 12px; }
+.rest-big { display: grid; justify-items: center; gap: 8px; padding-top: 4px; }
+.rest-big .ring { width: 150px; height: 150px; }
+.rest-big .ring span { width: 126px; height: 126px; flex-direction: column; font-size: 32px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.rest-big .ring span small { font: 500 12px/1 var(--font); color: var(--muted); }
+.rest-big .next { font-size: 13.5px; color: var(--muted); text-align: center; }
+.rest-big .next b { color: var(--ink); }
+.hr-gate { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.hr-gate .heart { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); animation: beat 1.2s ease-in-out infinite; }
+.hr-gate b { font: 600 13px/1 var(--num); color: var(--ink); }
+.queue { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.queue label { cursor: pointer; font: 600 12px/1 var(--font); padding: 7px 10px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--card); color: var(--muted); }
+.qcard { display: none; background: var(--card); border: 1.5px solid var(--line); border-radius: 18px; padding: 14px; gap: 10px; }
+.qcard .qhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.qcard .qhead span { font: 700 11px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.qcard h3 { margin: 0; font: 700 18px/1.25 var(--font); text-wrap: balance; }
+.dest { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.dest b { color: var(--ink); font-weight: 600; }
+.dest::before { content: "→"; color: var(--primary); font-weight: 700; }
+.opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.opts.two { grid-template-columns: repeat(2, 1fr); }
+.opts.five { grid-template-columns: repeat(5, 1fr); }
+.opts input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.opts label { cursor: pointer; min-height: 46px; padding: 6px; border-radius: 12px; display: grid; place-items: center; text-align: center; font: 600 13.5px/1.2 var(--font); border: 1.5px solid var(--line); background: var(--app-bg); }
+.opts input:checked + label { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.opts input:focus-visible + label { outline: 2px solid var(--primary); outline-offset: 2px; }
+.opts .lo, .opts .hi { font-size: 11px; color: var(--muted); }
+.mini-scale { display: grid; gap: 6px; }
+.mini-scale .lbl { font: 600 13px/1.2 var(--font); display: flex; justify-content: space-between; }
+.mini-scale .lbl span { font-weight: 500; color: var(--muted); font-size: 11.5px; }
+.answered { display: none; align-items: center; gap: 8px; font: 600 13.5px/1.35 var(--font); color: var(--nutri); }
+.answered::before { content: "✓"; flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--nutri); color: var(--on-module); font-size: 12px; }
+.escalate { display: none; gap: 8px; padding: 12px; border-radius: 14px; background: var(--warn-soft); color: var(--warn); font-size: 13.5px; }
+.escalate .btn { justify-self: start; }
+.qcard:has(.opts input:checked) .answered.any { display: flex; }
+.q-r1:has(#k-worse:checked) .answered.any { display: none; }
+.q-r1:has(#k-worse:checked) .escalate { display: grid; }
+.q-r1:has(#k-tell:checked) .escalate .btn { display: none; }
+.q-r1:has(#k-tell:checked) .escalate .sent { display: block; }
+.escalate .sent { display: none; font-weight: 600; }
+.q-r3:has(input[name="sleep"]:checked):has(input[name="energy"]:checked) .answered.both { display: flex; }
+.qskip { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
+.qskip label { cursor: pointer; font: 600 13px/1 var(--font); color: var(--primary); padding: 6px 0; }
+.new-tag { font: 700 10.5px/1 var(--font); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 5px; background: var(--warn-soft); color: var(--warn); }
+.rest-acts { margin-top: auto; display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+label.ok { cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  .orb, .lifter .shin, .lifter .thigh, .lifter .torso, .video .track i, .hr-gate .heart, .bubble, .medal { animation: none; }
+  .btn.chunky, .disc { transition: none; }
+}
+
+/* ---------- training path (Duolingo-style) ---------- */
+.stats-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 6px; }
+.stats-bar h2 { margin: 0; font: 800 26px/1.1 var(--font); letter-spacing: -.02em; }
+.stats-bar .chips-r { display: flex; gap: 14px; }
+.stat-chip { display: inline-flex; align-items: center; gap: 4px; font: 700 15px/1 var(--num); color: var(--ink); }
+.stat-chip svg { width: 22px; height: 22px; fill: currentColor; }
+.stat-chip.flame svg { color: var(--flame); }
+.stat-chip.xp svg { color: var(--gold); }
+.stat-chip.shield svg { color: var(--primary); }
+.unit { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 18px; background: var(--treino); color: var(--on-module); box-shadow: 0 5px 0 var(--treino-deep); }
+.unit .k { font: 700 11px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+.unit h3 { margin: 5px 0 3px; font: 800 20px/1.15 var(--font); }
+.unit p { margin: 0; font-size: 13px; opacity: .9; }
+.unit .ver { flex: none; padding: 7px 10px; border-radius: 10px; border: 2px solid color-mix(in srgb, currentColor 45%, transparent); font: 700 12px/1 var(--font); }
+.trail { list-style: none; margin: 0; padding: 6px 0 0; display: grid; justify-items: center; gap: 20px; }
+.trail .wk { justify-self: stretch; display: flex; align-items: center; gap: 10px; font: 700 11.5px/1 var(--font); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.trail .wk::before, .trail .wk::after { content: ""; flex: 1; height: 2px; background: var(--line); }
+.trail .wk.done { color: var(--treino); }
+.node { position: relative; display: grid; justify-items: center; gap: 9px; transform: translateX(calc(var(--x, 0) * 1px)); }
+.disc { cursor: pointer; position: relative; width: 68px; height: 60px; border-radius: 50%; display: grid; place-items: center; background: var(--treino); color: var(--on-module); box-shadow: 0 6px 0 var(--treino-deep); font: 800 24px/1 var(--font); }
+.disc svg { width: 28px; height: 28px; fill: currentColor; }
+.disc:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--treino-deep); }
+.node .when { font: 600 11.5px/1.2 var(--font); color: var(--muted); text-align: center; }
+.node.current { margin-top: 50px; gap: 20px; }
+.node.current .disc::before { content: ""; position: absolute; inset: -10px -10px -16px; border-radius: 50%; border: 5px solid var(--treino-soft); }
+.node.current .when { color: var(--treino); font-weight: 700; }
+.node.locked .disc { cursor: default; background: var(--locked); color: var(--muted); box-shadow: 0 6px 0 var(--locked-deep); }
+.node.locked .disc:active { transform: none; }
+.node.prize .disc { background: transparent; box-shadow: none; width: 64px; }
+.node.prize .disc svg { width: 56px; height: 48px; }
+.node.prize .disc:active { transform: none; }
+.chest .lid { fill: var(--locked-deep); } .chest .box { fill: var(--locked); } .chest .lock { fill: var(--muted); }
+.node.goal .disc { background: var(--locked); box-shadow: 0 6px 0 var(--locked-deep); color: var(--muted); width: 76px; height: 68px; }
+.node.goal .disc svg { width: 32px; height: 32px; }
+.bubble { position: absolute; top: -50px; left: 50%; padding: 9px 13px; border-radius: 12px; background: var(--card); border: 2px solid var(--line); color: var(--treino); font: 800 13px/1 var(--font); letter-spacing: .06em; white-space: nowrap; transform: translateX(-50%); animation: bob 1.6s ease-in-out infinite; }
+.bubble::after { content: ""; position: absolute; top: 100%; left: 50%; width: 11px; height: 11px; background: var(--card); border-right: 2px solid var(--line); border-bottom: 2px solid var(--line); transform: translate(-50%, -5px) rotate(45deg); }
+@keyframes bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -5px); } }
+.gap-dots { display: grid; justify-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.gap-dots::before { content: ""; width: 4px; height: 26px; background: radial-gradient(circle, var(--locked-deep) 2px, transparent 2.5px) 0 0 / 4px 9px repeat-y; }
+.streak-line { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.streak-line svg { width: 18px; height: 18px; fill: var(--flame); flex: none; }
+.streak-line b { color: var(--ink); }
+
+/* home: one thing needing attention, today, what comes next */
+.alert { cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--terapia-soft); }
+.alert i { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--terapia); color: var(--on-module); font: 800 15px/1 var(--font); font-style: normal; }
+.alert .grow { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.alert b { font-weight: 700; font-size: 14.5px; }
+.alert .grow span { font-size: 13px; color: var(--terapia); font-weight: 600; }
+.hero { gap: 8px; padding: 18px; }
+.hero h3 { font-size: 21px; letter-spacing: -.01em; }
+.hero .btn { margin-top: 6px; }
+.agenda .li { gap: 10px; }
+.agenda .t { flex: none; width: 42px; font: 600 12.5px/1.25 var(--num); color: var(--muted); }
+.agenda .mod { flex: none; align-self: stretch; width: 4px; border-radius: 2px; }
+.agenda .mod.nutri { background: var(--nutri); } .agenda .mod.terapia { background: var(--terapia); }
+
+/* session: every exercise, in any order (one screen, two states) */
+#s-sessao:checked ~ .phone .st-live, #s-lista:checked ~ .phone .st-pre { display: none !important; }
+.free { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: var(--primary-soft); font-size: 13.5px; }
+.free svg { flex: none; width: 20px; height: 20px; fill: none; stroke: var(--primary); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; margin-top: 1px; }
+.free b { color: var(--primary); }
+.ex-list { display: grid; gap: 9px; }
+.ex-row { cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: var(--card); border: 2px solid var(--line); box-shadow: 0 3px 0 var(--line); }
+.ex-row:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line); }
+.ex-row .grow { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.ex-row b { font-weight: 700; font-size: 14.5px; }
+.ex-row .grow > span { font-size: 12.5px; color: var(--muted); }
+.thumb { position: relative; flex: none; width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; overflow: hidden; background: linear-gradient(180deg, #2a2f52, #14162b); color: #f2f3fb; font: 700 16px/1 var(--num); }
+.thumb::after { content: ""; position: absolute; left: 7px; right: 7px; bottom: 6px; height: 3px; border-radius: 2px; background: #ff8d5c; }
+.tag { justify-self: start; font-style: normal; padding: 4px 7px; border-radius: 5px; font: 700 10.5px/1 var(--font); letter-spacing: .03em; }
+.tag.new { background: var(--warn-soft); color: var(--warn); }
+.tag.tip { background: var(--treino-soft); color: var(--treino); }
+.ex-state { flex: none; font: 600 13px/1 var(--num); color: var(--muted); }
+.ex-state.ok { color: var(--nutri); }
+.ex-state.cur { color: var(--treino); }
+#s-lista:checked ~ .phone .r-done { background: var(--app-bg); box-shadow: none; }
+#s-lista:checked ~ .phone .r-done .thumb { background: var(--treino); color: var(--on-module); }
+#s-lista:checked ~ .phone .r-done .thumb::after { display: none; }
+#s-lista:checked ~ .phone .r-cur { border-color: var(--treino); box-shadow: 0 3px 0 var(--treino-deep); }
+.ex-strip { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.ex-strip .dot { cursor: pointer; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--locked); color: var(--muted); font: 700 12.5px/1 var(--num); }
+.ex-strip .dot.done { background: var(--treino); color: var(--on-module); }
+.ex-strip .dot.cur { background: var(--card); color: var(--treino); box-shadow: inset 0 0 0 2px var(--treino); }
+.ex-strip .all { cursor: pointer; margin-left: auto; font: 600 13px/1 var(--font); color: var(--primary); padding: 6px 0; }
+
+/* chunky, pressable buttons for the training flow */
+.btn.chunky { box-shadow: 0 4px 0 var(--treino-deep); transition: transform .05s; }
+.btn.chunky:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--treino-deep); }
+.btn.ghost.chunky { border-width: 2px; box-shadow: 0 4px 0 var(--line); }
+.btn.ghost.chunky:active { box-shadow: 0 1px 0 var(--line); }
+.set .ok:not(.empty) { box-shadow: 0 3px 0 var(--treino-deep); }
+
+/* workout as a lesson */
+.lesson-top { display: flex; align-items: center; gap: 12px; padding-top: 4px; }
+.lesson-top .x { cursor: pointer; width: 28px; font: 400 30px/1 var(--font); color: var(--muted); text-align: center; }
+.pbar { flex: 1; height: 16px; border-radius: 999px; background: var(--locked); overflow: hidden; }
+.pbar i { position: relative; display: block; width: var(--w); height: 100%; border-radius: 999px; background: var(--treino); }
+.pbar i::after { content: ""; position: absolute; left: 8px; right: 8px; top: 4px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .35); }
+.cheer { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--nutri-soft); color: var(--nutri); }
+.cheer .tick { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--nutri); color: var(--on-module); font-weight: 800; }
+.cheer div { flex: 1; display: grid; gap: 2px; }
+.cheer b { font: 800 16px/1.2 var(--font); }
+.cheer span { font-size: 13px; }
+.cheer .count { flex: none; font: 600 12.5px/1 var(--num); }
+
+/* workout complete */
+.celebrate { display: grid; justify-items: center; gap: 8px; text-align: center; padding-top: 18px; }
+.celebrate h2 { margin: 6px 0 0; font: 800 26px/1.1 var(--font); letter-spacing: -.02em; color: var(--treino); }
+.celebrate p { margin: 0; color: var(--muted); font-size: 14.5px; max-width: 30ch; }
+.medal { position: relative; width: 118px; height: 118px; border-radius: 50%; display: grid; place-items: center; background: var(--gold); box-shadow: 0 7px 0 var(--gold-deep), inset 0 0 0 8px color-mix(in srgb, #fff 35%, transparent); animation: pop .5s cubic-bezier(.3, 1.6, .5, 1) both; }
+.medal svg { width: 58px; height: 58px; fill: #fff; }
+.medal i { position: absolute; width: 8px; height: 14px; border-radius: 2px; }
+.medal i:nth-of-type(1) { top: -6px; left: -14px; background: var(--treino); transform: rotate(-25deg); }
+.medal i:nth-of-type(2) { top: 10px; right: -22px; background: var(--primary); transform: rotate(30deg); }
+.medal i:nth-of-type(3) { bottom: 4px; left: -24px; background: var(--nutri); transform: rotate(60deg); }
+.medal i:nth-of-type(4) { bottom: -10px; right: -8px; background: var(--terapia); transform: rotate(-50deg); }
+.medal i:nth-of-type(5) { top: -16px; right: 18px; background: var(--flame); transform: rotate(12deg); width: 6px; height: 10px; }
+@keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tile { display: grid; border: 2px solid var(--c); border-radius: 14px; overflow: hidden; background: var(--c); }
+.tile span { padding: 6px 4px 5px; text-align: center; font: 800 10.5px/1 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--on-module); }
+.tile b { padding: 11px 4px; border-radius: 11px 11px 0 0; background: var(--card); text-align: center; font: 700 19px/1 var(--num); color: var(--c); }
+.tile.gold { --c: var(--gold-ink); } .tile.blue { --c: var(--primary); } .tile.green { --c: var(--nutri); }
+.flame-big { flex: none; position: relative; width: 52px; height: 52px; display: grid; place-items: center; }
+.flame-big svg { position: absolute; inset: 0; width: 100%; height: 100%; fill: var(--flame); }
+.flame-big b { position: relative; top: 6px; font: 800 15px/1 var(--num); color: var(--on-module); }
+.xp-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13.5px; }
+.xp-list li { display: flex; justify-content: space-between; gap: 8px; }
+.xp-list .num { font-weight: 600; color: var(--gold-ink); }
+
+footer.page-foot { max-width: 1100px; margin: 32px auto 0; font-size: 13px; color: var(--muted); }
+
+@media (max-width: 900px) {
+  .stage { grid-template-columns: 1fr; gap: 24px; }
+  .journey { position: static; grid-row: 1; }
+  .phone { grid-column: 1; grid-row: 2; }
+}
+@media (max-width: 440px) {
+  .device { border-width: 0; border-radius: 22px; height: 760px; }
+  .status { padding: 0 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hr .heart, .ring { animation: none; }
+  .toggle input, .toggle input::after { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <div class="eyebrow">Prototype · client app · HTML and CSS only</div>
+  <h1>MyHealth for Ana, the client</h1>
+  <p>A clickable sketch of the phone app for the person being cared for, built on what the API already supports. Ana trains with a personal trainer, follows a dietitian's meal plan and has acupuncture sessions, each professional from a different organization. An assistant in the centre of the tab bar does most of the typing for her: she says what happened and confirms. Tap inside the phone or pick a screen on the left.</p>
+</div>
+
+<div class="stage">
+  <input class="nav-radio" type="radio" name="screen" id="s-home" checked>
+  <input class="nav-radio" type="radio" name="screen" id="s-notif">
+  <input class="nav-radio" type="radio" name="screen" id="s-perfil">
+  <input class="nav-radio" type="radio" name="screen" id="s-treino">
+  <input class="nav-radio" type="radio" name="screen" id="s-ativo">
+  <input class="nav-radio" type="radio" name="screen" id="s-fim">
+  <input class="nav-radio" type="radio" name="screen" id="s-nutri">
+  <input class="nav-radio" type="radio" name="screen" id="s-diario">
+  <input class="nav-radio" type="radio" name="screen" id="s-terapia">
+  <input class="nav-radio" type="radio" name="screen" id="s-consent">
+  <input class="nav-radio" type="radio" name="screen" id="s-progresso">
+  <input class="nav-radio" type="radio" name="screen" id="s-iaconsent">
+  <input class="nav-radio" type="radio" name="screen" id="s-chat">
+  <input class="nav-radio" type="radio" name="screen" id="s-voz">
+  <input class="nav-radio" type="radio" name="screen" id="s-video">
+  <input class="nav-radio" type="radio" name="screen" id="s-rest1">
+  <input class="nav-radio" type="radio" name="screen" id="s-rest2">
+  <input class="nav-radio" type="radio" name="screen" id="s-rest3">
+  <input class="nav-radio" type="radio" name="screen" id="s-rest4">
+  <input class="nav-radio" type="radio" name="screen" id="s-conquista">
+  <input class="nav-radio" type="radio" name="screen" id="s-sessao">
+  <input class="nav-radio" type="radio" name="screen" id="s-lista">
+
+  <!-- ===== Journey and notes ===== -->
+  <aside class="journey" aria-label="Screens and UX notes">
+    <div class="flow">
+      <div class="flow-group">
+        <h2>Assistant</h2>
+        <div class="flow-steps">
+          <label class="j-iaconsent" for="s-iaconsent">First use</label><span class="arrow" aria-hidden="true">→</span>
+          <label class="j-chat" for="s-chat">Conversation</label><span class="arrow" aria-hidden="true">→</span>
+          <label class="j-voz" for="s-voz">Voice during a workout</label>
+        </div>
+      </div>
+      <div class="flow-group">
+        <h2>Every day</h2>
+        <div class="flow-steps">
+          <label class="j-home" for="s-home">Home</label>
+          <label class="j-notif" for="s-notif">Notifications</label>
+          <label class="j-perfil" for="s-perfil">Profile and privacy</label>
+        </div>
+      </div>
+      <div class="flow-group">
+        <h2>Training</h2>
+        <div class="flow-steps">
+          <label class="j-treino" for="s-treino">Path</label><span class="arrow" aria-hidden="true">→</span>
+          <label class="j-sessao" for="s-sessao">Session exercises</label><span class="arrow" aria-hidden="true">→</span>
+          <label class="j-ativo" for="s-ativo">Workout in progress</label><span class="arrow" aria-hidden="true">→</span>
+          <label class="j-video" for="s-video">Exercise video</label><span class="arrow" aria-hidden="true">→</span>
+          <label class="j-rest" for="s-rest1">Questions while resting</label><span class="arrow" aria-hidden="true">→</span>
+          <label class="j-fim" for="s-fim">Finish and feedback</label><span class="arrow" aria-hidden="true">→</span>
+          <label class="j-conquista" for="s-conquista">Workout complete</label>
+        </div>
+      </div>
+      <div class="flow-group">
+        <h2>Nutrition</h2>
+        <div class="flow-steps">
+          <label class="j-nutri" for="s-nutri">Today's meals</label><span class="arrow" aria-hidden="true">→</span>
+          <label class="j-diario" for="s-diario">Log a meal</label>
+        </div>
+      </div>
+      <div class="flow-group">
+        <h2>Therapies</h2>
+        <div class="flow-steps">
+          <label class="j-terapia" for="s-terapia">Sessions</label><span class="arrow" aria-hidden="true">→</span>
+          <label class="j-consent" for="s-consent">Consent</label>
+        </div>
+      </div>
+      <div class="flow-group">
+        <h2>Progress</h2>
+        <div class="flow-steps">
+          <label class="j-progresso" for="s-progresso">My progress</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes" aria-live="polite">
+      <div class="note n-iaconsent">
+        <h3>The assistant asks before it starts</h3>
+        <p>Using an AI provider means sending health data outside MyHealth, so the first use is a separate, versioned consent that Ana can withdraw, like the therapy consents.</p>
+        <ul>
+          <li><b>Plain lists</b> of what it does and what it never does: no diagnosis, no plan changes, no consent on her behalf.</li>
+          <li><b>She chooses what it can read</b> (training, nutrition, therapies); only the data needed for each question is sent.</li>
+          <li><b>Refusing is fine:</b> the whole app keeps working without it.</li>
+        </ul>
+        <div class="refs">LGPD sensitive data · provider data processing agreement · RNF-10 no diagnosis</div>
+      </div>
+      <div class="note n-chat">
+        <h3>Say it once, confirm with one tap</h3>
+        <p>Ana writes or speaks the way she would to a friend. The assistant turns it into the same records the forms create and shows a card before saving anything.</p>
+        <ul>
+          <li><b>Meal:</b> one sentence becomes a diary entry (lunch, followed in part, shared with Dr. Marina). Tap "Salvar" to see it saved.</li>
+          <li><b>Pain:</b> it does not assess pain. It offers to send a discomfort report to the trainer and shows when to seek medical care.</li>
+          <li><b>Questions</b> are answered from her own records, with the source shown.</li>
+          <li><b>Under the hood</b> each card is an API call made with Ana's own session, so the same access checks, sharing rules and audit apply.</li>
+        </ul>
+        <div class="refs">RF-30 diary · RF-19 discomfort report · tool calls to the existing API</div>
+      </div>
+      <div class="note n-voz">
+        <h3>Hands-free during the workout</h3>
+        <p>With a bar on her back, Ana says "feito, dez com quarenta e dois e meio". The assistant reads it back as set 3: 10 repetitions, 42.5 kg.</p>
+        <ul>
+          <li><b>Confirm by voice or tap:</b> she says "certo", or taps "Registrar série".</li>
+          <li><b>Context aware:</b> it knows which exercise and set are current, so short phrases are enough.</li>
+          <li><b>Rest starts</b> automatically after the set is logged.</li>
+        </ul>
+        <div class="refs">RF-17 execution · speech-to-text on the phone, parsing on the server</div>
+      </div>
+      <div class="note n-video">
+        <h3>See the movement, not a description of it</h3>
+        <p>Every exercise has a short muted loop on the workout screen and a full version here, downloaded with the plan so it works with no signal at the gym.</p>
+        <ul>
+          <li><b>Slow motion</b> and <b>captions</b> are one tap each; chapters jump to setup, descent and common mistakes.</li>
+          <li><b>Front and side angles</b> are recorded for the movements where they matter (squat, deadlift).</li>
+          <li><b>Who made it:</b> the MyHealth library, or the trainer's own upload for a custom exercise, visible only in that organization.</li>
+          <li><b>The trainer's note</b> for Ana sits under the video, next to the library's precautions.</li>
+        </ul>
+        <div class="refs">Needs file storage and a video CDN (RF-27) · several media items per exercise</div>
+      </div>
+      <div class="note n-rest">
+        <h3>Rest time answers the day's questions</h3>
+        <p>Each rest can carry one small question, answered with one tap. The chips under the timer are this workout's questions; tap them to see each one.</p>
+        <ul>
+          <li><b>"Mandou bem!"</b> confirms the set the moment it is logged, like Duolingo's green answer sheet, with a haptic tap on the phone.</li>
+          <li><b>One per rest, four per workout at most</b>, and never in the last 15 seconds: the card closes by itself and the timer always wins.</li>
+          <li><b>Asked after recovery:</b> the question waits until the heart rate from the Watch drops below 110 bpm.</li>
+          <li><b>Every card says who receives the answer.</b> The lunch answer goes to Dr. Marina at another organization; Carlos never sees the diary.</li>
+          <li><b>Knee "pior"</b> offers a discomfort report to Carlos and says when to see a doctor. The app does not interpret the pain.</li>
+          <li><b>Sleep and energy</b> are a new data type: they need their own sharing switch and a place in the data export.</li>
+        </ul>
+        <div class="refs">Discomfort report (RF-19) · food diary (RF-30) · therapy progress (RF-36) · new check-in record</div>
+      </div>
+      <div class="note n-home">
+        <h3>One glance: what needs me, what's today, what's next</h3>
+        <p>The home answers "what do I do today?" across every professional, in three blocks. Everything else lives one tap away in its own tab.</p>
+        <ul>
+          <li><b>Needs attention</b> appears only when something has a deadline (here, the consent before Friday) and disappears once it's done.</li>
+          <li><b>Today</b> is one card with one button. The streak sits in its corner; the week detail lives on the Treino path.</li>
+          <li><b>Next</b> is a short timeline across modules, coloured per module. "Registrar" opens the assistant, which does the typing.</li>
+          <li><b>Moved out:</b> the assistant card (the button in the tab bar is enough), the week strip (now on the path) and My progress (now in Profile).</li>
+        </ul>
+        <div class="refs">RF-06 client home · MT-10 one view across tenants</div>
+      </div>
+      <div class="note n-notif">
+        <h3>Notifications that never reveal health data</h3>
+        <p>The texts are the API's real templates. They point to the screen and never show clinical content, because lock screens are public.</p>
+        <ul>
+          <li><b>"Orientação importante"</b> is how a medical-care referral arrives: Ana opens the app to read it.</li>
+          <li><b>Quick actions</b> on the notification itself: Ana answers "Segui o plano" from the lock screen, without opening the app.</li>
+          <li><b>Grouped by day</b>, unread marked with a dot; tapping opens the related record.</li>
+        </ul>
+        <div class="refs">RF-07 · notification outbox (push or e-mail)</div>
+      </div>
+      <div class="note n-perfil">
+        <h3>Ana decides who sees what</h3>
+        <p>Sharing is per professional and per data category, with switches she can change at any time. Each change is recorded.</p>
+        <ul>
+          <li><b>Verified badge</b> with council number, so she knows the professional is real.</li>
+          <li><b>Apple Health</b> can be paused or revoked; saving workouts back to Health is a separate choice.</li>
+          <li><b>Assistant settings</b> live here too: what it may read, and withdrawing its consent.</li>
+          <li><b>LGPD</b> actions are plain buttons: download my data, ask for a correction, ask for deletion.</li>
+        </ul>
+        <div class="refs">RF-02 sharing grants · RF-38 Apple Health · RNF-04 data export</div>
+      </div>
+      <div class="note n-treino">
+        <h3>The plan as a path to walk</h3>
+        <p>Borrowed from Duolingo: the plan becomes a winding path of sessions, in the order Carlos prescribed (A, B, A, C). Ana never has to work out which session is next; the bouncing node is the one.</p>
+        <ul>
+          <li><b>One node per session.</b> Done nodes are filled, today's bounces with "Começar", the rest are locked until their turn.</li>
+          <li><b>A chest closes each week</b> and the <b>trophy at the end of the phase</b> is the physical assessment (15/12), so progress has a goal she can see.</li>
+          <li><b>A weekly streak, not a daily one.</b> Rest days are part of training, so the flame counts weeks that met the plan's 4 sessions. A daily streak would push people to train sore.</li>
+          <li><b>The shield protects a week</b> when Ana reports discomfort or Carlos pauses the plan: getting hurt never costs the streak.</li>
+          <li><b>XP rewards showing up</b> (sessions, feedback, rest answers), never load or extra sets.</li>
+          <li><b>A new plan version redraws the path from today.</b> Done nodes stay, because they are execution history.</li>
+        </ul>
+        <div class="refs">RF-11 plans · RF-12 versioned publish · RF-19 feedback · RF-24 assessments · new: streak and XP ledger</div>
+      </div>
+      <div class="note n-sessao">
+        <h3>Every exercise, in any order</h3>
+        <p>Treino A has six exercises and Ana sees all of them before she starts. The list keeps Carlos's suggested order, but she can start with any one, for example when the squat rack is busy. Pick "Session exercises" again after opening the workout to see the same screen mid-workout.</p>
+        <ul>
+          <li><b>Before the workout:</b> each row shows the video thumbnail, sets × reps, load and rest. Tapping a row starts the workout on that exercise.</li>
+          <li><b>During the workout</b> ("Ver todos" in the workout): done, in progress and still to do, with sets counted per exercise. Here Ana did the leg extension first and is now on the squat.</li>
+          <li><b>Guidance, not locks:</b> Carlos can mark an exercise "faça primeiro" (heavy compound lifts before isolation work). It shows as a tip and never blocks.</li>
+          <li><b>New in version 4</b> is tagged, so the lunge that replaced the leg press does not catch her by surprise.</li>
+          <li><b>Finishing early is allowed.</b> Skipped exercises go into the summary for Carlos, with a one-tap reason (machine busy, pain, no time).</li>
+        </ul>
+        <div class="refs">RF-11 plan items · RF-17 execution logs each set against its exercise, whatever the order</div>
+      </div>
+      <div class="note n-ativo">
+        <h3>Logging a set takes two taps</h3>
+        <p>Suggested repetitions and load are prefilled from the plan; Ana edits only what differed and taps the check.</p>
+        <ul>
+          <li><b>Lesson-style header:</b> one bar fills set by set across the whole workout (5 of 18), with × to leave and her streak beside it.</li>
+          <li><b>Exercise strip:</b> six dots (done, current, to do). Tapping any dot or "Ver todos" opens the full list to switch exercise.</li>
+          <li><b>Live heart rate</b> from the Apple Watch, labelled with its source.</li>
+          <li><b>Rest timer</b> starts after each set, using the rest time the trainer set.</li>
+          <li><b>Precautions</b> from the exercise library are shown in place, not hidden in a details page.</li>
+          <li><b>A looping video</b> of the exercise sits on top; the expand button opens the full video.</li>
+          <li><b>Tapping the check</b> on the current set starts the rest, which may carry one question.</li>
+          <li><b>"Falar"</b> opens the voice assistant to log the set hands-free.</li>
+          <li><b>Pause</b> keeps paused time out of the workout duration. Works offline; the phone creates the ids.</li>
+        </ul>
+        <div class="refs">RF-17 execution · RF-40 heart rate during workouts</div>
+      </div>
+      <div class="note n-fim">
+        <h3>Finishing is also feedback</h3>
+        <p>Effort on the 0 to 10 scale and a clear "I felt discomfort" switch give the trainer what they need without a free-text burden.</p>
+        <ul>
+          <li><b>Discomfort</b> notifies the trainer and opens a details field.</li>
+          <li><b>Heart-rate summary</b> shows both the simple and the time-weighted average, with the device, as the API stores both.</li>
+          <li><b>Save to Apple Health</b> follows her choice in Profile.</li>
+        </ul>
+        <div class="refs">RF-18 attendance · RF-19 feedback · RF-41/42 heart-rate means and provenance</div>
+      </div>
+      <div class="note n-conquista">
+        <h3>Celebrate showing up, not lifting more</h3>
+        <p>Duolingo's lesson-complete moment, adapted to health: the medal, the three tiles and the streak are about consistency, never performance.</p>
+        <ul>
+          <li><b>The XP breakdown is visible</b>, so Ana can see the points come from doing the plan and giving feedback.</li>
+          <li><b>Discomfort switches records off.</b> Ana reported knee pain, so load records stay hidden until Carlos replies, and the screen says he was told.</li>
+          <li><b>No leaderboard by default.</b> If leagues ever come, they are opt-in, inside one organization, and ranked by weeks completed.</li>
+          <li><b>Streak reminders stay generic</b> ("Seu treino de hoje está esperando"): the lock screen never shows health data.</li>
+        </ul>
+        <div class="refs">RF-18 attendance · RF-19 discomfort · RF-07 notification templates · new: XP ledger</div>
+      </div>
+      <div class="note n-nutri">
+        <h3>A meal plan you can follow from the kitchen</h3>
+        <p>Today's meals as a timeline, with quantities in grams or household measures and the substitutions the dietitian allowed.</p>
+        <ul>
+          <li><b>Next meal</b> is highlighted; logged ones are filled in.</li>
+          <li><b>One tap</b> for the common case ("Segui o plano"), and "Contar ao assistente" for everything else. The form stays as a fallback.</li>
+          <li><b>Water</b> counted in ml toward the day's target.</li>
+          <li><b>The dietitian's comment</b> on a diary entry shows under it.</li>
+        </ul>
+        <div class="refs">RF-29 versioned meal plan · RF-30 food diary</div>
+      </div>
+      <div class="note n-diario">
+        <h3>Logging is about adherence, not calories</h3>
+        <p>The four answers match the API: as planned, partly, something different, or an unplanned meal. A description is optional.</p>
+        <ul>
+          <li><b>"Só para mim"</b> keeps an entry private: it is stored without any organization and no professional sees it.</li>
+          <li><b>Never shown to trainers:</b> the diary goes only to the dietitian she chose.</li>
+          <li><b>Photos</b> come later, with file storage.</li>
+        </ul>
+        <div class="refs">RF-30 · private entries have no tenant</div>
+      </div>
+      <div class="note n-terapia">
+        <h3>Therapy with the guard-rails visible</h3>
+        <p>The next session, the care plan's progress and what is blocking: here, a consent to sign before Friday.</p>
+        <ul>
+          <li><b>Qualification badge:</b> "Acupuntura verificada" appears only when the platform verified the practitioner for that modality.</li>
+          <li><b>After each session</b> Ana reads the guidance and says how she felt on a 1 to 5 scale.</li>
+        </ul>
+        <div class="refs">RF-33 qualifications · RF-36 sessions, care plan and client progress</div>
+      </div>
+      <div class="note n-consent">
+        <h3>Consent is read, versioned and reversible</h3>
+        <p>The term says which version it is and why she is asked again. Risks are listed separately, and refusing is as easy as accepting.</p>
+        <ul>
+          <li><b>New version, new consent:</b> her yes to version 1 no longer counts once version 2 is published.</li>
+          <li><b>Withdraw</b> at any time from the therapy screen; the session cannot be completed without a valid consent.</li>
+        </ul>
+        <div class="refs">RF-35 procedure consent with version · acceptance test 8</div>
+      </div>
+      <div class="note n-progresso">
+        <h3>Progress with its method attached</h3>
+        <p>Every measurement says how it was taken, so a change in method is never mistaken for a change in the body.</p>
+        <ul>
+          <li><b>Weight chart</b> from the trainer's physical assessments; the axis starts at 67 kg and is labelled.</li>
+          <li><b>Attendance</b> for the month and the latest health-history version she submitted.</li>
+        </ul>
+        <div class="refs">RF-24 physical assessments · RF-25 My Progress · RF-23 health history</div>
+      </div>
+    </div>
+    <p class="disclaimer">All names, numbers and organizations are examples. The interface is in Portuguese, as the app will be.</p>
+  </aside>
+
+  <!-- ===== Phone ===== -->
+  <div class="phone">
+    <div class="device" lang="pt-BR">
+      <div class="status" aria-hidden="true">
+        <span class="num">9:41</span>
+        <span class="island"></span>
+        <span class="sys"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="battery"><i></i></span></span>
+      </div>
+
+      <div class="screens">
+
+        <!-- HOME -->
+        <section class="screen sc-home" aria-label="Início">
+          <div class="top">
+            <div class="title">
+              <span class="kicker">Quinta, 1 de outubro</span>
+              <h2>Bom dia, Ana</h2>
+            </div>
+            <div class="row">
+              <label class="icon-btn" for="s-notif" aria-label="Notificações">
+                <svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+                <span class="dot"></span>
+              </label>
+              <label class="avatar" for="s-perfil" aria-label="Perfil">AS</label>
+            </div>
+          </div>
+
+          <label class="alert" for="s-consent">
+            <i aria-hidden="true">!</i>
+            <span class="grow"><b>Assine o novo termo de acupuntura</b><span>Até sex 3/10, antes da sessão</span></span>
+            <span class="chev">›</span>
+          </label>
+
+          <div class="card treino hero">
+            <div class="row"><span class="module treino">Treino de hoje</span><span class="streak-line"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3.5 5 5.5 5 10.5a5 5 0 0 1-10 0c0-2.2 1-3.7 2.3-4.8.2 1.7 1 2.8 2.2 3.3C11 8.4 11 5.3 12 2Z"/></svg><b>4 semanas</b></span></div>
+            <h3>Treino A · membros inferiores</h3>
+            <p>6 exercícios · cerca de 50 min · Carlos Lima</p>
+            <label class="btn treino block chunky" for="s-sessao">Começar treino</label>
+          </div>
+
+          <div class="sec-title">A seguir</div>
+          <div class="card list agenda">
+            <div class="li">
+              <span class="t num">12:30</span><span class="mod nutri" aria-hidden="true"></span>
+              <span class="grow"><b>Almoço</b><span>Arroz, feijão e frango</span></span>
+              <label class="btn ghost small" for="s-chat">Registrar</label>
+            </div>
+            <label class="li" for="s-terapia">
+              <span class="t num">Sex<br>18:00</span><span class="mod terapia" aria-hidden="true"></span>
+              <span class="grow"><b>Acupuntura</b><span>Lucas Tanaka · presencial</span></span>
+              <span class="chev">›</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- NOTIFICATIONS -->
+        <section class="screen sc-notif" aria-label="Notificações">
+          <label class="back" for="s-home">‹ Início</label>
+          <div class="top"><div class="title"><h2>Notificações</h2></div></div>
+          <div class="sec-title">Na tela de bloqueio, 12:45</div>
+          <div class="quick">
+            <div class="lock">
+              <span class="app"><i></i>MyHealth · agora</span>
+              <b>Como foi o almoço?</b>
+              <span>Responda daqui mesmo, sem abrir o app.</span>
+            </div>
+            <div class="qa">
+              <label for="s-nutri">Segui o plano</label>
+              <label for="s-nutri">Em parte</label>
+              <label for="s-chat">Contar</label>
+            </div>
+          </div>
+          <div class="sec-title">Hoje</div>
+          <div class="card list">
+            <label class="li" for="s-terapia"><span class="badge terapia">!</span><span class="grow"><b>Orientação importante</b><span>Seu terapeuta deixou uma orientação importante para você.</span></span><span class="unread"></span></label>
+            <label class="li" for="s-treino"><span class="badge treino">R</span><span class="grow"><b>Nova resposta</b><span>Seu treinador respondeu ao seu feedback.</span></span><span class="unread"></span></label>
+          </div>
+          <div class="sec-title">Ontem</div>
+          <div class="card list">
+            <label class="li" for="s-nutri"><span class="badge nutri">C</span><span class="grow"><b>Novo comentário</b><span>Sua nutricionista comentou no seu diário alimentar.</span></span></label>
+            <label class="li" for="s-treino"><span class="badge treino">4</span><span class="grow"><b>Treino atualizado</b><span>Seu profissional publicou uma nova versão do seu plano de treino.</span></span></label>
+            <label class="li" for="s-terapia"><span class="badge terapia">S</span><span class="grow"><b>Sessão agendada</b><span>Uma sessão de terapia foi agendada ou remarcada.</span></span></label>
+          </div>
+        </section>
+
+        <!-- PROFILE / PRIVACY -->
+        <section class="screen sc-perfil" aria-label="Perfil e privacidade">
+          <label class="back" for="s-home">‹ Início</label>
+          <div class="top">
+            <div class="title"><span class="kicker">ana.souza@example.com</span><h2>Ana Souza</h2></div>
+            <span class="avatar" aria-hidden="true">AS</span>
+          </div>
+
+          <div class="card list">
+            <label class="li" for="s-progresso"><span class="badge info">↗</span><span class="grow"><b>Meu progresso</b><span>Peso −2,6 kg desde junho · 14 de 16 treinos em setembro</span></span><span class="chev">›</span></label>
+          </div>
+
+          <div class="sec-title">O que cada profissional vê</div>
+          <div class="card">
+            <div class="row">
+              <div><h3>Carlos Lima</h3><p>Personal trainer · CREF 012345-G/SP</p></div>
+              <span class="verified">Verificado</span>
+            </div>
+            <div class="who"><span class="org">Studio Forte</span></div>
+            <div>
+              <label class="toggle" for="g1"><span class="txt"><b>Frequência cardíaca</b><span>Durante os treinos dele</span></span><input type="checkbox" id="g1" checked></label>
+              <label class="toggle" for="g2"><span class="txt"><b>Histórico de saúde</b><span>Versão 3, enviada em 12/09</span></span><input type="checkbox" id="g2" checked></label>
+              <label class="toggle" for="g3"><span class="txt"><b>Avaliações físicas</b><span>Peso, medidas e composição</span></span><input type="checkbox" id="g3" checked></label>
+              <label class="toggle" for="g4"><span class="txt"><b>Resumo da nutrição</b><span>Só o resumo, nunca o diário</span></span><input type="checkbox" id="g4"></label>
+              <label class="toggle" for="g7"><span class="txt"><b>Sono e energia</b><span>Respostas dadas nos descansos · novo</span></span><input type="checkbox" id="g7" checked></label>
+            </div>
+          </div>
+          <div class="card">
+            <div class="row">
+              <div><h3>Dra. Marina Reis</h3><p>Nutricionista · CRN-3 45210</p></div>
+              <span class="verified">Verificada</span>
+            </div>
+            <div class="who"><span class="org">Clínica Movimento</span></div>
+            <div>
+              <label class="toggle" for="g5"><span class="txt"><b>Histórico de saúde</b><span>Versão 3</span></span><input type="checkbox" id="g5" checked></label>
+              <label class="toggle" for="g6"><span class="txt"><b>Resumo dos treinos</b><span>Frequência e esforço</span></span><input type="checkbox" id="g6" checked></label>
+            </div>
+          </div>
+
+          <div class="sec-title">Apple Saúde</div>
+          <div class="card">
+            <div class="row"><h3>Conectado</h3><span class="pill ok">Ativo</span></div>
+            <div>
+              <label class="toggle" for="h1"><span class="txt"><b>Ler frequência cardíaca</b><span>Do Apple Watch, durante os treinos</span></span><input type="checkbox" id="h1" checked></label>
+              <label class="toggle" for="h2"><span class="txt"><b>Salvar treinos no Saúde</b><span>Cria um treino no app Saúde ao concluir</span></span><input type="checkbox" id="h2" checked></label>
+            </div>
+            <label class="btn ghost small" for="s-perfil">Pausar conexão</label>
+          </div>
+
+          <div class="sec-title">Assistente</div>
+          <div class="card">
+            <div class="row"><h3>Ativado em 01/10</h3><span class="pill info">Termo v1</span></div>
+            <div>
+              <label class="toggle" for="ia1"><span class="txt"><b>Pode ler meus treinos</b><span>Planos, séries e frequência cardíaca</span></span><input type="checkbox" id="ia1" checked></label>
+              <label class="toggle" for="ia2"><span class="txt"><b>Pode ler minha alimentação</b><span>Plano alimentar e diário</span></span><input type="checkbox" id="ia2" checked></label>
+              <label class="toggle" for="ia3"><span class="txt"><b>Pode ler minhas terapias</b><span>Sessões e orientações</span></span><input type="checkbox" id="ia3"></label>
+              <label class="toggle" for="ia4"><span class="txt"><b>Confirmar antes de salvar</b><span>Sempre ativo nesta versão</span></span><input type="checkbox" id="ia4" checked disabled></label>
+            </div>
+            <label class="btn ghost small" for="s-iaconsent">Ver termo ou desativar</label>
+          </div>
+
+          <div class="sec-title">Seus dados (LGPD)</div>
+          <div class="card list">
+            <label class="li" for="s-perfil"><span class="badge info">↓</span><span class="grow"><b>Baixar meus dados</b><span>Arquivo com tudo o que é seu, válido por 7 dias</span></span><span class="chev">›</span></label>
+            <label class="li" for="s-perfil"><span class="badge info">✎</span><span class="grow"><b>Pedir correção</b><span>Algo registrado está errado</span></span><span class="chev">›</span></label>
+            <label class="li" for="s-perfil"><span class="badge info">×</span><span class="grow"><b>Pedir exclusão</b><span>Avaliamos o pedido e respondemos aqui</span></span><span class="chev">›</span></label>
+          </div>
+        </section>
+
+        <!-- TRAINING PLAN -->
+        <section class="screen sc-treino" aria-label="Treino">
+          <div class="stats-bar">
+            <h2>Treino</h2>
+            <div class="chips-r">
+              <span class="stat-chip flame" aria-label="Ofensiva de 4 semanas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3.5 5 5.5 5 10.5a5 5 0 0 1-10 0c0-2.2 1-3.7 2.3-4.8.2 1.7 1 2.8 2.2 3.3C11 8.4 11 5.3 12 2Z"/></svg>4</span>
+              <span class="stat-chip xp" aria-label="1.240 pontos de experiência"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg>1.240</span>
+              <span class="stat-chip shield" aria-label="1 semana protegida disponível"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3Z"/></svg>1</span>
+            </div>
+          </div>
+
+          <div class="unit">
+            <div>
+              <span class="k">Fase 1 · semana 5 de 15</span>
+              <h3>Hipertrofia</h3>
+              <p>Carlos Lima · Studio Forte · 4 treinos por semana</p>
+            </div>
+            <span class="ver">v4</span>
+          </div>
+
+          <ol class="trail" aria-label="Caminho do plano de treino">
+            <li class="wk done">Semana 4 · 4 de 4 ✓</li>
+            <li class="wk">Semana 5 · esta semana</li>
+            <li class="node done" style="--x: 0"><label class="disc" for="s-treino" aria-label="Treino A, feito na terça 29/09">✓</label><span class="when">A · ter 29/09</span></li>
+            <li class="node done" style="--x: -45"><label class="disc" for="s-treino" aria-label="Treino B, feito na quarta 30/09">✓</label><span class="when">B · qua 30/09</span></li>
+            <li class="node current" style="--x: -70">
+              <span class="bubble" aria-hidden="true">COMEÇAR</span>
+              <label class="disc" for="s-sessao" aria-label="Começar Treino A, hoje"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg></label>
+              <span class="when">A · hoje</span>
+            </li>
+            <li class="node locked" style="--x: -45"><span class="disc" aria-label="Treino C, bloqueado">C</span><span class="when">sáb 03/10</span></li>
+            <li class="node locked prize" style="--x: 0">
+              <span class="disc" aria-label="Baú da semana 5, bloqueado"><svg class="chest" viewBox="0 0 48 40" aria-hidden="true"><rect class="box" x="4" y="16" width="40" height="22" rx="4"/><path class="lid" d="M4 19a9 9 0 0 1 9-9h22a9 9 0 0 1 9 9v2H4z"/><rect class="lock" x="20" y="18" width="8" height="9" rx="2"/></svg></span>
+              <span class="when">Semana completa</span>
+            </li>
+            <li class="wk">Semana 6</li>
+            <li class="node locked" style="--x: 45"><span class="disc">A</span></li>
+            <li class="node locked" style="--x: 70"><span class="disc">B</span></li>
+            <li class="node locked" style="--x: 45"><span class="disc">A</span></li>
+            <li class="node locked" style="--x: 0"><span class="disc">C</span></li>
+            <li class="gap-dots">mais 9 semanas</li>
+            <li class="node goal">
+              <span class="disc" aria-label="Avaliação física no fim da fase 1, bloqueada"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v5a5 5 0 0 1-10 0V3Z"/><path d="M7 5H4v1.5A3.5 3.5 0 0 0 7.5 10M17 5h3v1.5A3.5 3.5 0 0 1 16.5 10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 13h4v4h-4zM8 19h8v2H8z"/></svg></span>
+              <span class="when">Avaliação física · 15/12<br>fim da fase 1</span>
+            </li>
+          </ol>
+
+          <div class="card treino">
+            <span class="module treino">O que mudou na versão 4 · 28/09</span>
+            <p>"Aumentei a carga do agachamento e troquei o leg press pelo afundo."</p>
+          </div>
+          <div class="sec-title">Último treino · ter 29/09</div>
+          <div class="card">
+            <p>Treino A · esforço 8 de 10 · 54 min · FC média 121 bpm</p>
+            <div class="reply"><small>Carlos respondeu</small>Ótimo treino! Se o joelho continuar bem, na próxima suba o agachamento para 45 kg.</div>
+          </div>
+        </section>
+
+        <!-- SESSION: ALL EXERCISES (before the workout: s-sessao · during: s-lista) -->
+        <section class="screen sc-sessao" aria-label="Exercícios do Treino A">
+          <label class="back st-pre" for="s-treino">‹ Treino</label>
+          <label class="back st-live" for="s-ativo">‹ Voltar ao agachamento</label>
+          <div class="top"><div class="title"><span class="kicker">Hoje · versão 4 · cerca de 50 min</span><h2>Treino A · membros inferiores</h2></div></div>
+
+          <div class="target st-pre"><span class="pill info">6 exercícios</span><span class="pill info">18 séries</span><span class="pill info">descanso 45–90 s</span></div>
+          <div class="card st-live">
+            <div class="row"><span class="module treino">Em andamento · 23:41</span><span class="num" style="font-size:13px">5 de 18 séries</span></div>
+            <div class="pbar" role="progressbar" aria-label="Séries feitas" aria-valuemin="0" aria-valuemax="18" aria-valuenow="5"><i style="--w: 28%"></i></div>
+          </div>
+
+          <div class="free">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 3 8l4 4M3 8h13a5 5 0 0 1 0 10h-3"/></svg>
+            <span><b>Faça na ordem que quiser.</b> Aparelho ocupado? Comece por outro exercício e volte depois.</span>
+          </div>
+
+          <div class="ex-list">
+            <label class="ex-row r-cur" for="s-ativo">
+              <span class="thumb">1</span>
+              <span class="grow"><b>Agachamento livre</b><span>4 × 8–12 · 42,5 kg · descanso 90 s</span><i class="tag tip">Carlos sugere fazer primeiro</i></span>
+              <span class="chev st-pre">›</span><span class="ex-state cur st-live">2/4</span>
+            </label>
+            <label class="ex-row" for="s-ativo">
+              <span class="thumb">2</span>
+              <span class="grow"><b>Afundo com halteres</b><span>3 × 10 cada perna · 2 × 10 kg · 60 s</span><i class="tag new">Novo na versão 4</i></span>
+              <span class="chev st-pre">›</span><span class="ex-state st-live">0/3</span>
+            </label>
+            <label class="ex-row r-done" for="s-ativo">
+              <span class="thumb"><span class="st-pre">3</span><span class="st-live">✓</span></span>
+              <span class="grow"><b>Cadeira extensora</b><span>3 × 12 · 35 kg · 60 s</span></span>
+              <span class="chev st-pre">›</span><span class="ex-state ok st-live">3/3</span>
+            </label>
+            <label class="ex-row" for="s-ativo">
+              <span class="thumb">4</span>
+              <span class="grow"><b>Mesa flexora</b><span>3 × 12 · 30 kg · 60 s</span></span>
+              <span class="chev st-pre">›</span><span class="ex-state st-live">0/3</span>
+            </label>
+            <label class="ex-row" for="s-ativo">
+              <span class="thumb">5</span>
+              <span class="grow"><b>Elevação pélvica</b><span>3 × 12 · 40 kg · 60 s</span></span>
+              <span class="chev st-pre">›</span><span class="ex-state st-live">0/3</span>
+            </label>
+            <label class="ex-row" for="s-ativo">
+              <span class="thumb">6</span>
+              <span class="grow"><b>Panturrilha em pé</b><span>2 × 15 · 20 kg · 45 s</span></span>
+              <span class="chev st-pre">›</span><span class="ex-state st-live">0/2</span>
+            </label>
+          </div>
+
+          <label class="btn treino block chunky st-pre" for="s-ativo">Começar treino</label>
+          <div class="rest-acts st-live">
+            <label class="btn ghost chunky" for="s-fim">Concluir</label>
+            <label class="btn treino chunky" for="s-ativo">Continuar treino</label>
+          </div>
+        </section>
+
+        <!-- WORKOUT IN PROGRESS -->
+        <section class="screen sc-ativo" aria-label="Treino em andamento">
+          <div class="lesson-top">
+            <label class="x" for="s-treino" aria-label="Sair do treino">×</label>
+            <div class="pbar" role="progressbar" aria-label="Séries feitas" aria-valuemin="0" aria-valuemax="18" aria-valuenow="5"><i style="--w: 28%"></i></div>
+            <span class="stat-chip flame" aria-label="Ofensiva de 4 semanas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3.5 5 5.5 5 10.5a5 5 0 0 1-10 0c0-2.2 1-3.7 2.3-4.8.2 1.7 1 2.8 2.2 3.3C11 8.4 11 5.3 12 2Z"/></svg>4</span>
+          </div>
+          <div class="timerbar">
+            <div><div class="kicker" style="font-size:12px;color:var(--muted)">Treino A · em andamento</div><div class="clock">23:41</div></div>
+            <div class="hr" aria-label="Frequência cardíaca 128 batimentos por minuto">
+              <span class="heart"></span>
+              <div><b>128</b> <small>bpm<br>Apple Watch</small></div>
+            </div>
+          </div>
+          <div class="video" role="img" aria-label="Vídeo em loop do agachamento livre, vista lateral">
+            <div class="floor"></div>
+            <div class="lifter" aria-hidden="true">
+              <div class="foot"></div>
+              <div class="shin"><div class="thigh"><div class="torso"><div class="bar"></div><div class="head"></div></div></div></div>
+            </div>
+            <div class="vtop"><span class="vtag">Loop · vista lateral</span><span class="vtag off">Offline</span></div>
+            <div class="track"><i></i></div>
+            <label class="expand" for="s-video" aria-label="Abrir vídeo completo"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></label>
+          </div>
+          <div class="ex-head">
+            <div class="ex-strip" aria-label="Exercícios do Treino A">
+              <label class="dot cur" for="s-lista" aria-label="1, agachamento livre, em andamento">1</label>
+              <label class="dot" for="s-lista" aria-label="2, afundo">2</label>
+              <label class="dot done" for="s-lista" aria-label="3, cadeira extensora, concluído">✓</label>
+              <label class="dot" for="s-lista" aria-label="4, mesa flexora">4</label>
+              <label class="dot" for="s-lista" aria-label="5, elevação pélvica">5</label>
+              <label class="dot" for="s-lista" aria-label="6, panturrilha em pé">6</label>
+              <label class="all" for="s-lista">Ver todos ›</label>
+            </div>
+            <h3>Agachamento livre</h3>
+            <div class="target"><span class="pill info">4 séries</span><span class="pill info">8–12 repetições</span><span class="pill info">sugerido 42,5 kg</span><span class="pill info">descanso 90 s</span></div>
+          </div>
+          <div class="cue">Mantenha a coluna neutra e os joelhos alinhados com a ponta dos pés.</div>
+          <div class="set-head"><span>Série</span><span>Reps</span><span>Carga</span><span></span></div>
+          <div class="sets">
+            <div class="set"><span class="n">1</span><span class="val num">12</span><span class="val num">40<small>kg</small></span><span class="ok">✓</span></div>
+            <div class="set"><span class="n">2</span><span class="val num">10</span><span class="val num">42,5<small>kg</small></span><span class="ok">✓</span></div>
+            <div class="set current">
+              <span class="n">3</span>
+              <input id="rep3" type="number" inputmode="numeric" value="10" aria-label="Repetições da série 3">
+              <input id="load3" type="text" inputmode="decimal" value="42,5" aria-label="Carga da série 3 em kg">
+              <label class="ok empty" for="s-rest1" aria-label="Concluir série e descansar">✓</label>
+            </div>
+            <div class="set todo"><span class="n">4</span><span class="val num">–</span><span class="val num">–</span><span></span></div>
+          </div>
+          <div class="actions">
+            <label class="btn ghost chunky" for="s-ativo">Pausar</label>
+            <label class="btn ghost chunky mic-btn" for="s-voz"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>Falar</label>
+            <label class="btn treino chunky" for="s-fim">Concluir</label>
+          </div>
+        </section>
+
+        <!-- FINISH -->
+        <section class="screen sc-fim" aria-label="Concluir treino">
+          <label class="back" for="s-ativo">‹ Voltar ao treino</label>
+          <div class="top"><div class="title"><span class="kicker">Treino A · 52 min</span><h2>Como foi?</h2></div></div>
+          <div class="summary">
+            <div class="stat"><b>18</b><span>séries feitas</span></div>
+            <div class="stat"><b>118</b><span>FC média (bpm)</span></div>
+            <div class="stat"><b>164</b><span>FC máxima (bpm)</span></div>
+          </div>
+          <p style="margin:0;font-size:12px;color:var(--muted)">Frequência cardíaca do Apple Watch de Ana · média ponderada pelo tempo 121 bpm · 2.912 amostras</p>
+
+          <div class="card">
+            <h3>Esforço percebido</h3>
+            <div class="scale" role="radiogroup" aria-label="Esforço de 1 a 10">
+              <input type="radio" name="rpe" id="r1"><label for="r1">1</label>
+              <input type="radio" name="rpe" id="r2"><label for="r2">2</label>
+              <input type="radio" name="rpe" id="r3"><label for="r3">3</label>
+              <input type="radio" name="rpe" id="r4"><label for="r4">4</label>
+              <input type="radio" name="rpe" id="r5"><label for="r5">5</label>
+              <input type="radio" name="rpe" id="r6"><label for="r6">6</label>
+              <input type="radio" name="rpe" id="r7" checked><label for="r7">7</label>
+              <input type="radio" name="rpe" id="r8"><label for="r8">8</label>
+              <input type="radio" name="rpe" id="r9"><label for="r9">9</label>
+              <input type="radio" name="rpe" id="r10"><label for="r10">10</label>
+            </div>
+            <div class="scale-ends"><span>Muito leve</span><span>Máximo</span></div>
+          </div>
+
+          <div class="card">
+            <label class="toggle" for="disc"><span class="txt"><b>Senti desconforto ou dor</b><span>Carlos será avisado</span></span><input type="checkbox" id="disc" checked></label>
+            <label class="flabel" for="disc-txt">Onde e quando?</label>
+            <textarea class="field" id="disc-txt" rows="2">Leve incômodo no joelho direito na última série do agachamento.</textarea>
+            <label class="flabel" for="notes">Recado para o Carlos (opcional)</label>
+            <textarea class="field" id="notes" rows="2" placeholder="Como você se sentiu?"></textarea>
+          </div>
+          <label class="btn treino block chunky" for="s-conquista">Enviar e concluir</label>
+        </section>
+
+        <!-- NUTRITION -->
+        <section class="screen sc-nutri" aria-label="Nutrição">
+          <div class="top"><div class="title"><span class="kicker">Clínica Movimento · Dra. Marina Reis</span><h2>Alimentação</h2></div></div>
+          <div class="card nutri">
+            <div class="row"><span class="module nutri">Reeducação alimentar</span><span class="pill info">Versão 3</span></div>
+            <div class="water">
+              <div class="row"><b style="font-size:14px">Água</b><span class="num" style="font-size:13px">1.250 / 2.000 ml</span></div>
+              <div class="meter" role="img" aria-label="1250 de 2000 ml"><i></i></div>
+            </div>
+          </div>
+
+          <div class="meals">
+            <div class="meal logged">
+              <div class="time">07:00</div>
+              <div class="card">
+                <div class="row"><h3>Café da manhã</h3><span class="pill ok">Segui o plano</span></div>
+                <ul class="items">
+                  <li><span>Pão integral</span><span class="qty">50 g</span></li>
+                  <li><span>Ovo mexido</span><span class="qty">2 unidades</span></li>
+                </ul>
+                <div class="reply nutri"><small>Dra. Marina comentou</small>Ótima escolha! Pode trocar o pão por tapioca nos dias de treino.</div>
+              </div>
+            </div>
+            <div class="meal next">
+              <div class="time">12:30</div>
+              <div class="card">
+                <div class="row"><h3>Almoço</h3><span class="pill warn">Próxima</span></div>
+                <ul class="items">
+                  <li><span>Arroz integral</span><span class="qty">4 colheres de sopa</span></li>
+                  <li><span>Feijão</span><span class="qty">1 concha</span></li>
+                  <li><span>Frango grelhado</span><span class="qty">120 g</span></li>
+                  <li><span>Salada de folhas</span><span class="qty">à vontade</span></li>
+                </ul>
+                <div class="sub">Pode substituir: frango por peixe ou ovos</div>
+                <div class="row" style="justify-content:flex-start;flex-wrap:wrap;gap:8px">
+                  <label class="btn nutri small" for="s-nutri">✓ Segui o plano</label>
+                  <label class="btn ghost small" for="s-chat">Contar ao assistente</label>
+                </div>
+                <label class="sub" for="s-diario" style="cursor:pointer;color:var(--primary);font-weight:600">Preencher formulário</label>
+              </div>
+            </div>
+            <div class="meal">
+              <div class="time">16:00</div>
+              <div class="card">
+                <h3>Lanche</h3>
+                <ul class="items"><li><span>Iogurte natural</span><span class="qty">170 g</span></li><li><span>Banana</span><span class="qty">1 unidade</span></li></ul>
+              </div>
+            </div>
+            <div class="meal">
+              <div class="time">20:00</div>
+              <div class="card">
+                <h3>Jantar</h3>
+                <ul class="items"><li><span>Sopa de legumes</span><span class="qty">1 prato fundo</span></li><li><span>Queijo branco</span><span class="qty">2 fatias</span></li></ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- LOG MEAL -->
+        <section class="screen sc-diario" aria-label="Registrar refeição">
+          <label class="back" for="s-nutri">‹ Alimentação</label>
+          <div class="top"><div class="title"><span class="kicker">Hoje, 12:48</span><h2>Registrar almoço</h2></div></div>
+          <div class="card">
+            <h3>Como foi em relação ao plano?</h3>
+            <div class="seg" role="radiogroup" aria-label="Adesão ao plano">
+              <input type="radio" name="adh" id="a1"><label for="a1">Segui o plano</label>
+              <input type="radio" name="adh" id="a2" checked><label for="a2">Segui em parte</label>
+              <input type="radio" name="adh" id="a3"><label for="a3">Comi outra coisa</label>
+              <input type="radio" name="adh" id="a4"><label for="a4">Fora do plano</label>
+            </div>
+          </div>
+          <div class="card">
+            <label class="flabel" for="desc">O que você comeu? (opcional)</label>
+            <textarea class="field" id="desc" rows="3">Arroz, feijão e frango. Troquei a salada por legumes refogados.</textarea>
+            <label class="flabel" for="water">Água junto da refeição</label>
+            <select class="field" id="water"><option>Nenhuma</option><option selected>250 ml (1 copo)</option><option>500 ml</option></select>
+          </div>
+          <div class="card">
+            <h3>Quem pode ver</h3>
+            <div class="seg" role="radiogroup" aria-label="Visibilidade do registro">
+              <input type="radio" name="vis" id="v1" checked><label for="v1">Dra. Marina</label>
+              <input type="radio" name="vis" id="v2"><label for="v2">Só para mim</label>
+            </div>
+            <p>Seu treinador nunca vê o diário alimentar.</p>
+          </div>
+          <label class="btn nutri block" for="s-nutri">Salvar registro</label>
+        </section>
+
+        <!-- THERAPIES -->
+        <section class="screen sc-terapia" aria-label="Terapias">
+          <div class="top"><div class="title"><span class="kicker">Espaço Equilíbrio</span><h2>Terapias</h2></div></div>
+          <div class="card terapia">
+            <div class="row">
+              <div><h3>Lucas Tanaka</h3><p>Fisioterapeuta · CREFITO-3 98765-F</p></div>
+            </div>
+            <div class="row"><span class="verified">Acupuntura verificada</span></div>
+          </div>
+
+          <div class="card">
+            <span class="module terapia">Próxima sessão</span>
+            <div class="appt">
+              <div class="cal"><span>Sex</span><b>3</b></div>
+              <div><h3>Acupuntura · 18:00 – 18:50</h3><p>Presencial · Rua Harmonia, 120</p></div>
+            </div>
+            <div class="row"><span class="pill warn">Consentimento pendente</span><label class="btn terapia small" for="s-consent">Assinar</label></div>
+          </div>
+
+          <div class="card">
+            <div class="row"><h3>Plano de cuidado: dor lombar</h3><span class="num" style="font-size:13px">3 de 8</span></div>
+            <div class="progress-dots" aria-label="3 de 8 sessões"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+            <p>Revisão do plano em 24/10</p>
+          </div>
+
+          <div class="sec-title">Última sessão · sex 26/09</div>
+          <div class="card">
+            <h3>Orientações</h3>
+            <p>Beba bastante água e evite esforço intenso por 24 horas. Se a dor irradiar para a perna, procure um médico.</p>
+            <div class="version-note"><b>Orientação importante:</b> Lucas recomendou avaliação médica para a dor irradiada. Isso não é um diagnóstico.</div>
+            <h3 style="font-size:15px">Como você se sentiu depois?</h3>
+            <div class="scale five terapia" role="radiogroup" aria-label="Como se sentiu de 1 a 5">
+              <input type="radio" name="feel" id="f1"><label for="f1">1</label>
+              <input type="radio" name="feel" id="f2"><label for="f2">2</label>
+              <input type="radio" name="feel" id="f3"><label for="f3">3</label>
+              <input type="radio" name="feel" id="f4" checked><label for="f4">4</label>
+              <input type="radio" name="feel" id="f5"><label for="f5">5</label>
+            </div>
+            <div class="scale-ends"><span>Pior</span><span>Muito melhor</span></div>
+          </div>
+        </section>
+
+        <!-- CONSENT -->
+        <section class="screen sc-consent" aria-label="Termo de consentimento">
+          <label class="back" for="s-terapia">‹ Terapias</label>
+          <div class="top"><div class="title"><span class="kicker">Acupuntura · versão 2 · publicada em 30/09</span><h2>Termo de consentimento</h2></div></div>
+          <div class="version-note">Você aceitou a versão 1 em 12/09. O termo foi atualizado, por isso precisamos da sua decisão novamente.</div>
+          <div class="card doc">
+            <h4>O procedimento</h4>
+            <p>A acupuntura usa agulhas finas, estéreis e descartáveis, aplicadas em pontos definidos pelo terapeuta. Cada sessão dura cerca de 50 minutos.</p>
+            <h4>Riscos informados</h4>
+            <ul class="risks">
+              <li>Dor leve ou sensibilidade no local da agulha</li>
+              <li>Pequenos hematomas</li>
+              <li>Tontura ou sonolência após a sessão</li>
+              <li>Raro: infecção local</li>
+            </ul>
+            <h4>Seus direitos</h4>
+            <p>Você pode recusar agora ou retirar este consentimento a qualquer momento, pelo app. Isso não afeta seus outros atendimentos.</p>
+          </div>
+          <div class="sticky-actions">
+            <label class="btn ghost" for="s-terapia">Recusar</label>
+            <label class="btn terapia" for="s-terapia">Li e aceito</label>
+          </div>
+        </section>
+
+        <!-- PROGRESS -->
+        <section class="screen sc-progresso" aria-label="Meu progresso">
+          <label class="back" for="s-perfil">‹ Perfil</label>
+          <div class="top"><div class="title"><span class="kicker">Avaliações de Carlos Lima</span><h2>Meu progresso</h2></div></div>
+          <div class="card">
+            <div class="row"><h3>Peso</h3><span class="pill ok">−2,6 kg desde junho</span></div>
+            <div class="chart" role="img" aria-label="Peso: junho 71,0 kg, julho 70,2 kg, agosto 69,4 kg, setembro 68,4 kg">
+              <div class="axis num"><span>72</span><span>71</span><span>70</span><span>69</span><span>68</span><span>67</span></div>
+              <div class="plot">
+                <div class="bar" style="--h: 80%"><b>71,0</b><span>jun</span></div>
+                <div class="bar" style="--h: 64%"><b>70,2</b><span>jul</span></div>
+                <div class="bar" style="--h: 48%"><b>69,4</b><span>ago</span></div>
+                <div class="bar last" style="--h: 28%"><b>68,4</b><span>set</span></div>
+              </div>
+            </div>
+            <p style="font-size:12px">kg · balança digital · eixo começa em 67 kg</p>
+          </div>
+          <div class="metric-grid">
+            <div class="metric"><b>27,1%</b><span class="delta">−1,4 pp</span><span>Gordura corporal · dobras cutâneas, 7 pontos</span></div>
+            <div class="metric"><b>78 cm</b><span class="delta">−3 cm</span><span>Cintura · fita métrica</span></div>
+            <div class="metric"><b>14/16</b><span class="delta">88%</span><span>Treinos em setembro</span></div>
+            <div class="metric"><b>v3</b><span class="delta" style="color:var(--muted)">12/09</span><span>Histórico de saúde enviado</span></div>
+          </div>
+          <label class="btn ghost block" for="s-perfil">Atualizar histórico de saúde</label>
+        </section>
+
+        <!-- ASSISTANT: FIRST USE -->
+        <section class="screen sc-iaconsent" aria-label="Ativar o assistente">
+          <label class="back" for="s-home">‹ Início</label>
+          <div class="chat-head">
+            <span class="spark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7z"/></svg></span>
+            <div><h2>Conheça o assistente</h2><span>Termo de uso · versão 1</span></div>
+          </div>
+          <p style="margin:0;font-size:14.5px">Conte o que você comeu, como foi o treino ou o que está sentindo, do seu jeito. O assistente prepara o registro e você confirma.</p>
+          <div class="card">
+            <h3>O que ele faz</h3>
+            <ul class="consent-list yes">
+              <li><i>✓</i>Registra refeições, séries e relatos de desconforto depois que você confirma</li>
+              <li><i>✓</i>Responde dúvidas sobre os seus planos e o seu histórico</li>
+              <li><i>✓</i>Lembra você das tarefas do dia</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>O que ele nunca faz</h3>
+            <ul class="consent-list no">
+              <li><i>!</i>Não dá diagnóstico nem avalia sintomas</li>
+              <li><i>!</i>Não muda o plano feito pelo seu profissional</li>
+              <li><i>!</i>Não assina termos de consentimento por você</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Seus dados</h3>
+            <p>Para responder, enviamos ao provedor de inteligência artificial apenas os dados necessários para cada pedido. Ele não pode usar seus dados para outros fins. Você pode desativar quando quiser em Perfil.</p>
+            <div>
+              <label class="toggle" for="ic1"><span class="txt"><b>Treinos</b></span><input type="checkbox" id="ic1" checked></label>
+              <label class="toggle" for="ic2"><span class="txt"><b>Alimentação</b></span><input type="checkbox" id="ic2" checked></label>
+              <label class="toggle" for="ic3"><span class="txt"><b>Terapias</b></span><input type="checkbox" id="ic3"></label>
+            </div>
+          </div>
+          <div class="sticky-actions">
+            <label class="btn ghost" for="s-home">Agora não</label>
+            <label class="btn" for="s-chat">Aceitar e começar</label>
+          </div>
+        </section>
+
+        <!-- ASSISTANT: CONVERSATION -->
+        <section class="screen sc-chat" aria-label="Assistente">
+          <div class="chat-head">
+            <span class="spark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7z"/></svg></span>
+            <div><h2>Assistente</h2><span>Confirma tudo com você antes de salvar</span></div>
+            <label class="icon-btn gear" for="s-perfil" aria-label="Configurações do assistente"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 6.2l2.1 2.1M17.7 15.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 17.8l2.1-2.1M17.7 8.3l2.1-2.1"/></svg></label>
+          </div>
+
+          <div class="thread">
+            <span class="day-sep">Hoje</span>
+            <div class="msg ai">Oi, Ana! Hoje tem Treino A, almoço às 12:30 e o termo de acupuntura para assinar até sexta. Por onde começamos?</div>
+            <div class="chips">
+              <label class="chip" for="s-chat">Registrar almoço</label>
+              <label class="chip" for="s-sessao">Começar Treino A</label>
+              <label class="chip" for="s-consent">O que muda no termo?</label>
+            </div>
+
+            <div class="msg me">
+              <div class="voice"><span class="wave" aria-hidden="true"><i style="height:5px"></i><i style="height:11px"></i><i style="height:7px"></i><i style="height:14px"></i><i style="height:9px"></i><i style="height:12px"></i><i style="height:6px"></i><i style="height:10px"></i></span>0:06 · áudio</div>
+              Almocei arroz, feijão e frango, mas troquei a salada por legumes refogados.
+            </div>
+            <div class="msg ai">Anotei assim. Confere?</div>
+            <div class="confirm nutri">
+              <input class="flag" type="checkbox" id="save-meal">
+              <span class="what">Diário alimentar</span>
+              <dl>
+                <dt>Refeição</dt><dd>Almoço · hoje, 12:48</dd>
+                <dt>Plano</dt><dd>Segui em parte</dd>
+                <dt>O que comi</dt><dd>Arroz, feijão, frango; legumes refogados no lugar da salada</dd>
+                <dt>Quem vê</dt><dd>Dra. Marina Reis</dd>
+              </dl>
+              <div class="acts">
+                <label class="btn ghost small" for="s-diario">Editar</label>
+                <label class="btn nutri small" for="save-meal">Salvar</label>
+              </div>
+              <div class="done">Salvo no seu diário. A Dra. Marina vai ver.</div>
+            </div>
+
+            <div class="msg me">E na terça senti o joelho doer no agachamento.</div>
+            <div class="msg ai">Sinto muito. Eu não consigo avaliar dor, mas posso avisar o Carlos para ele ajustar o treino. Quer que eu envie este relato?</div>
+            <div class="confirm treino">
+              <input class="flag" type="checkbox" id="send-pain">
+              <span class="what">Relato de desconforto</span>
+              <dl>
+                <dt>Treino</dt><dd>Treino A · ter 29/09</dd>
+                <dt>Relato</dt><dd>Dor no joelho direito durante o agachamento</dd>
+                <dt>Para</dt><dd>Carlos Lima · Studio Forte</dd>
+              </dl>
+              <div class="safety">Se a dor for forte, com inchaço ou o joelho falhar, procure atendimento médico.</div>
+              <div class="acts">
+                <label class="btn ghost small" for="s-chat">Agora não</label>
+                <label class="btn treino small" for="send-pain">Enviar ao Carlos</label>
+              </div>
+              <div class="done">Enviado. O Carlos foi avisado.</div>
+            </div>
+
+            <div class="msg me">Quanto peguei no agachamento da última vez?</div>
+            <div class="msg ai">
+              Na terça (29/09): 12 × 40 kg, 10 × 42,5 kg, 10 × 42,5 kg e 8 × 42,5 kg. O Carlos sugeriu subir para 45 kg se o joelho estiver bem.
+              <span class="source">Do seu histórico de treinos</span>
+            </div>
+          </div>
+
+          <div class="composer">
+            <input id="ask" type="text" placeholder="Escreva ou fale..." aria-label="Mensagem para o assistente">
+            <label class="mic" for="s-voz" aria-label="Falar"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></label>
+          </div>
+        </section>
+
+        <!-- ASSISTANT: VOICE DURING WORKOUT -->
+        <section class="screen sc-voz" aria-label="Falar com o assistente durante o treino">
+          <label class="back" for="s-ativo">‹ Voltar ao treino</label>
+          <div class="listen">
+            <span class="ctx">Agachamento livre · série 3 de 4</span>
+            <div class="orb" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg></div>
+            <div class="transcript">"Feito, dez com quarenta e dois e meio."<small>Ouvindo... diga "certo" para registrar</small></div>
+            <div class="parsed">
+              <span class="what">Vou registrar</span>
+              <div class="vals">
+                <div>3<small>série</small></div>
+                <div>10<small>repetições</small></div>
+                <div>42,5<small>kg</small></div>
+              </div>
+            </div>
+          </div>
+          <div class="voz-acts">
+            <label class="btn ghost" for="s-ativo">Corrigir</label>
+            <label class="btn treino" for="s-rest1">Registrar série</label>
+          </div>
+        </section>
+
+        <!-- EXERCISE VIDEO -->
+        <section class="screen sc-video" aria-label="Vídeo do exercício">
+          <label class="back" for="s-ativo">‹ Voltar ao treino</label>
+          <div class="video big" role="img" aria-label="Vídeo do agachamento livre, vista lateral">
+            <div class="floor"></div>
+            <div class="lifter" aria-hidden="true">
+              <div class="foot"></div>
+              <div class="shin"><div class="thigh"><div class="torso"><div class="bar"></div><div class="head"></div></div></div></div>
+            </div>
+            <div class="vtop"><span class="vtag">Vista lateral · 1:24</span><span class="vtag off">Baixado</span></div>
+            <div class="cap"><span>Desça até a coxa ficar paralela ao chão</span></div>
+            <div class="track"><i></i></div>
+          </div>
+          <div class="row">
+            <div class="speed" role="radiogroup" aria-label="Velocidade">
+              <input type="radio" name="spd" id="spd-normal" checked><label for="spd-normal">Normal</label>
+              <input type="radio" name="spd" id="spd-slow"><label for="spd-slow">Lento</label>
+            </div>
+            <div class="speed" role="radiogroup" aria-label="Legendas">
+              <input type="radio" name="cc" id="cc-on" checked><label for="cc-on">Legenda</label>
+              <input type="radio" name="cc" id="cc-off"><label for="cc-off">Sem</label>
+            </div>
+          </div>
+          <div class="ex-head">
+            <span class="step">Biblioteca MyHealth · também em vista frontal</span>
+            <h3>Agachamento livre</h3>
+          </div>
+          <div class="card">
+            <div class="chapters">
+              <div><span class="num">0:00</span><span>Posição da barra e dos pés</span></div>
+              <div><span class="num">0:21</span><span>Descida controlada</span></div>
+              <div><span class="num">0:48</span><span>Subida e respiração</span></div>
+              <div><span class="num">1:05</span><span>Erros comuns: joelhos para dentro, calcanhar saindo do chão</span></div>
+            </div>
+          </div>
+          <div class="cue">Mantenha a coluna neutra e os joelhos alinhados com a ponta dos pés.</div>
+          <div class="reply"><small>Nota do Carlos para você</small>Cuidado com o joelho direito: desça só até onde não doer.</div>
+        </section>
+
+        <!-- REST WITH ONE QUESTION -->
+        <section class="screen sc-rest" aria-label="Descanso">
+          <div class="cheer" role="status">
+            <span class="tick" aria-hidden="true">✓</span>
+            <div><b>Mandou bem!</b><span>Série 3 registrada · 10 × 42,5 kg</span></div>
+            <span class="count">6 de 18</span>
+          </div>
+          <div class="rest-big">
+            <div class="ring"><span class="num">1:12<small>descanso</small></span></div>
+            <div class="next">A seguir: <b>série 4 · 8–12 × 42,5 kg</b></div>
+            <div class="hr-gate"><span class="heart"></span>FC <b>104</b> bpm · recuperada, pode responder</div>
+          </div>
+
+          <div class="queue" aria-label="Perguntas deste treino">
+            <label class="qn-r1" for="s-rest1">Joelho</label>
+            <label class="qn-r2" for="s-rest2">Almoço</label>
+            <label class="qn-r3" for="s-rest3">Sono e energia</label>
+            <label class="qn-r4" for="s-rest4">Acupuntura</label>
+          </div>
+
+          <!-- 1: safety follow-up -->
+          <div class="qcard q-r1">
+            <div class="qhead"><span>Pergunta 1 de 4 neste treino</span><span class="pill warn">Acompanhamento</span></div>
+            <h3>Como está o joelho direito nesta série?</h3>
+            <div class="dest">Vai para <b>Carlos Lima · Studio Forte</b></div>
+            <div class="opts" role="radiogroup" aria-label="Joelho">
+              <input type="radio" name="knee" id="k-better"><label for="k-better">Melhor</label>
+              <input type="radio" name="knee" id="k-same"><label for="k-same">Igual</label>
+              <input type="radio" name="knee" id="k-worse"><label for="k-worse">Pior</label>
+            </div>
+            <div class="answered any">Anotado no resumo do treino para o Carlos.</div>
+            <div class="escalate">
+              <input class="nav-radio" type="checkbox" id="k-tell">
+              <span>Quer avisar o Carlos agora? Ele pode ajustar a carga ou trocar o exercício. Se a dor for forte, com inchaço ou o joelho falhar, pare e procure atendimento médico.</span>
+              <label class="btn treino small" for="k-tell">Avisar o Carlos</label>
+              <span class="sent">Relato de desconforto enviado.</span>
+            </div>
+            <div class="qskip"><span>Fecha sozinha 15 s antes da série</span><label for="s-ativo">Pular</label></div>
+          </div>
+
+          <!-- 2: pending meal -->
+          <div class="qcard q-r2">
+            <div class="qhead"><span>Pergunta 2 de 4 neste treino</span><span class="pill ok">Alimentação</span></div>
+            <h3>Como foi o almoço de hoje?</h3>
+            <div class="dest">Vai para <b>Dra. Marina · Clínica Movimento</b>. O Carlos não vê.</div>
+            <div class="opts two" role="radiogroup" aria-label="Almoço">
+              <input type="radio" name="lunch" id="l1"><label for="l1">Segui o plano</label>
+              <input type="radio" name="lunch" id="l2"><label for="l2">Segui em parte</label>
+              <input type="radio" name="lunch" id="l3"><label for="l3">Comi outra coisa</label>
+              <input type="radio" name="lunch" id="l4"><label for="l4">Não almocei</label>
+            </div>
+            <div class="answered any">Salvo no diário. Detalhes depois, pelo assistente, se quiser.</div>
+            <div class="qskip"><span>Fecha sozinha 15 s antes da série</span><label for="s-ativo">Pular</label></div>
+          </div>
+
+          <!-- 3: feelings (new data) -->
+          <div class="qcard q-r3">
+            <div class="qhead"><span>Pergunta 3 de 4 neste treino</span><span class="new-tag">Novo tipo de dado</span></div>
+            <h3>Como você está hoje?</h3>
+            <div class="dest">Vai para <b>quem você autorizou</b> (Carlos)</div>
+            <div class="mini-scale">
+              <div class="lbl">Sono da última noite <span>1 ruim · 5 ótimo</span></div>
+              <div class="opts five" role="radiogroup" aria-label="Sono de 1 a 5">
+                <input type="radio" name="sleep" id="sl1"><label for="sl1">1</label>
+                <input type="radio" name="sleep" id="sl2"><label for="sl2">2</label>
+                <input type="radio" name="sleep" id="sl3"><label for="sl3">3</label>
+                <input type="radio" name="sleep" id="sl4"><label for="sl4">4</label>
+                <input type="radio" name="sleep" id="sl5"><label for="sl5">5</label>
+              </div>
+            </div>
+            <div class="mini-scale">
+              <div class="lbl">Energia agora <span>1 sem energia · 5 cheia</span></div>
+              <div class="opts five" role="radiogroup" aria-label="Energia de 1 a 5">
+                <input type="radio" name="energy" id="en1"><label for="en1">1</label>
+                <input type="radio" name="energy" id="en2"><label for="en2">2</label>
+                <input type="radio" name="energy" id="en3"><label for="en3">3</label>
+                <input type="radio" name="energy" id="en4"><label for="en4">4</label>
+                <input type="radio" name="energy" id="en5"><label for="en5">5</label>
+              </div>
+            </div>
+            <div class="answered both">Obrigado. Isso ajuda o Carlos a ajustar a intensidade.</div>
+            <div class="qskip"><span>Fecha sozinha 15 s antes da série</span><label for="s-ativo">Pular</label></div>
+          </div>
+
+          <!-- 4: therapy follow-up -->
+          <div class="qcard q-r4">
+            <div class="qhead"><span>Pergunta 4 de 4 neste treino</span><span class="pill terapia">Terapias</span></div>
+            <h3>Como você ficou depois da acupuntura de sexta?</h3>
+            <div class="dest">Vai para <b>Lucas Tanaka · Espaço Equilíbrio</b></div>
+            <div class="opts five" role="radiogroup" aria-label="Como ficou de 1 a 5">
+              <input type="radio" name="acu" id="ac1"><label for="ac1">1</label>
+              <input type="radio" name="acu" id="ac2"><label for="ac2">2</label>
+              <input type="radio" name="acu" id="ac3"><label for="ac3">3</label>
+              <input type="radio" name="acu" id="ac4"><label for="ac4">4</label>
+              <input type="radio" name="acu" id="ac5"><label for="ac5">5</label>
+            </div>
+            <div class="scale-ends"><span>Pior</span><span>Muito melhor</span></div>
+            <div class="answered any">Enviado ao Lucas.</div>
+            <div class="qskip"><span>Fecha sozinha 15 s antes da série</span><label for="s-ativo">Pular</label></div>
+          </div>
+
+          <div class="rest-acts">
+            <label class="btn ghost chunky" for="s-ativo">+30 s</label>
+            <label class="btn treino chunky" for="s-ativo">Começar série 4</label>
+          </div>
+        </section>
+
+        <!-- WORKOUT COMPLETE -->
+        <section class="screen sc-conquista" aria-label="Treino concluído">
+          <div class="celebrate">
+            <div class="medal" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>
+              <i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <h2>Treino A concluído!</h2>
+            <p>Terceiro treino da semana. Só falta o Treino C, no sábado.</p>
+          </div>
+
+          <div class="tiles">
+            <div class="tile gold"><span>XP ganho</span><b>+75</b></div>
+            <div class="tile blue"><span>Tempo</span><b>52 min</b></div>
+            <div class="tile green"><span>Séries</span><b>18/18</b></div>
+          </div>
+
+          <div class="card">
+            <div class="row" style="justify-content:flex-start;gap:12px">
+              <div class="flame-big" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2c1 3.5 5 5.5 5 10.5a5 5 0 0 1-10 0c0-2.2 1-3.7 2.3-4.8.2 1.7 1 2.8 2.2 3.3C11 8.4 11 5.3 12 2Z"/></svg><b>4</b></div>
+              <div><h3>4 semanas de ofensiva</h3><p>Mais 1 treino até domingo e ela vira 5.</p></div>
+            </div>
+            <div class="week">
+              <div class="day"><i></i>S</div>
+              <div class="day done"><i>✓</i>T</div>
+              <div class="day done"><i>✓</i>Q</div>
+              <div class="day done"><i>✓</i>Q</div>
+              <div class="day"><i></i>S</div>
+              <div class="day"><i>C</i>S</div>
+              <div class="day"><i></i>D</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>De onde vieram os pontos</h3>
+            <ul class="xp-list">
+              <li><span>Treino concluído</span><span class="num">+50</span></li>
+              <li><span>Feedback para o Carlos</span><span class="num">+10</span></li>
+              <li><span>3 perguntas no descanso</span><span class="num">+15</span></li>
+            </ul>
+            <p style="font-size:12.5px">Carga e séries além do plano não valem pontos.</p>
+          </div>
+
+          <div class="cue">Você relatou desconforto no joelho e o Carlos foi avisado. Recordes de carga ficam escondidos até ele responder. Se precisar de pausa, sua semana fica protegida.</div>
+
+          <label class="btn treino block chunky" for="s-home">Continuar</label>
+        </section>
+      </div>
+
+      <nav class="tabbar" aria-label="Navegação principal">
+        <label class="t-home" for="s-home"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg>Início</label>
+        <label class="t-treino" for="s-treino"><svg viewBox="0 0 24 24"><path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/></svg>Treino</label>
+        <label class="t-chat" for="s-chat"><span class="fab"><svg viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7z"/></svg></span>Assistente</label>
+        <label class="t-nutri" for="s-nutri"><svg viewBox="0 0 24 24"><path d="M12 7c-2-3-7-2.5-7 2.5C5 15 9 20 12 20s7-5 7-10.5C19 4.5 14 4 12 7Z"/><path d="M12 7c0-2 1-3.5 3-4"/></svg>Alimentação</label>
+        <label class="t-terapia" for="s-terapia"><svg viewBox="0 0 24 24"><path d="M12 20c-4.5-2-7-5.5-7-9 3 0 5.5 1.5 7 4 1.5-2.5 4-4 7-4 0 3.5-2.5 7-7 9Z"/><path d="M12 15V4"/></svg>Terapias</label>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<footer class="page-foot">Built on the MyHealth API as it stands on feature/platform-billing. The assistant is a proposal: it is not in the API yet. Screens that need other features not built yet (photos, messaging, calendar reminders) are left out.</footer>
+
+</body></html>
