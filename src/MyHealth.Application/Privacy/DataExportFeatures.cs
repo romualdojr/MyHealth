@@ -9,6 +9,7 @@ using MyHealth.Domain.Assistant;
 using MyHealth.Domain.Abstractions;
 using MyHealth.Domain.Assessments;
 using MyHealth.Domain.CareRelationships;
+using MyHealth.Domain.Messaging;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
 using MyHealth.Domain.Nutrition;
@@ -111,6 +112,7 @@ public sealed record DataExportPackage(
     IReadOnlyList<ExportCarePlan> TherapyCarePlans,
     IReadOnlyList<WellbeingCheckInResponse> WellbeingCheckIns,
     ExportAssistantConsent? Assistant,
+    ExportWhatsApp? WhatsApp,
     IReadOnlyList<ExportNotification> Notifications,
     IReadOnlyList<ExportPrivacyRequest> PrivacyRequests,
     IReadOnlyList<ExportAccessLogEntry> AccessLog);
@@ -158,6 +160,8 @@ public sealed record ExportWorkoutSession(
 
 public sealed record ExportAssistantConsent(int? TermsVersion, IReadOnlyList<AssistantScope> Scopes, DateTimeOffset? AcceptedAt, DateTimeOffset? WithdrawnAt,
     IReadOnlyList<AssistantConsentChange> History);
+
+public sealed record ExportWhatsApp(string PhoneNumber, WhatsAppContactStatus Status, bool AllowProfessionalContact, IReadOnlyList<WhatsAppContactChange> History);
 
 public sealed record ExportAppleHealth(HealthConnectionStatus Status, bool SaveWorkouts, IReadOnlyList<ExportConnectionChange> History);
 
@@ -246,6 +250,7 @@ internal sealed class DataExportAssembler(IReadDbContext db, Guid userId)
             await CarePlansAsync(ct),
             await WellbeingMapping.ListAsync(db.WellbeingCheckIns.Where(c => c.ClientId == userId), null, null, ct),
             await AssistantAsync(ct),
+            await WhatsAppAsync(ct),
             await NotificationsAsync(ct),
             await PrivacyRequestsAsync(ct),
             await AccessLogAsync(relationships, ct));
@@ -351,6 +356,12 @@ internal sealed class DataExportAssembler(IReadDbContext db, Guid userId)
     {
         var consent = await db.AssistantConsents.FirstOrDefaultAsync(c => c.UserId == userId, ct);
         return consent is null ? null : new ExportAssistantConsent(consent.TermsVersion, consent.Scopes, consent.AcceptedAt, consent.WithdrawnAt, consent.History);
+    }
+
+    private async Task<ExportWhatsApp?> WhatsAppAsync(CancellationToken ct)
+    {
+        var contact = await db.WhatsAppContacts.FirstOrDefaultAsync(c => c.UserId == userId, ct);
+        return contact is null ? null : new ExportWhatsApp(contact.PhoneNumber, contact.Status, contact.AllowProfessionalContact, contact.History);
     }
 
     private async Task<ExportAppleHealth> AppleHealthAsync(CancellationToken ct)

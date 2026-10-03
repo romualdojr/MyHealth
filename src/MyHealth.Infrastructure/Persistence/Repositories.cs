@@ -4,6 +4,8 @@ using MyHealth.Domain.Assessments;
 using MyHealth.Domain.Assistant;
 using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
+using MyHealth.Domain.Coaching;
+using MyHealth.Domain.Messaging;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
 using MyHealth.Domain.Nutrition;
@@ -12,6 +14,7 @@ using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Exercises;
+using MyHealth.Domain.Training.MotionCapture;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
 using MyHealth.Domain.Users;
@@ -276,4 +279,49 @@ internal sealed class AssistantProposalRepository(ApplicationDbContext db) : Rep
 {
     public Task DeleteStaleAsync(Guid userId, DateTimeOffset olderThan, CancellationToken cancellationToken = default) =>
         Db.AssistantProposals.Where(p => p.UserId == userId && p.CreatedAt < olderThan).ExecuteDeleteAsync(cancellationToken);
+}
+
+internal sealed class CoachAnalysisRepository(ApplicationDbContext db) : Repository<CoachAnalysis>(db), ICoachAnalysisRepository
+{
+    public Task<int> CountForTenantSinceAsync(Guid tenantId, DateTimeOffset since, CancellationToken cancellationToken = default) =>
+        Db.CoachAnalyses.CountAsync(a => a.TenantId == tenantId && a.CreatedAt >= since, cancellationToken);
+}
+
+internal sealed class WhatsAppContactRepository(ApplicationDbContext db) : Repository<WhatsAppContact>(db), IWhatsAppContactRepository
+{
+    public Task<WhatsAppContact?> GetByUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        Db.WhatsAppContacts.FirstOrDefaultAsync(c => c.UserId == userId, cancellationToken);
+
+    public async Task<IReadOnlyList<WhatsAppContact>> ListByPhoneAsync(string phoneNumber, CancellationToken cancellationToken = default) =>
+        await Db.WhatsAppContacts.Where(c => c.PhoneNumber == phoneNumber && c.Status != WhatsAppContactStatus.OptedOut).ToListAsync(cancellationToken);
+}
+
+internal sealed class MotionCaptureJobRepository(ApplicationDbContext db) : Repository<MotionCaptureJob>(db), IMotionCaptureJobRepository
+{
+    public async Task<IReadOnlyList<Guid>> ListDueAsync(DateTimeOffset now, int limit, CancellationToken cancellationToken = default) =>
+        await Db.MotionCaptureJobs
+            .Where(j => (j.Status == MotionCaptureStatus.Queued || j.Status == MotionCaptureStatus.Processing) && j.NextCheckAt <= now)
+            .OrderBy(j => j.NextCheckAt)
+            .Take(limit)
+            .Select(j => j.Id)
+            .ToListAsync(cancellationToken);
+
+    public async Task<bool> TryClaimAsync(Guid jobId, DateTimeOffset now, DateTimeOffset until, CancellationToken cancellationToken = default) =>
+        await Db.MotionCaptureJobs
+            .Where(j => j.Id == jobId && (j.Status == MotionCaptureStatus.Queued || j.Status == MotionCaptureStatus.Processing) && j.NextCheckAt <= now)
+            .ExecuteUpdateAsync(set => set.SetProperty(j => j.NextCheckAt, until), cancellationToken) == 1;
+
+    public async Task<MotionCaptureJob?> GetCurrentAsync(Guid jobId, CancellationToken cancellationToken = default)
+    {
+        if (Db.MotionCaptureJobs.Local.FirstOrDefault(j => j.Id == jobId) is { } loaded)
+        {
+            await Db.Entry(loaded).ReloadAsync(cancellationToken);
+            return loaded;
+        }
+
+        return await GetByIdAsync(jobId, cancellationToken);
+    }
+
+    public Task<int> CountForTenantSinceAsync(Guid tenantId, DateTimeOffset since, CancellationToken cancellationToken = default) =>
+        Db.MotionCaptureJobs.CountAsync(j => j.TenantId == tenantId && j.CreatedAt >= since, cancellationToken);
 }

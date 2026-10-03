@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MyHealth.Api.IntegrationTests.Infrastructure;
 using MyHealth.Infrastructure.Identity;
 using web::MyHealth.Web.Common.Api;
+using web::MyHealth.Web.Common.Training;
 using Web = web::MyHealth.Web.Common.Api;
 
 namespace MyHealth.Api.IntegrationTests;
@@ -219,6 +220,150 @@ public sealed class WebDashboardContractTests(ApiFactory factory) : IntegrationT
         summary.TenantsByStatus.ShouldContainKey("Active");
         summary.RecentPayments.ShouldContain(p => p.InvoiceId == invoice.Id && p.TenantName == detail.Summary.Name);
         (await Scenario.Read<Web.MeResponse>(await owner.Http.GetAsync("/api/v1/me", Ct))).Memberships.Single(m => m.TenantId == tenantId).SubscriptionStatus.ShouldBe("Active");
+    }
+
+    [Fact]
+    public async Task A_trainer_builds_publishes_and_follows_up_a_plan_with_the_web_editor()
+    {
+        var (api, session, _) = await SignedInAsync("builder", administrator: false);
+        var (operatorApi, _, _) = await SignedInAsync("operator", administrator: true);
+        (await api.PostAsync("me/profile", new { fullName = "Bruno Treinador", timeZoneId = "America/Sao_Paulo" }, ct: Ct)).Problem.ShouldBeNull();
+        var profileId = (await Ok(api.PostAsync<Web.IdResponse>("professional-profiles", new
+        {
+            discipline = "PersonalTrainer", displayName = "Bruno", registration = new { council = "CREF", number = "654321", region = "SP" },
+        }, ct: Ct))).Id;
+        (await operatorApi.PostAsync($"admin/professional-profiles/{profileId}/verify", new { notes = "ok" }, ct: Ct)).Problem.ShouldBeNull();
+        session.TenantId = (await Ok(api.PostAsync<Web.IdResponse>("tenants", new { name = "Estúdio Bruno", kind = "SoloPractice", disciplines = new[] { "PersonalTrainer" } }, ct: Ct))).Id;
+
+        // Clients page: invite two clients, who accept in the app.
+        var ana = await Scenario.ClientAsync("ana");
+        var caio = await Scenario.ClientAsync("caio");
+        var relationships = new Dictionary<Guid, Guid>();
+        foreach (var client in new[] { ana, caio })
+        {
+            var invitation = await Ok(api.PostAsync<Web.IdResponse>("care-relationships/invitations", new { discipline = "PersonalTrainer", clientEmail = client.Email }, ct: Ct));
+            await Scenario.EnsureSuccess(await client.Http.PostAsync($"/api/v1/care-relationships/{invitation.Id}/accept", null, Ct));
+            relationships[client.Id] = invitation.Id;
+        }
+
+        (await Ok(api.GetAsync<TrainerDashboard>("trainer/dashboard", ct: Ct))).Clients.Select(c => c.ClientId).ShouldBe([ana.Id, caio.Id], ignoreOrder: true);
+
+        // Library page: a custom exercise next to the curated ones; the picker's filters.
+        (await Ok(api.PostAsync<Web.IdResponse>("exercises", new
+        {
+            name = "Agachamento no banco", description = "Sentar e levantar do banco sem apoio das mãos.", muscleGroups = new[] { "quadríceps" },
+            equipment = new[] { "banco" }, purpose = "força", precautions = (string?)null, mediaCaption = "Pessoa senta e levanta do banco sem usar as mãos.",
+        }, ct: Ct))).Id.ShouldNotBe(Guid.Empty);
+        var custom = (await Ok(api.GetAsync<Web.PagedResponse<ExerciseItem>>("exercises?pageSize=20&search=agachamento no banco&muscleGroup=&equipment=", ct: Ct))).Items.ShouldHaveSingleItem();
+        custom.IsCustom.ShouldBeTrue();
+
+        // 3D panel: terms, upload through the upload client (raw video body), the worker, review and accept.
+        var terms = await Ok(api.GetAsync<MotionCaptureTerms>("motion-capture/terms", ct: Ct));
+        using (var video = new MemoryStream([0, 0, 0, 24, 102, 116, 121, 112, 109, 112, 52, 50]))
+        {
+            var job = await Ok(api.PostFileAsync<MotionCaptureJobItem>(
+                $"exercises/{custom.Id}/motion-captures?fileName=banco.mp4&durationSeconds=6&consentVersion={terms.Version}", video, "video/mp4", video.Length, Ct));
+            job.Status.ShouldBe("Queued");
+            await using (var scope = Scenario.Factory.Services.CreateAsyncScope())
+            {
+                var processor = scope.ServiceProvider.GetRequiredService<MyHealth.Application.MotionCapture.MotionCaptureProcessor>();
+                while (await processor.ProcessDueAsync(Ct) > 0)
+                {
+                }
+            }
+
+            var ready = (await Ok(api.GetAsync<List<MotionCaptureJobItem>>($"exercises/{custom.Id}/motion-captures", ct: Ct))).ShouldHaveSingleItem();
+            (ready.Status, ready.SourceDeleted).ShouldBe(("Succeeded", true));
+            ready.Outputs.ShouldContain(o => o.Kind == "Model3D" && o.Format == "glb");
+            (await Ok(api.PostAsync<MotionCaptureJobItem>($"motion-captures/{job.Id}/accept", null, ct: Ct))).AcceptedAt.ShouldNotBeNull();
+        }
+
+        (await Ok(api.GetAsync<Web.PagedResponse<ExerciseItem>>("exercises?pageSize=20&search=agachamento no banco", ct: Ct))).Items.Single().Media
+            .Select(m => m.Kind).ShouldBe(["Loop", "Loop", "Loop", "Model3D"]);
+        var library = (await Ok(api.GetAsync<Web.PagedResponse<ExerciseItem>>("exercises?pageSize=20&search=supino", ct: Ct))).Items[0];
+        library.IsCustom.ShouldBeFalse();
+
+        // Client page: a new plan; the editor fills it with the same bodies the screens send.
+        var details = new PlanDetailsForm { Name = "Força — fase 1", Goal = "Ganhar força", Level = "Beginner", StartDate = new DateOnly(2026, 10, 5), SuggestedSessionsPerWeek = 3 };
+        var planId = (await Ok(api.PostAsync<Web.IdResponse>("training-plans", new { clientId = ana.Id, details = details.ToBody() }, ct: Ct))).Id;
+
+        var plan = await Ok(api.GetAsync<TrainerPlan>($"training-plans/{planId}", ct: Ct));
+        (plan.Status, plan.CurrentVersionNumber, plan.Details.Name).ShouldBe(("Draft", 0, "Força — fase 1"));
+        var draft = PlanDraft.From(plan.Draft);
+        draft.PublishingIssues().ShouldNotBeEmpty();
+
+        var strength = draft.AddSession("Strength");
+        strength.Name.ShouldBe("Treino A");
+        strength.Exercises.Add(ExerciseDraft.New(library));
+        var plank = ExerciseDraft.New(custom);
+        plank.Sets.Clear();
+        plank.AddSet();
+        plank.Sets[0].ByDuration = true;
+        plank.Sets[0].DurationSeconds = 45;
+        strength.Exercises.Add(plank);
+        strength.Exercises.Move(plank, -1);
+        draft.AddSession("Aerobic").Aerobic!.DistanceKm = 3m;
+        draft.PublishingIssues().ShouldBeEmpty();
+
+        var edited = PlanDetailsForm.From(plan.Details);
+        edited.Notes = "Beba água";
+        (await api.PutAsync($"training-plans/{planId}", edited.ToBody(), ct: Ct)).Problem.ShouldBeNull();
+        (await api.PutAsync($"training-plans/{planId}/sessions", draft.ToBody(), ct: Ct)).Problem.ShouldBeNull();
+
+        plan = await Ok(api.GetAsync<TrainerPlan>($"training-plans/{planId}", ct: Ct));
+        plan.Details.Notes.ShouldBe("Beba água");
+        var saved = PlanDraft.From(plan.Draft);
+        saved.Sessions.Select(s => (s.Name, s.Kind)).ShouldBe([("Treino A", "Strength"), ("Aeróbico 1", "Aerobic")]);
+        saved.Sessions[0].Exercises.Select(e => e.ExerciseName).ShouldBe([custom.Name, library.Name]);
+        saved.Sessions[0].Exercises[0].Sets.ShouldHaveSingleItem().DurationSeconds.ShouldBe(45);
+        saved.Sessions[0].Exercises[1].Sets.Select(s => (s.MinRepetitions, s.MaxRepetitions)).ShouldBe([(10, 12), (10, 12), (10, 12)]);
+        saved.Sessions[1].Aerobic!.DistanceKm.ShouldBe(3m);
+
+        // Saving again without changes keeps every id, so the editor sees no unsaved changes after a reload.
+        (await api.PutAsync($"training-plans/{planId}/sessions", saved.ToBody(), ct: Ct)).Problem.ShouldBeNull();
+        PlanDraft.From((await Ok(api.GetAsync<TrainerPlan>($"training-plans/{planId}", ct: Ct))).Draft).Snapshot().ShouldBe(saved.Snapshot());
+
+        var published = await Ok(api.PostAsync<PublishedVersion>($"training-plans/{planId}/publish", new { changeDescription = "Primeira versão do plano" }, ct: Ct));
+        published.VersionNumber.ShouldBe(1);
+        var item = (await Ok(api.GetAsync<List<TrainerPlanItem>>($"training-plans?clientId={ana.Id}", ct: Ct))).ShouldHaveSingleItem();
+        (item.Status, item.CurrentVersionNumber, item.HasUnpublishedChanges).ShouldBe(("Published", 1, false));
+        (await Ok(api.GetAsync<TrainerPlan>($"training-plans/{planId}", ct: Ct))).Versions.ShouldHaveSingleItem().ChangeDescription.ShouldBe("Primeira versão do plano");
+
+        // The client works out and reports discomfort; the trainer reads the workout and replies.
+        var (workoutId, _) = await Scenario.StartAsync(ana, planId);
+        await Scenario.CompleteAsync(ana, workoutId, discomfort: true);
+        var workout = (await Ok(api.GetAsync<List<WorkoutSessionItem>>($"trainer/clients/{ana.Id}/workout-sessions", ct: Ct))).ShouldHaveSingleItem();
+        (workout.Status, workout.ReportedDiscomfort, workout.HasReply, workout.PlannedSessionName).ShouldBe(("Completed", true, false, "Treino A"));
+        var detail = await Ok(api.GetAsync<WorkoutSessionDetail>($"workout-sessions/{workoutId}", ct: Ct));
+        detail.Feedback.ShouldNotBeNull().DiscomfortDetails.ShouldBe("Dor no joelho");
+        (await api.PostAsync($"workout-sessions/{workoutId}/feedback-reply", new { message = "Vamos reduzir a carga do agachamento." }, ct: Ct)).Problem.ShouldBeNull();
+        (await Ok(api.GetAsync<WorkoutSessionDetail>($"workout-sessions/{workoutId}", ct: Ct))).Reply.ShouldNotBeNull().Message.ShouldBe("Vamos reduzir a carga do agachamento.");
+
+        // AI coach panel: the client allows AI analysis; after the discomfort report the coach proposes a conversation, not a progression.
+        (await Ok(api.GetAsync<CoachOverview>($"training-plans/{planId}/coach", ct: Ct))).SharingGranted.ShouldBeFalse();
+        await Scenario.EnsureSuccess(await ana.Http.PutAsync($"/api/v1/care-relationships/{relationships[ana.Id]}/sharing/AiCoaching", null, Ct));
+        var analysis = await Ok(api.PostAsync<CoachAnalysisItem>($"training-plans/{planId}/coach/analyses", new { focus = "joelho" }, ct: Ct));
+        var talk = analysis.Suggestions.ShouldHaveSingleItem();
+        (talk.Kind, talk.Status, talk.Title).ShouldBe(("TalkToClient", "Pending", "Conversar com o cliente"));
+        analysis.Notices.ShouldNotBeEmpty();
+        (await Ok(api.PostAsync<CoachAnalysisItem>($"coach-analyses/{analysis.Id}/suggestions/{talk.Id}/apply", null, ct: Ct))).Suggestions[0].Status.ShouldBe("Applied");
+        var coach = await Ok(api.GetAsync<CoachOverview>($"training-plans/{planId}/coach", ct: Ct));
+        (coach.SharingGranted, coach.UsedToday, coach.Analyses[0].Focus).ShouldBe((true, 1, "joelho"));
+
+        // Client page: the WhatsApp button appears once the client confirms a number and allows professionals to contact them.
+        (await api.GetAsync<WhatsAppLink>($"care-relationships/{relationships[ana.Id]}/whatsapp", ct: Ct)).Problem.ShouldNotBeNull().Status.ShouldBe(404);
+        await Scenario.EnsureSuccess(await ana.Http.PutAsJsonAsync("/api/v1/me/whatsapp", new { phoneNumber = "(11) 97654-3219", allowProfessionalContact = true }, Ct));
+        var whatsApp = Scenario.Factory.Services.GetRequiredService<MyHealth.Infrastructure.Messaging.FakeWhatsAppProvider>();
+        var code = whatsApp.Sent.Last(m => m.PhoneNumber == "+5511976543219").Parameters[0];
+        await Scenario.EnsureSuccess(await ana.Http.PostAsJsonAsync("/api/v1/me/whatsapp/confirm", new { code }, Ct));
+        (await Ok(api.GetAsync<WhatsAppLink>($"care-relationships/{relationships[ana.Id]}/whatsapp", ct: Ct))).ChatUrl.ShouldBe("https://wa.me/5511976543219");
+
+        // Copy to another client, then end the original.
+        var copyId = (await Ok(api.PostAsync<Web.IdResponse>($"training-plans/{planId}/copy", new { targetClientId = caio.Id, newName = "Força — Caio" }, ct: Ct))).Id;
+        var copy = await Ok(api.GetAsync<TrainerPlan>($"training-plans/{copyId}", ct: Ct));
+        (copy.ClientId, copy.Status, copy.Details.Name, copy.Draft.Sessions.Count).ShouldBe((caio.Id, "Draft", "Força — Caio", 2));
+        (await api.PostAsync($"training-plans/{planId}/end", ct: Ct)).Problem.ShouldBeNull();
+        (await Ok(api.GetAsync<TrainerPlan>($"training-plans/{planId}", ct: Ct))).Status.ShouldBe("Ended");
     }
 
     [Fact]

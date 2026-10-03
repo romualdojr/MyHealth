@@ -6,6 +6,8 @@ using MyHealth.Domain.Wellbeing;
 using MyHealth.Domain.Assessments;
 using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
+using MyHealth.Domain.Coaching;
+using MyHealth.Domain.Messaging;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
 using MyHealth.Domain.Nutrition;
@@ -14,6 +16,7 @@ using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Exercises;
+using MyHealth.Domain.Training.MotionCapture;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
 using MyHealth.Domain.Users;
@@ -90,6 +93,12 @@ internal sealed class ReadDbContext(ApplicationDbContext db) : IReadDbContext
     public IQueryable<AssistantConsent> AssistantConsents => db.AssistantConsents.AsNoTracking();
 
     public IQueryable<AssistantProposal> AssistantProposals => db.AssistantProposals.AsNoTracking();
+
+    public IQueryable<CoachAnalysis> CoachAnalyses => db.CoachAnalyses.AsNoTracking();
+
+    public IQueryable<WhatsAppContact> WhatsAppContacts => db.WhatsAppContacts.AsNoTracking();
+
+    public IQueryable<MotionCaptureJob> MotionCaptureJobs => db.MotionCaptureJobs.AsNoTracking();
 
     public IQueryable<Notification> Notifications => db.Notifications.AsNoTracking();
 

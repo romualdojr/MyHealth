@@ -31,6 +31,8 @@ public static class DependencyInjection
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddScoped<ICareAccess, CareAccess>();
         services.AddScoped<Assistant.AssistantContextBuilder>();
+        services.AddScoped<Coaching.CoachContextBuilder>();
+        services.AddScoped<MotionCapture.MotionCaptureProcessor>();
 
         return services;
     }

@@ -73,12 +73,28 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 
 - [x] Web dashboard foundation (Blazor): sign-in with 2FA, token refresh, organization switcher, platform admin console (RF-50), organization members and audit, trainer dashboard, contract tests.
 - [x] Back office (separate Blazor app for operators) with the platform admin console and billing; shared `MyHealth.Web.Common` library.
-- [ ] Web: trainer workflow (clients, plan editor and publishing, workout sessions and feedback replies, heart-rate views).
+- [x] Web: trainer workflow — clients (invite), plan editor (sessions, exercises, sets, aerobic), publishing with change description, version history, copy, end, review acknowledgement, exercise library, workouts with feedback replies ([TRAINER_WORKSPACE_PHASES.md](TRAINER_WORKSPACE_PHASES.md) phase 1).
+- [ ] Web: trainer heart-rate views; plan templates without a client; drag and drop in the editor.
 - [ ] Web: dietitian workflow (assessments, meal plan editor, food diary with comments) and therapist workflow (services, schedule, session record, consent status, care plans).
 - [ ] Web: invitation flows (clients and organizations), professional profile and onboarding, QR code for 2FA setup.
 - [ ] Web: accessibility review (WCAG 2.2 AA), end-to-end browser tests (e.g. Playwright).
 - [ ] iOS app integrating `docs/initial_requirements/ios` (needs a Mac with Xcode); Android app.
 - [ ] Accessibility (RNF-07), performance targets (RNF-06), on-device acceptance tests 10 and 12.
+
+## Trainer workspace ([TRAINER_WORKSPACE_PHASES.md](TRAINER_WORKSPACE_PHASES.md))
+
+- [x] Web plan builder (phase 1).
+- [x] AI coach for trainers: `AiCoaching` sharing grant, pseudonymised context, rule-based and Claude models, server-side guard rails, suggestions applied to the draft only, web panel in the plan editor.
+- [x] WhatsApp behind `IWhatsAppProvider` (fake): opt-in with a code, opt-out in the app or by replying SAIR, outbox channel with generic templates, click-to-chat for professionals, data export.
+- [x] 3D exercise videos: `IMotionCaptureProvider` (DeepMotion client + fake), `MotionCaptureJob`, worker with lease and back-off, source video deleted after processing, glb model + rendered loops accepted into the exercise (`MediaKind.Model3D`), web upload panel with a 3D preview.
+- [x] Minimal media storage (`IMediaStorage`, local disk; public files served at `/media/` in development).
+- [ ] **(decide)** WhatsApp provider (Meta Cloud API or a BSP: Twilio, Zenvia, Gupshup, Take Blip), business number, and approval of the three templates (`myhealth_codigo`, `myhealth_aviso`, `myhealth_saida`); then implement `IWhatsAppProvider` for it.
+- [ ] **(decide)** DeepMotion contract (plan, credits per second of video, DPA); validate the API shapes in `DeepMotionMotionCaptureProvider` against the account's sandbox; choose the character model and whether more camera angles are rendered.
+- [ ] **(legal)** AI coach: DPA with the AI provider, client-facing text for the "Análise por IA" sharing option, evaluation set of real cases before enabling Claude (`Coach:Provider=Anthropic`).
+- [ ] Production media storage: bucket + CDN implementation of `IMediaStorage`, signed uploads straight from the browser/phone (today the video passes through the web app and API), transcoding and thumbnails (RF-27).
+- [ ] Phone apps: render `Model3D` media (glTF; USDZ conversion for iOS Quick Look if wanted), WhatsApp opt-in screen, "Análise por IA" sharing toggle.
+- [ ] 3D for the curated library (operators' back office) and a notification to the trainer when a conversion finishes.
+- [ ] AI coach as a paid module and per-tenant cost reporting; first-draft plan generation from goal/level/equipment.
 
 ## Phase 5 — P1 features
 

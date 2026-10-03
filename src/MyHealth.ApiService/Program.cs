@@ -1,3 +1,4 @@
+using MyHealth.Application.Abstractions.Media;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -62,6 +63,14 @@ app.UseAuthorization();
 app.MapDefaultEndpoints();
 app.MapGet("/", () => TypedResults.Ok(new { service = "MyHealth API", version = "v1" })).ExcludeFromDescription();
 
+// Public media (exercise videos and 3D models) from local storage, for development: production serves them from the CDN
+// at Media:PublicBaseUrl. Only keys under public/ are reachable; private files (source videos) never are.
+app.MapGet("/media/{**path}", async (string path, IMediaStorage storage, CancellationToken ct) =>
+        await storage.OpenAsync(IMediaStorage.PublicPrefix + path, ct) is { } file
+            ? Results.Stream(file.Content, file.ContentType, enableRangeProcessing: true)
+            : Results.NotFound())
+    .ExcludeFromDescription();
+
 var api = app.MapGroup("/api/v1");
 api.MapGroup("/auth").WithTags("Auth").RequireRateLimiting(RateLimitPolicies.Authentication).MapIdentityApi<ApplicationUser>();
 
@@ -74,6 +83,9 @@ authenticated.MapExerciseEndpoints();
 authenticated.MapTrainingPlanEndpoints();
 authenticated.MapWorkoutEndpoints();
 authenticated.MapTrainerEndpoints();
+authenticated.MapCoachEndpoints();
+authenticated.MapWhatsAppEndpoints(api);
+authenticated.MapMotionCaptureEndpoints();
 authenticated.MapMyRecordsEndpoints();
 authenticated.MapAssessmentEndpoints();
 authenticated.MapNutritionEndpoints();

@@ -1,7 +1,10 @@
 using MyHealth.ApiService.Infrastructure;
 using MyHealth.Application.Abstractions.Messaging;
+using MyHealth.Application.Coaching;
 using MyHealth.Application.Common;
 using MyHealth.Application.Exercises;
+using MyHealth.Application.MotionCapture;
+using Microsoft.AspNetCore.Http.Features;
 using MyHealth.Application.TrainingPlans;
 using MyHealth.Application.Workouts;
 
@@ -97,5 +100,74 @@ internal static class TrainerEndpoints
                 Guid clientId, DateTimeOffset? from, DateTimeOffset? to,
                 IQueryHandler<ListClientWorkoutSessionsQuery, IReadOnlyList<WorkoutSessionListItem>> handler, CancellationToken ct) =>
             (await handler.Handle(new ListClientWorkoutSessionsQuery(clientId, from, to), ct)).ToHttp());
+    }
+}
+
+/// <summary>The trainer's AI coach: suggestions for a client's plan, applied to the draft only by the trainer.</summary>
+internal static class CoachEndpoints
+{
+    public sealed record AnalysisRequest(string? Focus);
+
+    public static void MapCoachEndpoints(this IEndpointRouteBuilder routes)
+    {
+        var plans = routes.MapGroup("/training-plans/{planId:guid}/coach").WithTags("AI coach");
+
+        plans.MapGet("/", async (Guid planId, IQueryHandler<GetCoachOverviewQuery, CoachOverviewResponse> handler, CancellationToken ct) =>
+            (await handler.Handle(new GetCoachOverviewQuery(planId), ct)).ToHttp());
+
+        // Each analysis calls the AI provider: limited per user like the client assistant, and per tenant per day.
+        plans.MapPost("/analyses", async (
+                Guid planId, AnalysisRequest? request, ICommandHandler<RequestCoachAnalysisCommand, CoachAnalysisResponse> handler, CancellationToken ct) =>
+            (await handler.Handle(new RequestCoachAnalysisCommand(planId, request?.Focus), ct)).ToHttp())
+            .RequireRateLimiting(RateLimitPolicies.Assistant);
+
+        var analyses = routes.MapGroup("/coach-analyses/{analysisId:guid}/suggestions/{suggestionId:guid}").WithTags("AI coach");
+
+        analyses.MapPost("/apply", async (
+                Guid analysisId, Guid suggestionId, ICommandHandler<ResolveCoachSuggestionCommand, CoachAnalysisResponse> handler, CancellationToken ct) =>
+            (await handler.Handle(new ResolveCoachSuggestionCommand(analysisId, suggestionId, Apply: true), ct)).ToHttp());
+
+        analyses.MapPost("/dismiss", async (
+                Guid analysisId, Guid suggestionId, ICommandHandler<ResolveCoachSuggestionCommand, CoachAnalysisResponse> handler, CancellationToken ct) =>
+            (await handler.Handle(new ResolveCoachSuggestionCommand(analysisId, suggestionId, Apply: false), ct)).ToHttp());
+    }
+}
+
+/// <summary>3D exercise videos: the trainer films a movement, the motion-capture provider turns it into a 3D model.</summary>
+internal static class MotionCaptureEndpoints
+{
+    public static void MapMotionCaptureEndpoints(this IEndpointRouteBuilder routes)
+    {
+        routes.MapGet("/motion-capture/terms", async (IQueryHandler<GetMotionCaptureTermsQuery, MotionCaptureTermsResponse> handler, CancellationToken ct) =>
+                (await handler.Handle(new GetMotionCaptureTermsQuery(), ct)).ToHttp())
+            .WithTags("3D exercise videos");
+
+        var group = routes.MapGroup("/exercises/{exerciseId:guid}/motion-captures").WithTags("3D exercise videos");
+
+        group.MapGet("/", async (Guid exerciseId, IQueryHandler<ListMotionCapturesQuery, IReadOnlyList<MotionCaptureJobResponse>> handler, CancellationToken ct) =>
+            (await handler.Handle(new ListMotionCapturesQuery(exerciseId), ct)).ToHttp());
+
+        // The raw video is the body (Content-Type video/mp4 or video/quicktime); the rest travels in the query string.
+        group.MapPost("/", async (
+                Guid exerciseId, string fileName, int durationSeconds, int consentVersion, HttpRequest request, MotionCaptureSettings settings,
+                ICommandHandler<StartMotionCaptureCommand, MotionCaptureJobResponse> handler, CancellationToken ct) =>
+            {
+                if (request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+                {
+                    limit.MaxRequestBodySize = settings.MaxUploadBytes;
+                }
+
+                var size = request.ContentLength ?? 0;
+                var command = new StartMotionCaptureCommand(
+                    exerciseId, fileName, request.ContentType ?? string.Empty, size, durationSeconds, consentVersion, request.Body);
+                return (await handler.Handle(command, ct)).ToHttp(job => TypedResults.Created($"/api/v1/exercises/{exerciseId}/motion-captures", job));
+            })
+            .Accepts<Stream>("video/mp4", "video/quicktime", "video/webm")
+            .RequireRateLimiting(RateLimitPolicies.Assistant);
+
+        routes.MapPost("/motion-captures/{jobId:guid}/accept", async (
+                Guid jobId, ICommandHandler<AcceptMotionCaptureCommand, MotionCaptureJobResponse> handler, CancellationToken ct) =>
+            (await handler.Handle(new AcceptMotionCaptureCommand(jobId), ct)).ToHttp())
+            .WithTags("3D exercise videos");
     }
 }

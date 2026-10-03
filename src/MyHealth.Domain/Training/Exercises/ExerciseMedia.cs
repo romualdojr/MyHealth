@@ -11,6 +11,9 @@ public enum MediaKind
     FullVideo = 2,
 
     Image = 3,
+
+    /// <summary>A 3D model of the movement (glTF binary, <c>.glb</c>), e.g. made from a filmed video by motion capture; the app can rotate it.</summary>
+    Model3D = 4,
 }
 
 public enum CameraAngle

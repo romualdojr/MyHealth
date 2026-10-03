@@ -3,6 +3,8 @@ using MyHealth.Domain.Assistant;
 using MyHealth.Domain.Assessments;
 using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
+using MyHealth.Domain.Coaching;
+using MyHealth.Domain.Messaging;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
 using MyHealth.Domain.Nutrition;
@@ -11,6 +13,7 @@ using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Exercises;
+using MyHealth.Domain.Training.MotionCapture;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
 using MyHealth.Domain.Users;
@@ -91,6 +94,12 @@ public interface IReadDbContext
     IQueryable<AssistantConsent> AssistantConsents { get; }
 
     IQueryable<AssistantProposal> AssistantProposals { get; }
+
+    IQueryable<CoachAnalysis> CoachAnalyses { get; }
+
+    IQueryable<WhatsAppContact> WhatsAppContacts { get; }
+
+    IQueryable<MotionCaptureJob> MotionCaptureJobs { get; }
 
     IQueryable<Notification> Notifications { get; }
 

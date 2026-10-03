@@ -42,6 +42,7 @@ public sealed class ApiResult<T>
 public sealed class MyHealthApiClient(IHttpClientFactory httpClients, ApiSession session)
 {
     public const string HttpClientName = "myhealth-api";
+    public const string UploadHttpClientName = "myhealth-api-uploads";
     public const string TenantHeader = "X-Tenant-Id";
 
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
@@ -59,6 +60,25 @@ public sealed class MyHealthApiClient(IHttpClientFactory httpClients, ApiSession
         SendAsync<NoContent>(HttpMethod.Put, path, body, ct);
 
     public Task<ApiResult<NoContent>> DeleteAsync(string path, CancellationToken ct = default) => SendAsync<NoContent>(HttpMethod.Delete, path, null, ct);
+
+    /// <summary>
+    /// Posts a file as the raw request body (e.g. a video). The stream cannot be replayed, so the token is refreshed
+    /// before sending instead of retrying after a 401.
+    /// </summary>
+    public async Task<ApiResult<T>> PostFileAsync<T>(string path, Stream content, string contentType, long length, CancellationToken ct = default)
+    {
+        var token = await session.GetAccessTokenAsync(ct);
+        if (token is null)
+        {
+            return ApiResult<T>.Failure(ApiProblem.SessionExpired);
+        }
+
+        var body = new StreamContent(content);
+        body.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        body.Headers.ContentLength = length;
+        using var response = await SendOnceAsync(HttpMethod.Post, path, body, token, ct, UploadHttpClientName);
+        return await ReadAsync<T>(response, ct);
+    }
 
     private async Task<ApiResult<T>> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken ct)
     {
@@ -78,7 +98,8 @@ public sealed class MyHealthApiClient(IHttpClientFactory httpClients, ApiSession
         return await ReadAsync<T>(response, ct);
     }
 
-    private async Task<HttpResponseMessage> SendOnceAsync(HttpMethod method, string path, object? body, string token, CancellationToken ct)
+    private async Task<HttpResponseMessage> SendOnceAsync(
+        HttpMethod method, string path, object? body, string token, CancellationToken ct, string clientName = HttpClientName)
     {
         using var request = new HttpRequestMessage(method, "/api/v1/" + path.TrimStart('/'));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -89,10 +110,10 @@ public sealed class MyHealthApiClient(IHttpClientFactory httpClients, ApiSession
 
         if (body is not null)
         {
-            request.Content = JsonContent.Create(body, options: Json);
+            request.Content = body as HttpContent ?? JsonContent.Create(body, options: Json);
         }
 
-        return await httpClients.CreateClient(HttpClientName).SendAsync(request, ct);
+        return await httpClients.CreateClient(clientName).SendAsync(request, ct);
     }
 
     internal static async Task<ApiResult<T>> ReadAsync<T>(HttpResponseMessage response, CancellationToken ct)

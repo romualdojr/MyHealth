@@ -4,9 +4,18 @@
 @inject WorkspaceState Workspace
 @inject MyHealthApiClient Api
 
-<PageTitle>Painel do treinador · MyHealth</PageTitle>
+<PageTitle>Clientes · MyHealth</PageTitle>
 
-<h1 class="h3">Painel do treinador</h1>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+    <h1 class="h3 mb-0">Clientes</h1>
+    @if (Workspace.Practices("PersonalTrainer"))
+    {
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="trainer/exercises">Biblioteca de exercícios</a>
+            <button class="btn btn-primary" @onclick="() => _inviting = !_inviting">Convidar cliente</button>
+        </div>
+    }
+</div>
 
 @if (!Workspace.Practices("PersonalTrainer"))
 {
@@ -15,11 +24,36 @@
 else
 {
     <p class="text-body-secondary">
-        Adesão dos últimos 7 dias em relação à frequência sugerida, feedbacks sem resposta, relatos de desconforto e planos que pedem revisão
-        (RF-21, RF-23). Somente clientes com vínculo ativo nesta organização.
+        Abra um cliente para montar e publicar o plano de treino dele. Adesão dos últimos 7 dias em relação à frequência sugerida,
+        feedbacks sem resposta, relatos de desconforto e planos que pedem revisão.
     </p>
 
     <ProblemAlert Problem="_problem" />
+
+    @if (_inviting)
+    {
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h6">Convidar cliente</h2>
+                <p class="small text-body-secondary mb-2">
+                    O cliente recebe o convite no aplicativo ao entrar com este e-mail e decide o que compartilhar com você.
+                </p>
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-6">
+                        <label class="form-label small" for="client-email">E-mail do cliente</label>
+                        <input id="client-email" type="email" class="form-control" @bind="_inviteEmail" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary w-100" disabled="@string.IsNullOrWhiteSpace(_inviteEmail)" @onclick="InviteAsync">Enviar convite</button>
+                    </div>
+                </div>
+                @if (_invited is not null)
+                {
+                    <p class="small text-success mt-2 mb-0" role="status">Convite enviado para @_invited.</p>
+                }
+            </div>
+        </div>
+    }
 
     @if (_dashboard is null)
     {
@@ -38,7 +72,10 @@ else
 
         @if (_dashboard.Clients.Count == 0)
         {
-            <p class="text-body-secondary">Nenhum cliente com vínculo ativo.</p>
+            <div class="text-center text-body-secondary py-5 border rounded">
+                <p class="mb-2">Nenhum cliente com vínculo ativo ainda.</p>
+                <button class="btn btn-primary" @onclick="() => _inviting = true">Convidar o primeiro cliente</button>
+            </div>
         }
         else
         {
@@ -50,8 +87,17 @@ else
                     @foreach (var c in _dashboard.Clients)
                     {
                         <tr class="@(c.UnrepliedDiscomfortReports > 0 ? "table-warning" : string.Empty)">
-                            <td>@c.ClientName</td>
-                            <td>@(c.ActivePlanName ?? "—")</td>
+                            <td><a href="trainer/clients/@c.ClientId" class="fw-semibold">@c.ClientName</a></td>
+                            <td>
+                                @if (c.ActivePlanName is { } plan)
+                                {
+                                    @plan
+                                }
+                                else
+                                {
+                                    <a href="trainer/clients/@c.ClientId" class="small">Criar plano</a>
+                                }
+                            </td>
                             <td>@c.CompletedLast7Days@(c.SuggestedSessionsPerWeek is { } s ? $" de {s}" : string.Empty)</td>
                             <td>@(c.AdherenceLast7Days is { } a ? a.ToString("P0") : "—")</td>
                             <td class="small">
@@ -80,6 +126,9 @@ else
 @code {
     private TrainerDashboard? _dashboard;
     private ApiProblem? _problem;
+    private bool _inviting;
+    private string? _inviteEmail;
+    private string? _invited;
 
     protected override async Task OnInitializedAsync()
     {
@@ -105,6 +154,18 @@ else
         var result = await Api.GetAsync<TrainerDashboard>("trainer/dashboard");
         _dashboard = result.Value;
         _problem = result.Problem;
+    }
+
+    private async Task InviteAsync()
+    {
+        var email = _inviteEmail!.Trim();
+        var result = await Api.PostAsync<IdResponse>("care-relationships/invitations", new { discipline = "PersonalTrainer", clientEmail = email });
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _invited = email;
+            _inviteEmail = null;
+        }
     }
 
     public void Dispose() => Workspace.Changed -= OnChanged;

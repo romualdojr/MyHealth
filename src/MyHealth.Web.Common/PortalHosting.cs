@@ -55,6 +55,17 @@ public static class PortalHosting
             // "https+http://" prefers HTTPS; the name is resolved by Aspire service discovery (see AppHost).
             client.BaseAddress = new(configuration["MyHealthApi:BaseAddress"] ?? "https+http://apiservice");
         });
+
+        // Large files (exercise videos): a body stream cannot be replayed, so no retries, and a long timeout instead of the
+        // default resilience pipeline's 10-second attempts.
+#pragma warning disable EXTEXP0001 // RemoveAllResilienceHandlers is marked experimental.
+        services.AddHttpClient(MyHealthApiClient.UploadHttpClientName, client =>
+            {
+                client.BaseAddress = new(configuration["MyHealthApi:BaseAddress"] ?? "https+http://apiservice");
+                client.Timeout = TimeSpan.FromMinutes(15);
+            })
+            .RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
         services.AddScoped<ApiSession>();
         services.AddScoped<MyHealthApiClient>();
         services.AddScoped<SignInService>();

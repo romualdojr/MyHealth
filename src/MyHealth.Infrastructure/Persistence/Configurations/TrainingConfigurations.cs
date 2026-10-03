@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Exercises;
+using MyHealth.Domain.Training.MotionCapture;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
 
@@ -145,5 +146,28 @@ internal sealed class WorkoutPauseConfiguration : IEntityTypeConfiguration<Worko
         builder.ToTable("workout_pauses", ApplicationDbContext.DefaultSchema);
         builder.HasKey(p => p.Id);
         builder.Property(p => p.Id).ValueGeneratedNever();
+    }
+}
+
+internal sealed class MotionCaptureJobConfiguration : IEntityTypeConfiguration<MotionCaptureJob>
+{
+    public void Configure(EntityTypeBuilder<MotionCaptureJob> builder)
+    {
+        builder.ToTable("motion_capture_jobs", ApplicationDbContext.DefaultSchema);
+        builder.HasKey(j => j.Id);
+        builder.Property(j => j.Id).ValueGeneratedNever();
+        builder.Property(j => j.Provider).HasMaxLength(50);
+        builder.Property(j => j.ProviderJobId).HasMaxLength(200);
+        builder.Property(j => j.SourceFileName).HasMaxLength(200);
+        builder.Property(j => j.SourceContentType).HasMaxLength(100);
+        builder.Property(j => j.SourceMediaKey).HasMaxLength(400);
+        builder.Property(j => j.Error).HasMaxLength(500);
+        builder.Property(j => j.Outputs).HasJsonConversion();
+        builder.Property<uint>("version").IsRowVersion();
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(j => j.TenantId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Exercise>().WithMany().HasForeignKey(j => j.ExerciseId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(j => new { j.Status, j.NextCheckAt });
+        builder.HasIndex(j => new { j.ExerciseId, j.CreatedAt });
+        builder.HasIndex(j => new { j.TenantId, j.CreatedAt });
     }
 }

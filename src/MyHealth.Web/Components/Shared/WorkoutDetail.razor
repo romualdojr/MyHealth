@@ -1,0 +1,86 @@
+@* A performed workout as the trainer reviews it: logged sets, the client's feedback, body checks and the reply. *@
+
+<div class="p-2">
+    @if (Session.Sets.Count == 0)
+    {
+        <p class="small text-body-secondary">Nenhuma série registrada.</p>
+    }
+    else
+    {
+        <table class="table table-sm small mb-3">
+            <thead><tr><th>Série</th><th>Repetições</th><th>Carga</th><th>Duração</th><th>Dificuldade</th><th>Nota</th></tr></thead>
+            <tbody>
+                @foreach (var set in Session.Sets.OrderBy(s => s.SetNumber))
+                {
+                    <tr>
+                        <td>@set.SetNumber</td>
+                        <td>@(set.Repetitions?.ToString() ?? "—")</td>
+                        <td>@(set.LoadKg is { } kg ? $"{kg:0.#} kg" : "—")</td>
+                        <td>@(set.DurationSeconds is { } d ? $"{d}s" : "—")</td>
+                        <td>@(set.Difficulty?.ToString() ?? "—")</td>
+                        <td>@set.Notes</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (Session.BodyChecks.Count > 0)
+    {
+        <h3 class="h6">Como o corpo respondeu</h3>
+        <ul class="small">
+            @foreach (var check in Session.BodyChecks)
+            {
+                <li><strong>@check.Subject</strong>: @TrainingLabels.BodyCheckAnswer(check.Answer)@(check.Details is { } d ? $" — {d}" : string.Empty)</li>
+            }
+        </ul>
+    }
+
+    @if (Session.Feedback is { } feedback)
+    {
+        <h3 class="h6">Feedback do cliente</h3>
+        <p class="small mb-1">Esforço percebido: <strong>@feedback.PerceivedExertion/10</strong></p>
+        @if (feedback.ReportedDiscomfort)
+        {
+            <p class="small text-danger mb-1">Relatou desconforto@(feedback.DiscomfortDetails is { } d ? $": {d}" : ".")</p>
+        }
+        @if (feedback.Comments is { } comments)
+        {
+            <p class="small mb-2">“@comments”</p>
+        }
+
+        @if (Session.Reply is { } reply)
+        {
+            <div class="border-start border-success border-3 ps-2 small">
+                <div class="text-body-secondary">Sua resposta em @reply.RepliedAt.ToLocalTime().ToString("dd/MM HH:mm")</div>
+                @reply.Message
+            </div>
+        }
+        else
+        {
+            <label class="form-label small" for="reply-@Session.Id">Responder ao cliente</label>
+            <textarea id="reply-@Session.Id" class="form-control mb-2" rows="2" @bind="_reply" @bind:event="oninput"></textarea>
+            <button class="btn btn-sm btn-primary" disabled="@string.IsNullOrWhiteSpace(_reply)" @onclick="ReplyAsync">Enviar resposta</button>
+        }
+    }
+    else
+    {
+        <p class="small text-body-secondary mb-0">O cliente ainda não enviou feedback deste treino.</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public WorkoutSessionDetail Session { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<string> OnReplied { get; set; }
+
+    private string? _reply;
+
+    private async Task ReplyAsync()
+    {
+        await OnReplied.InvokeAsync(_reply!.Trim());
+        _reply = null;
+    }
+}

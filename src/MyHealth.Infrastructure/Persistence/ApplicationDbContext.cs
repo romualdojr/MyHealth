@@ -7,6 +7,8 @@ using MyHealth.Domain.Wellbeing;
 using MyHealth.Domain.Assessments;
 using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
+using MyHealth.Domain.Coaching;
+using MyHealth.Domain.Messaging;
 using MyHealth.Domain.HealthData;
 using MyHealth.Domain.Notifications;
 using MyHealth.Domain.Nutrition;
@@ -15,6 +17,7 @@ using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Exercises;
+using MyHealth.Domain.Training.MotionCapture;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
 using MyHealth.Domain.Users;
@@ -95,6 +98,12 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<AssistantConsent> AssistantConsents => Set<AssistantConsent>();
 
     public DbSet<AssistantProposal> AssistantProposals => Set<AssistantProposal>();
+
+    public DbSet<CoachAnalysis> CoachAnalyses => Set<CoachAnalysis>();
+
+    public DbSet<WhatsAppContact> WhatsAppContacts => Set<WhatsAppContact>();
+
+    public DbSet<MotionCaptureJob> MotionCaptureJobs => Set<MotionCaptureJob>();
 
     public DbSet<Notification> Notifications => Set<Notification>();
 

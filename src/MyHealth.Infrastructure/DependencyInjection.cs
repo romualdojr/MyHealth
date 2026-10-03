@@ -7,15 +7,22 @@ using MyHealth.Application.Abstractions.Administration;
 using MyHealth.Application.Abstractions.Assistant;
 using MyHealth.Application.Abstractions.Auditing;
 using MyHealth.Application.Abstractions.Authentication;
+using MyHealth.Application.Abstractions.Coaching;
 using MyHealth.Application.Abstractions.Data;
 using MyHealth.Application.Abstractions.Media;
+using MyHealth.Application.Abstractions.MotionCapture;
 using MyHealth.Application.Abstractions.Payments;
+using MyHealth.Application.Abstractions.WhatsApp;
 using MyHealth.Domain.Abstractions;
 using MyHealth.Domain.Assessments;
 using MyHealth.Domain.Assistant;
 using MyHealth.Domain.Billing;
 using MyHealth.Domain.CareRelationships;
+using MyHealth.Domain.Coaching;
+using MyHealth.Application.Coaching;
+using MyHealth.Application.MotionCapture;
 using MyHealth.Domain.HealthData;
+using MyHealth.Domain.Messaging;
 using MyHealth.Domain.Notifications;
 using MyHealth.Domain.Nutrition;
 using MyHealth.Domain.Privacy;
@@ -23,13 +30,17 @@ using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Therapies;
 using MyHealth.Domain.Training.Exercises;
+using MyHealth.Domain.Training.MotionCapture;
 using MyHealth.Domain.Training.Plans;
 using MyHealth.Domain.Training.Workouts;
 using MyHealth.Domain.Users;
 using MyHealth.Domain.Wellbeing;
 using MyHealth.Infrastructure.Auditing;
 using MyHealth.Infrastructure.ClientExperience;
+using MyHealth.Infrastructure.Coaching;
 using MyHealth.Infrastructure.Identity;
+using MyHealth.Infrastructure.Media;
+using MyHealth.Infrastructure.Messaging;
 using MyHealth.Infrastructure.Notifications;
 using MyHealth.Infrastructure.Payments;
 using MyHealth.Infrastructure.Persistence;
@@ -113,6 +124,71 @@ public static class DependencyInjection
         {
             services.AddSingleton<IAssistantModel, FakeAssistantModel>();
         }
+
+        // Trainer's AI coach: rule-based unless Claude is configured (Coach:Provider=Anthropic). Analyses are capped per tenant per day.
+        services.AddScoped<ICoachAnalysisRepository, CoachAnalysisRepository>();
+        services.AddSingleton(new CoachSettings(builder.Configuration.GetValue("Coach:DailyAnalysesPerTenant", 100)));
+        if (string.Equals(builder.Configuration["Coach:Provider"], "Anthropic", StringComparison.OrdinalIgnoreCase))
+        {
+            var apiKey = builder.Configuration["Coach:Anthropic:ApiKey"] ?? builder.Configuration["Assistant:Anthropic:ApiKey"]
+                         ?? throw new InvalidOperationException("Coach:Provider is Anthropic but neither Coach:Anthropic:ApiKey nor Assistant:Anthropic:ApiKey is set.");
+            services.AddHttpClient<AnthropicTrainingCoachModel>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.anthropic.com/");
+                client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+                client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+                client.Timeout = TimeSpan.FromSeconds(60);
+            });
+            services.AddScoped<ITrainingCoachModel>(sp => sp.GetRequiredService<AnthropicTrainingCoachModel>());
+        }
+        else
+        {
+            services.AddSingleton<ITrainingCoachModel, RuleBasedTrainingCoachModel>();
+        }
+
+        // Media storage (RF-27): local disk for development; production swaps in a bucket behind the CDN.
+        services.AddSingleton<IMediaStorage, LocalMediaStorage>();
+
+        // 3D exercise videos: DeepMotion when configured (MotionCapture:Provider=DeepMotion), a fake otherwise.
+        services.AddScoped<IMotionCaptureJobRepository, MotionCaptureJobRepository>();
+        services.AddSingleton(new MotionCaptureSettings(
+            builder.Configuration.GetValue("MotionCapture:MaxUploadMegabytes", 200) * 1024L * 1024L,
+            builder.Configuration.GetValue("MotionCapture:MonthlyJobsPerTenant", 30),
+            builder.Configuration.GetValue("MotionCapture:DeleteSourceAfterProcessing", true),
+            TimeSpan.FromSeconds(builder.Configuration.GetValue("MotionCapture:PollIntervalSeconds", 20))));
+        if (string.Equals(builder.Configuration["MotionCapture:Provider"], "DeepMotion", StringComparison.OrdinalIgnoreCase))
+        {
+            var baseUrl = builder.Configuration["MotionCapture:DeepMotion:ApiBaseUrl"]
+                          ?? throw new InvalidOperationException("MotionCapture:Provider is DeepMotion but MotionCapture:DeepMotion:ApiBaseUrl is not set.");
+            if (string.IsNullOrEmpty(builder.Configuration["MotionCapture:DeepMotion:ClientId"]) || string.IsNullOrEmpty(builder.Configuration["MotionCapture:DeepMotion:ClientSecret"]))
+            {
+                throw new InvalidOperationException("MotionCapture:DeepMotion:ClientId and ClientSecret must be set (user secrets or a vault).");
+            }
+
+            // One client for the process lifetime: its cookie container holds the DeepMotion session.
+            services.AddSingleton<IMotionCaptureProvider>(sp => new DeepMotionMotionCaptureProvider(
+                new HttpClient(new SocketsHttpHandler { UseCookies = true, CookieContainer = new System.Net.CookieContainer(), PooledConnectionLifetime = TimeSpan.FromMinutes(5) })
+                {
+                    BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/"),
+                    Timeout = TimeSpan.FromSeconds(60),
+                },
+                sp.GetRequiredService<IConfiguration>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<DeepMotionMotionCaptureProvider>>()));
+        }
+        else
+        {
+            services.AddSingleton<IMotionCaptureProvider, FakeMotionCaptureProvider>();
+        }
+
+        if (builder.Configuration.GetValue("MotionCapture:WorkerEnabled", true))
+        {
+            services.AddHostedService<MotionCaptureWorkerService>();
+        }
+
+        // WhatsApp (§8, RF-08): a fake provider until one is chosen. A real one replaces this registration only.
+        services.AddScoped<IWhatsAppContactRepository, WhatsAppContactRepository>();
+        services.AddSingleton<FakeWhatsAppProvider>();
+        services.AddSingleton<IWhatsAppProvider>(sp => sp.GetRequiredService<FakeWhatsAppProvider>());
 
         // Payments (§8): a fake provider until one is chosen. A real one replaces both registrations; it simulates nothing.
         services.AddSingleton<FakePaymentProvider>();

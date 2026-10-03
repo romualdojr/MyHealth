@@ -904,6 +904,85 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.ToTable("data_sharing_grants", "myhealth");
                 });
 
+            modelBuilder.Entity("MyHealth.Domain.Coaching.CoachAnalysis", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Focus")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("focus");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("model");
+
+                    b.Property<string>("Notices")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("notices");
+
+                    b.Property<int>("PlanVersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("plan_version_number");
+
+                    b.Property<string>("Suggestions")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("suggestions");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("summary");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("TrainerProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trainer_profile_id");
+
+                    b.Property<Guid>("TrainerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trainer_user_id");
+
+                    b.Property<Guid>("TrainingPlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("training_plan_id");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_coach_analyses");
+
+                    b.HasIndex("TenantId", "CreatedAt")
+                        .HasDatabaseName("ix_coach_analyses_tenant_id_created_at");
+
+                    b.HasIndex("TrainingPlanId", "CreatedAt")
+                        .HasDatabaseName("ix_coach_analyses_training_plan_id_created_at");
+
+                    b.ToTable("coach_analyses", "myhealth");
+                });
+
             modelBuilder.Entity("MyHealth.Domain.HealthData.HealthConnection", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1152,6 +1231,81 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_workout_heart_rates_tenant_id_client_id");
 
                     b.ToTable("workout_heart_rates", "myhealth");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Messaging.WhatsAppContact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AllowProfessionalContact")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_professional_contact");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("History")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("history");
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("phone_number");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("VerificationAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("verification_attempts");
+
+                    b.Property<string>("VerificationCodeHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("verification_code_hash");
+
+                    b.Property<DateTimeOffset?>("VerificationSentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verification_sent_at");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verified_at");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_whatsapp_contacts");
+
+                    b.HasIndex("PhoneNumber")
+                        .HasDatabaseName("ix_whatsapp_contacts_phone_number");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_whatsapp_contacts_user_id");
+
+                    b.ToTable("whatsapp_contacts", "myhealth");
                 });
 
             modelBuilder.Entity("MyHealth.Domain.Notifications.Notification", b =>
@@ -2643,6 +2797,137 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                     b.ToTable("exercises", "myhealth");
                 });
 
+            modelBuilder.Entity("MyHealth.Domain.Training.MotionCapture.MotionCaptureJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<int>("ConsentVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("consent_version");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("DurationSeconds")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_seconds");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("error");
+
+                    b.Property<Guid>("ExerciseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("exercise_id");
+
+                    b.Property<DateTimeOffset>("NextCheckAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_check_at");
+
+                    b.Property<string>("Outputs")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("outputs");
+
+                    b.Property<int>("ProgressPercent")
+                        .HasColumnType("integer")
+                        .HasColumnName("progress_percent");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("provider");
+
+                    b.Property<string>("ProviderJobId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("provider_job_id");
+
+                    b.Property<Guid>("RequestedByProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by_profile_id");
+
+                    b.Property<Guid>("RequestedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by_user_id");
+
+                    b.Property<string>("SourceContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("source_content_type");
+
+                    b.Property<DateTimeOffset?>("SourceDeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("source_deleted_at");
+
+                    b.Property<string>("SourceFileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("source_file_name");
+
+                    b.Property<string>("SourceMediaKey")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("source_media_key");
+
+                    b.Property<long>("SourceSizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("source_size_bytes");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset?>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<int>("TransientErrors")
+                        .HasColumnType("integer")
+                        .HasColumnName("transient_errors");
+
+                    b.Property<uint>("version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_motion_capture_jobs");
+
+                    b.HasIndex("ExerciseId", "CreatedAt")
+                        .HasDatabaseName("ix_motion_capture_jobs_exercise_id_created_at");
+
+                    b.HasIndex("Status", "NextCheckAt")
+                        .HasDatabaseName("ix_motion_capture_jobs_status_next_check_at");
+
+                    b.HasIndex("TenantId", "CreatedAt")
+                        .HasDatabaseName("ix_motion_capture_jobs_tenant_id_created_at");
+
+                    b.ToTable("motion_capture_jobs", "myhealth");
+                });
+
             modelBuilder.Entity("MyHealth.Domain.Training.Plans.TrainingPlan", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3428,6 +3713,16 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_data_sharing_grants_care_relationships_care_relationship_id");
                 });
 
+            modelBuilder.Entity("MyHealth.Domain.Coaching.CoachAnalysis", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_coach_analyses_tenants_tenant_id");
+                });
+
             modelBuilder.Entity("MyHealth.Domain.HealthData.HealthConnectionChange", b =>
                 {
                     b.HasOne("MyHealth.Domain.HealthData.HealthConnection", null)
@@ -3698,6 +3993,23 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_exercises_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("MyHealth.Domain.Training.MotionCapture.MotionCaptureJob", b =>
+                {
+                    b.HasOne("MyHealth.Domain.Training.Exercises.Exercise", null)
+                        .WithMany()
+                        .HasForeignKey("ExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_motion_capture_jobs_exercises_exercise_id");
+
+                    b.HasOne("MyHealth.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_motion_capture_jobs_tenants_tenant_id");
                 });
 
             modelBuilder.Entity("MyHealth.Domain.Training.Plans.TrainingPlan", b =>

@@ -17,6 +17,12 @@ public enum DataCategory
 
     /// <summary>Sleep and energy check-ins, often answered during rest.</summary>
     Wellbeing = 7,
+
+    /// <summary>
+    /// The trainer may send the client's training records (plan, logged sets, feedback, body checks; wellbeing only
+    /// when also shared) to an AI provider to get suggestions for the plan. Pseudonymised; the trainer decides.
+    /// </summary>
+    AiCoaching = 8,
 }
 
 public enum RelationshipStatus

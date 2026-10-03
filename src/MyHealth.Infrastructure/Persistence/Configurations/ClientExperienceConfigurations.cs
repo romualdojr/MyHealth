@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MyHealth.Domain.Assistant;
+using MyHealth.Domain.Coaching;
+using MyHealth.Domain.Messaging;
 using MyHealth.Domain.Wellbeing;
 
 namespace MyHealth.Infrastructure.Persistence.Configurations;
@@ -40,5 +42,40 @@ internal sealed class AssistantProposalConfiguration : IEntityTypeConfiguration<
         builder.Property(p => p.Payload).HasColumnType("jsonb").IsRequired();
         builder.Property<uint>("version").IsRowVersion();
         builder.HasIndex(p => new { p.UserId, p.CreatedAt });
+    }
+}
+
+internal sealed class CoachAnalysisConfiguration : IEntityTypeConfiguration<CoachAnalysis>
+{
+    public void Configure(EntityTypeBuilder<CoachAnalysis> builder)
+    {
+        builder.ToTable("coach_analyses", ApplicationDbContext.DefaultSchema);
+        builder.HasKey(a => a.Id);
+        builder.Property(a => a.Id).ValueGeneratedNever();
+        builder.Property(a => a.Model).HasMaxLength(100);
+        builder.Property(a => a.Focus).HasMaxLength(500);
+        builder.Property(a => a.Summary).HasMaxLength(2000);
+        builder.Property(a => a.Notices).HasJsonConversion();
+        builder.Property(a => a.Suggestions).HasJsonConversion();
+        builder.Property<uint>("version").IsRowVersion();
+        builder.HasOne<Domain.Tenants.Tenant>().WithMany().HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(a => new { a.TrainingPlanId, a.CreatedAt });
+        builder.HasIndex(a => new { a.TenantId, a.CreatedAt });
+    }
+}
+
+internal sealed class WhatsAppContactConfiguration : IEntityTypeConfiguration<WhatsAppContact>
+{
+    public void Configure(EntityTypeBuilder<WhatsAppContact> builder)
+    {
+        builder.ToTable("whatsapp_contacts", ApplicationDbContext.DefaultSchema);
+        builder.HasKey(c => c.Id);
+        builder.Property(c => c.Id).ValueGeneratedNever();
+        builder.Property(c => c.PhoneNumber).HasMaxLength(16);
+        builder.Property(c => c.VerificationCodeHash).HasMaxLength(64);
+        builder.Property(c => c.History).HasJsonConversion();
+        builder.Property<uint>("version").IsRowVersion();
+        builder.HasIndex(c => c.UserId).IsUnique();
+        builder.HasIndex(c => c.PhoneNumber);
     }
 }

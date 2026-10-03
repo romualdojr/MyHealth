@@ -1,0 +1,270 @@
+@page "/trainer/exercises"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+
+<PageTitle>Biblioteca de exercícios · MyHealth</PageTitle>
+
+<nav aria-label="Caminho" class="small mb-2"><a href="trainer">Clientes</a> / Biblioteca de exercícios</nav>
+
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+    <h1 class="h3 mb-0">Biblioteca de exercícios</h1>
+    @if (Workspace.Practices("PersonalTrainer"))
+    {
+        <button class="btn btn-primary" @onclick="StartNew">Novo exercício</button>
+    }
+</div>
+
+@if (!Workspace.Practices("PersonalTrainer"))
+{
+    <p class="alert alert-info">Selecione uma organização em que você atua como personal trainer.</p>
+}
+else
+{
+    <p class="text-body-secondary">
+        A biblioteca do MyHealth mais os exercícios criados pela sua organização. Os exercícios da organização só aparecem para quem atua nela.
+    </p>
+
+    <ProblemAlert Problem="_problem" />
+
+    @if (_editing is not null)
+    {
+        <div class="card border-primary mb-4">
+            <div class="card-body">
+                <h2 class="h6">@(_editingId is null ? "Novo exercício da organização" : $"Editar {_editing.Name}")</h2>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small" for="ex-name">Nome</label>
+                        <input id="ex-name" class="form-control" @bind="_editing.Name" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small" for="ex-purpose">Finalidade (opcional)</label>
+                        <input id="ex-purpose" class="form-control" placeholder="Ex.: força, mobilidade" @bind="_editing.Purpose" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small" for="ex-description">Como executar</label>
+                        <textarea id="ex-description" class="form-control" rows="3" @bind="_editing.Description" @bind:event="oninput"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small" for="ex-muscles">Grupos musculares (separados por vírgula)</label>
+                        <input id="ex-muscles" class="form-control" placeholder="quadríceps, glúteos" @bind="_editing.MuscleGroups" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small" for="ex-equipment">Equipamentos (separados por vírgula)</label>
+                        <input id="ex-equipment" class="form-control" placeholder="halter, banco" @bind="_editing.Equipment" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small" for="ex-precautions">Cuidados (opcional)</label>
+                        <textarea id="ex-precautions" class="form-control" rows="2" @bind="_editing.Precautions"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small" for="ex-caption">Descrição do vídeo, para acessibilidade (necessária antes de adicionar vídeo)</label>
+                        <textarea id="ex-caption" class="form-control" rows="2" @bind="_editing.MediaCaption"></textarea>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-primary" disabled="@(string.IsNullOrWhiteSpace(_editing.Name) || string.IsNullOrWhiteSpace(_editing.Description))"
+                            @onclick="SaveAsync">Salvar</button>
+                    <button class="btn btn-link" @onclick="() => _editing = null">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_motionFor is { } target)
+    {
+        <MotionCapturePanel @key="target.Id" ExerciseId="target.Id" ExerciseName="@target.Name" OnClose="() => _motionFor = null" OnAccepted="() => LoadAsync()" />
+    }
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-6">
+            <label class="visually-hidden" for="library-search">Buscar</label>
+            <input id="library-search" class="form-control" placeholder="Buscar por nome ou descrição" @bind="_search" @bind:event="oninput" @bind:after="SearchSoonAsync" />
+        </div>
+    </div>
+
+    @if (_results is null)
+    {
+        <Loading />
+    }
+    else
+    {
+        <table class="table table-sm align-middle">
+            <thead><tr><th>Exercício</th><th>Músculos</th><th>Equipamento</th><th>Mídia</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var e in _results.Items)
+                {
+                    <tr>
+                        <td>
+                            <span class="fw-semibold">@e.Name</span>
+                            @if (e.IsCustom)
+                            {
+                                <span class="badge text-bg-light border ms-1">da organização</span>
+                            }
+                            <div class="small text-body-secondary text-truncate exercise-description">@e.Description</div>
+                        </td>
+                        <td class="small">@string.Join(", ", e.MuscleGroups)</td>
+                        <td class="small">@string.Join(", ", e.Equipment)</td>
+                        <td class="small">@(e.Media.Count == 0 ? "—" : $"{e.Media.Count} item(ns)")@if (e.Media.Any(m => m.Kind == "Model3D"))
+                            {
+                                <span class="badge text-bg-primary ms-1">3D</span>
+                            }</td>
+                        <td class="text-end">
+                            @if (e.IsCustom)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => StartEdit(e)">Editar</button>
+                                <button class="btn btn-sm btn-outline-primary ms-1" @onclick="() => { _motionFor = e; _editing = null; }">Vídeo 3D</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(_page <= 1)" @onclick="() => GoToAsync(_page - 1)">Anterior</button>
+            <span class="small text-body-secondary">Página @_page de @Math.Max(1, (int)Math.Ceiling(_results.TotalCount / (double)PageSize)) · @_results.TotalCount exercícios</span>
+            <button class="btn btn-sm btn-outline-secondary" disabled="@(_page * PageSize >= _results.TotalCount)" @onclick="() => GoToAsync(_page + 1)">Próxima</button>
+        </div>
+    }
+}
+
+@code {
+    private const int PageSize = 50;
+
+    private sealed class ExerciseForm
+    {
+        public string Name { get; set; } = string.Empty;
+
+        public string Description { get; set; } = string.Empty;
+
+        public string? MuscleGroups { get; set; }
+
+        public string? Equipment { get; set; }
+
+        public string? Purpose { get; set; }
+
+        public string? Precautions { get; set; }
+
+        public string? MediaCaption { get; set; }
+
+        public object ToBody() => new
+        {
+            name = Name.Trim(),
+            description = Description.Trim(),
+            muscleGroups = Split(MuscleGroups),
+            equipment = Split(Equipment),
+            purpose = Blank(Purpose),
+            precautions = Blank(Precautions),
+            mediaCaption = Blank(MediaCaption),
+        };
+
+        private static string[] Split(string? value) =>
+            [.. (value ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(v => v.ToLowerInvariant()).Distinct()];
+
+        private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private PagedResponse<ExerciseItem>? _results;
+    private ApiProblem? _problem;
+    private string? _search;
+    private int _page = 1;
+    private ExerciseForm? _editing;
+    private Guid? _editingId;
+    private ExerciseItem? _motionFor;
+    private CancellationTokenSource? _typing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync(CancellationToken ct = default)
+    {
+        if (!Workspace.Practices("PersonalTrainer"))
+        {
+            return;
+        }
+
+        var result = await Api.GetAsync<PagedResponse<ExerciseItem>>(
+            $"exercises?page={_page}&pageSize={PageSize}&search={Uri.EscapeDataString(_search ?? string.Empty)}", ct);
+        ct.ThrowIfCancellationRequested();
+        _results = result.Value ?? new PagedResponse<ExerciseItem>([], _page, PageSize, 0);
+        _problem = result.Problem;
+    }
+
+    private async Task SearchSoonAsync()
+    {
+        _typing?.Cancel();
+        _typing?.Dispose();
+        _typing = new CancellationTokenSource();
+        var ct = _typing.Token;
+        try
+        {
+            await Task.Delay(250, ct);
+            _page = 1;
+            await LoadAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer keystroke started another search.
+        }
+    }
+
+    private async Task GoToAsync(int page)
+    {
+        _page = page;
+        await LoadAsync();
+    }
+
+    private void StartNew()
+    {
+        _editingId = null;
+        _editing = new ExerciseForm();
+    }
+
+    private void StartEdit(ExerciseItem exercise)
+    {
+        _editingId = exercise.Id;
+        _editing = new ExerciseForm
+        {
+            Name = exercise.Name,
+            Description = exercise.Description,
+            MuscleGroups = string.Join(", ", exercise.MuscleGroups),
+            Equipment = string.Join(", ", exercise.Equipment),
+            Purpose = exercise.Purpose,
+            Precautions = exercise.Precautions,
+            MediaCaption = exercise.MediaCaption,
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        var problem = _editingId is { } id
+            ? (await Api.PutAsync($"exercises/{id}", _editing!.ToBody())).Problem
+            : (await Api.PostAsync<IdResponse>("exercises", _editing!.ToBody())).Problem;
+        _problem = problem;
+        if (problem is null)
+        {
+            _search = _editing.Name;
+            _editing = null;
+            _page = 1;
+            await LoadAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        Workspace.Changed -= OnChanged;
+        _typing?.Cancel();
+        _typing?.Dispose();
+    }
+}

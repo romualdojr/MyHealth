@@ -89,6 +89,81 @@ public sealed record BillingCycleResult(int Subscriptions, int InvoicesIssued, i
 
 public sealed record WebhookResult(string Outcome);
 
+// Training: the trainer's plan builder, exercise library and workout follow-up.
+
+public sealed record IdResponse(Guid Id);
+
+public sealed record ExerciseMediaItem(Guid Id, string Kind, string? Angle, string Url, string? PosterUrl, int? DurationSeconds);
+
+public sealed record ExerciseItem(
+    Guid Id, string Name, string Description, IReadOnlyList<string> MuscleGroups, IReadOnlyList<string> Equipment, string? Purpose,
+    string? Precautions, string? MediaCaption, IReadOnlyList<ExerciseMediaItem> Media, int Version, bool IsCustom);
+
+public sealed record TrainerPlanItem(
+    Guid Id, Guid ClientId, string Name, string Status, int CurrentVersionNumber, bool HasUnpublishedChanges, DateTimeOffset UpdatedAt, bool NeedsReview);
+
+public sealed record PlanDetails(
+    string Name, string Goal, string Level, DateOnly StartDate, DateOnly? EndDate, int SuggestedSessionsPerWeek, string? Notes);
+
+public sealed record SetTarget(int Order, int? MinRepetitions, int? MaxRepetitions, int? DurationSeconds, decimal? SuggestedLoadKg);
+
+public sealed record PlannedExercise(
+    Guid Id, Guid ExerciseId, string ExerciseName, int ExerciseVersion, int Order, string? Instructions, int RestSeconds,
+    IReadOnlyList<Guid> AlternativeExerciseIds, IReadOnlyList<SetTarget> Sets);
+
+public sealed record AerobicTarget(string Activity, int? DurationMinutes, decimal? DistanceKm, string? Intensity, string? WarmUp, string? CoolDown);
+
+public sealed record PlannedSession(
+    Guid Id, string Name, string Kind, int Order, string? Notes, IReadOnlyList<PlannedExercise> Exercises, AerobicTarget? Aerobic);
+
+public sealed record PlanContent(IReadOnlyList<PlannedSession> Sessions);
+
+public sealed record PlanVersionItem(Guid VersionId, int VersionNumber, string ChangeDescription, DateTimeOffset PublishedAt);
+
+public sealed record TrainerPlan(
+    Guid Id, Guid ClientId, PlanDetails Details, string Status, PlanContent Draft, bool HasUnpublishedChanges, int CurrentVersionNumber,
+    Guid? CopiedFromPlanId, IReadOnlyList<PlanVersionItem> Versions, DateTimeOffset? ReviewRequestedAt, string? ReviewReason);
+
+public sealed record PublishedVersion(Guid VersionId, int VersionNumber, DateTimeOffset PublishedAt);
+
+public sealed record WorkoutSessionItem(
+    Guid Id, Guid TrainingPlanId, int PlanVersionNumber, string PlannedSessionName, string Kind, string Status, DateTimeOffset StartedAt,
+    DateTimeOffset? CompletedAt, DateOnly? LocalDate, int? PerceivedExertion, bool ReportedDiscomfort, bool HasReply);
+
+public sealed record SetLogItem(
+    Guid Id, Guid ExerciseId, Guid? PlannedExerciseId, int SetNumber, int? Repetitions, decimal? LoadKg, int? DurationSeconds,
+    decimal? DistanceMeters, int? Difficulty, string? Notes);
+
+public sealed record WorkoutFeedbackItem(int PerceivedExertion, bool ReportedDiscomfort, string? DiscomfortDetails, string? Comments);
+
+public sealed record FeedbackReplyItem(string Message, DateTimeOffset RepliedAt);
+
+public sealed record BodyCheckItem(Guid Id, string Subject, string Answer, string? Details, bool ReportedToTrainer, DateTimeOffset At);
+
+public sealed record CoachSuggestionItem(
+    Guid Id, string Kind, Guid? PlannedExerciseId, string? ExerciseName, string Title, string? Change, string Reason, string Status, DateTimeOffset? ResolvedAt);
+
+public sealed record CoachAnalysisItem(
+    Guid Id, Guid PlanId, int PlanVersionNumber, string Model, string? Focus, string Summary, IReadOnlyList<string> Notices,
+    IReadOnlyList<CoachSuggestionItem> Suggestions, DateTimeOffset CreatedAt);
+
+public sealed record CoachOverview(bool SharingGranted, int DailyLimit, int UsedToday, IReadOnlyList<CoachAnalysisItem> Analyses);
+
+public sealed record WhatsAppLink(string PhoneNumber, string ChatUrl);
+
+public sealed record MotionCaptureTerms(int Version, string Text);
+
+public sealed record MotionCaptureOutputItem(string Kind, string? Angle, string Format, string Url, long SizeBytes);
+
+public sealed record MotionCaptureJobItem(
+    Guid Id, Guid ExerciseId, string Status, int ProgressPercent, string? Error, int DurationSeconds, string SourceFileName,
+    IReadOnlyList<MotionCaptureOutputItem> Outputs, DateTimeOffset CreatedAt, DateTimeOffset? CompletedAt, DateTimeOffset? AcceptedAt, bool SourceDeleted);
+
+public sealed record WorkoutSessionDetail(
+    Guid Id, Guid TrainingPlanId, int PlanVersionNumber, string PlannedSessionName, string Kind, string Status, DateTimeOffset StartedAt,
+    DateTimeOffset? CompletedAt, IReadOnlyList<SetLogItem> Sets, WorkoutFeedbackItem? Feedback, FeedbackReplyItem? Reply,
+    IReadOnlyList<BodyCheckItem> BodyChecks);
+
 /// <summary>Disciplines and council-facing labels in Portuguese, for display only.</summary>
 public static class Labels
 {
@@ -139,6 +214,78 @@ public static class Labels
         "Rejected" or "Suspended" or "Revoked" or "Disabled" or "Declined" or "Cancelled" => "text-bg-danger",
         _ => "text-bg-secondary",
     };
+}
+
+/// <summary>Training labels for display.</summary>
+public static class TrainingLabels
+{
+    public static readonly IReadOnlyList<string> Levels = ["Beginner", "Intermediate", "Advanced"];
+
+    public static string Level(string value) => value switch
+    {
+        "Beginner" => "Iniciante",
+        "Intermediate" => "Intermediário",
+        "Advanced" => "Avançado",
+        _ => value,
+    };
+
+    public static string PlanStatus(string value) => value switch
+    {
+        "Draft" => "Rascunho",
+        "Published" => "Publicado",
+        "Ended" => "Encerrado",
+        _ => value,
+    };
+
+    public static string PlanBadge(string value) => value switch
+    {
+        "Published" => "text-bg-success",
+        "Draft" => "text-bg-warning",
+        _ => "text-bg-secondary",
+    };
+
+    public static string SessionKind(string value) => value switch
+    {
+        "Strength" => "Musculação",
+        "Aerobic" => "Aeróbico",
+        _ => value,
+    };
+
+    public static string WorkoutStatus(string value) => value switch
+    {
+        "InProgress" => "Em andamento",
+        "Paused" => "Pausado",
+        "Completed" => "Concluído",
+        "Abandoned" => "Abandonado",
+        _ => value,
+    };
+
+    public static string BodyCheckAnswer(string value) => value switch
+    {
+        "Better" => "melhor",
+        "Same" => "igual",
+        "Worse" => "pior",
+        "New" => "novo incômodo",
+        _ => value,
+    };
+
+    /// <summary>"3 × 8–12 · 20 kg" style summary of an exercise's sets.</summary>
+    public static string Sets(IReadOnlyList<SetTarget> sets)
+    {
+        if (sets.Count == 0)
+        {
+            return "sem séries";
+        }
+
+        var first = sets[0];
+        var target = first.MinRepetitions is { } min
+            ? (first.MaxRepetitions is { } max && max != min ? $"{min}–{max}" : $"{min}")
+            : $"{first.DurationSeconds}s";
+        var load = first.SuggestedLoadKg is { } kg ? $" · {kg:0.#} kg" : string.Empty;
+        var uniform = sets.All(s => s.MinRepetitions == first.MinRepetitions && s.MaxRepetitions == first.MaxRepetitions
+                                    && s.DurationSeconds == first.DurationSeconds && s.SuggestedLoadKg == first.SuggestedLoadKg);
+        return uniform ? $"{sets.Count} × {target}{load}" : $"{sets.Count} séries variadas";
+    }
 }
 
 /// <summary>Billing labels and amounts (cents, BRL) for display.</summary>
