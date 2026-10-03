@@ -2,6 +2,7 @@
   <Folder Name="/docs/">
     <File Path="docs/ARCHITECTURE.md" />
     <File Path="docs/REQUIREMENTS_REVIEW_AND_PHASES.md" />
+    <File Path="docs/client-app-prototype.html" />
     <File Path="docs/initial_requirements/APP_REQUIREMENTS.md" />
   </Folder>
   <Folder Name="/docs/ios/">
@@ -14,21 +15,21 @@
     <File Path="global.json" />
   </Folder>
   <Folder Name="/src/">
-    <Project Path="src/MyHealth.Domain/MyHealth.Domain.csproj" />
-    <Project Path="src/MyHealth.Application/MyHealth.Application.csproj" />
-    <Project Path="src/MyHealth.Infrastructure/MyHealth.Infrastructure.csproj" />
     <Project Path="src/MyHealth.ApiService/MyHealth.ApiService.csproj" />
     <Project Path="src/MyHealth.AppHost/MyHealth.AppHost.csproj" />
-    <Project Path="src/MyHealth.ServiceDefaults/MyHealth.ServiceDefaults.csproj" />
-    <Project Path="src/MyHealth.Web/MyHealth.Web.csproj" />
-    <Project Path="src/MyHealth.Web.Common/MyHealth.Web.Common.csproj" />
+    <Project Path="src/MyHealth.Application/MyHealth.Application.csproj" />
     <Project Path="src/MyHealth.Backoffice/MyHealth.Backoffice.csproj" />
+    <Project Path="src/MyHealth.Domain/MyHealth.Domain.csproj" />
+    <Project Path="src/MyHealth.Infrastructure/MyHealth.Infrastructure.csproj" />
+    <Project Path="src/MyHealth.ServiceDefaults/MyHealth.ServiceDefaults.csproj" />
+    <Project Path="src/MyHealth.Web.Common/MyHealth.Web.Common.csproj" />
+    <Project Path="src/MyHealth.Web/MyHealth.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/MyHealth.Domain.UnitTests/MyHealth.Domain.UnitTests.csproj" />
+    <Project Path="tests/MyHealth.Api.IntegrationTests/MyHealth.Api.IntegrationTests.csproj" />
     <Project Path="tests/MyHealth.Application.UnitTests/MyHealth.Application.UnitTests.csproj" />
     <Project Path="tests/MyHealth.ArchitectureTests/MyHealth.ArchitectureTests.csproj" />
-    <Project Path="tests/MyHealth.Api.IntegrationTests/MyHealth.Api.IntegrationTests.csproj" />
+    <Project Path="tests/MyHealth.Domain.UnitTests/MyHealth.Domain.UnitTests.csproj" />
     <Project Path="tests/MyHealth.Tests/MyHealth.Tests.csproj" />
   </Folder>
 </Solution>

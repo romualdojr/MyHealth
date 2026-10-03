@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MyHealth.Domain.Billing;
 using MyHealth.Domain.Therapies;
@@ -10,7 +11,10 @@ using MyHealth.Infrastructure.Identity;
 
 namespace MyHealth.Infrastructure.Persistence;
 
-/// <summary>Applies migrations and seeds reference data: roles, the curated exercise library, and an optional bootstrap admin.</summary>
+/// <summary>
+/// Applies migrations and seeds reference data: roles, the curated exercise library, an optional bootstrap admin and, in
+/// Development, sample accounts and records (<see cref="DevelopmentSeeder"/>).
+/// </summary>
 public static class DatabaseInitializer
 {
     public static async Task InitializeAsync(IServiceProvider services, CancellationToken cancellationToken = default)
@@ -32,6 +36,13 @@ public static class DatabaseInitializer
         await SeedTherapyModalitiesAsync(db, provider.GetRequiredService<TimeProvider>(), cancellationToken);
         await SeedModulePricesAsync(db, provider.GetRequiredService<TimeProvider>(), cancellationToken);
         await SeedAdministratorAsync(provider, logger);
+
+        // Sample accounts and records for local work: Development only, and only when Seed:Development:Enabled is true.
+        var configuration = provider.GetRequiredService<IConfiguration>();
+        if (provider.GetService<IHostEnvironment>()?.IsDevelopment() == true && configuration.GetValue("Seed:Development:Enabled", false))
+        {
+            await new DevelopmentSeeder(services, configuration, provider.GetRequiredService<TimeProvider>(), logger).SeedAsync(cancellationToken);
+        }
     }
 
     private static async Task SeedExercisesAsync(ApplicationDbContext db, TimeProvider clock, CancellationToken cancellationToken)
