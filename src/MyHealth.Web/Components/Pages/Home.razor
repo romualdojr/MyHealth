@@ -6,16 +6,16 @@
 <PageTitle>Início · MyHealth</PageTitle>
 
 <AuthorizeView>
-    <h1 class="h3">Olá, @(Workspace.Me?.FullName.Split(' ')[0] ?? context.User.Identity?.Name)</h1>
+    <h1 class="@($"{Ui.PageTitle} mb-4")">Olá, @(Workspace.Me?.FullName.Split(' ')[0] ?? context.User.Identity?.Name)</h1>
 </AuthorizeView>
 
 <ProblemAlert Problem="_problem" />
 
 @if (_twoFactor is { IsTwoFactorEnabled: false })
 {
-    <div class="alert alert-warning">
+    <div class="@($"{Ui.AlertWarning} mb-4")">
         Profissionais e operadores precisam da verificação em duas etapas para acessar dados de organizações e a administração.
-        <a href="account/security" class="alert-link">Ativar agora</a>.
+        <a href="account/security" class="font-semibold underline underline-offset-2 hover:no-underline">Ativar agora</a>.
     </div>
 }
 
@@ -23,10 +23,10 @@
 {
     <AuthorizeView Roles="@SessionClaims.AdministratorRole">
         <Authorized>
-            <p class="text-body-secondary">Conta de operador da plataforma: a administração da plataforma fica no back office.</p>
+            <p class="@Ui.Help">Conta de operador da plataforma: a administração da plataforma fica no back office.</p>
         </Authorized>
         <NotAuthorized>
-            <p class="text-body-secondary">
+            <p class="@Ui.Help">
                 Esta conta ainda não tem perfil. Conclua o cadastro no aplicativo MyHealth; profissionais criam depois o perfil profissional e
                 entram (ou criam) uma organização.
             </p>
@@ -35,50 +35,46 @@
 }
 else
 {
-    <div class="row g-3 mt-1">
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h2 class="h6">Perfis profissionais</h2>
-                    @if (Workspace.Me.ProfessionalProfiles.Count == 0)
+    <div class="mt-2 grid gap-4 md:grid-cols-2">
+        <div class="@($"{Ui.Card} h-full")">
+            <div class="@Ui.CardBody">
+                <h2 class="@($"{Ui.CardTitle} mb-3")">Perfis profissionais</h2>
+                @if (Workspace.Me.ProfessionalProfiles.Count == 0)
+                {
+                    <p class="@Ui.Help">Nenhum perfil profissional.</p>
+                }
+                <ul class="divide-y divide-slate-100">
+                    @foreach (var profile in Workspace.Me.ProfessionalProfiles)
                     {
-                        <p class="text-body-secondary mb-0">Nenhum perfil profissional.</p>
+                        <li class="flex items-center justify-between gap-2 py-2 text-sm text-slate-700">
+                            <span>@Labels.Discipline(profile.Discipline) — @profile.DisplayName</span>
+                            <StatusBadge Status="@profile.VerificationStatus" />
+                        </li>
                     }
-                    <ul class="list-unstyled mb-0">
-                        @foreach (var profile in Workspace.Me.ProfessionalProfiles)
-                        {
-                            <li class="d-flex justify-content-between py-1">
-                                <span>@Labels.Discipline(profile.Discipline) — @profile.DisplayName</span>
-                                <StatusBadge Status="@profile.VerificationStatus" />
-                            </li>
-                        }
-                    </ul>
-                </div>
+                </ul>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h2 class="h6">Organizações</h2>
-                    @if (Workspace.Me.Memberships.Count == 0)
+        <div class="@($"{Ui.Card} h-full")">
+            <div class="@Ui.CardBody">
+                <h2 class="@($"{Ui.CardTitle} mb-3")">Organizações</h2>
+                @if (Workspace.Me.Memberships.Count == 0)
+                {
+                    <p class="@Ui.Help">Você ainda não participa de nenhuma organização.</p>
+                }
+                <ul class="divide-y divide-slate-100">
+                    @foreach (var membership in Workspace.Me.Memberships)
                     {
-                        <p class="text-body-secondary mb-0">Você ainda não participa de nenhuma organização.</p>
+                        <li class="py-2">
+                            <button class="cursor-pointer text-sm text-teal-700 hover:text-teal-900 hover:underline @(membership.TenantId == Workspace.Membership?.TenantId ? "font-bold" : "font-medium")"
+                                    @onclick="() => Workspace.SelectTenantAsync(membership.TenantId)">
+                                @membership.TenantName
+                            </button>
+                            <span class="text-sm text-slate-500">
+                                @string.Join(", ", membership.Disciplines.Select(Labels.Discipline))@(membership.IsAdministrator ? " · administrador" : string.Empty)
+                            </span>
+                        </li>
                     }
-                    <ul class="list-unstyled mb-0">
-                        @foreach (var membership in Workspace.Me.Memberships)
-                        {
-                            <li class="py-1">
-                                <button class="btn btn-link p-0 @(membership.TenantId == Workspace.Membership?.TenantId ? "fw-bold" : string.Empty)"
-                                        @onclick="() => Workspace.SelectTenantAsync(membership.TenantId)">
-                                    @membership.TenantName
-                                </button>
-                                <span class="text-body-secondary small">
-                                    @string.Join(", ", membership.Disciplines.Select(Labels.Discipline))@(membership.IsAdministrator ? " · administrador" : string.Empty)
-                                </span>
-                            </li>
-                        }
-                    </ul>
-                </div>
+                </ul>
             </div>
         </div>
     </div>

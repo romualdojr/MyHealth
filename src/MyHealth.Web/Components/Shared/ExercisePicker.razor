@@ -2,21 +2,21 @@
 @implements IDisposable
 @inject MyHealthApiClient Api
 
-<div class="card border-primary">
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h3 class="h6 mb-0">Adicionar exercício@(Target is null ? string.Empty : $" em {Target}")</h3>
-            <button class="btn-close" aria-label="Fechar" @onclick="OnClose"></button>
+<div class="@Ui.CardHighlight">
+    <div class="@Ui.CardBody">
+        <div class="mb-3 flex items-center justify-between gap-2">
+            <h3 class="@Ui.CardTitle">Adicionar exercício@(Target is null ? string.Empty : $" em {Target}")</h3>
+            <button class="@Ui.CloseButton" aria-label="Fechar" @onclick="OnClose">✕</button>
         </div>
-        <div class="row g-2 mb-2">
-            <div class="col-md-6">
-                <label class="visually-hidden" for="picker-search">Buscar exercício</label>
-                <input id="picker-search" class="form-control" placeholder="Buscar por nome (ex.: agachamento)" autofocus
+        <div class="mb-3 grid grid-cols-12 gap-2">
+            <div class="col-span-12 md:col-span-6">
+                <label class="sr-only" for="picker-search">Buscar exercício</label>
+                <input id="picker-search" class="@Ui.Input" placeholder="Buscar por nome (ex.: agachamento)" autofocus
                        @bind="_search" @bind:event="oninput" @bind:after="SearchSoonAsync" />
             </div>
-            <div class="col-md-3">
-                <label class="visually-hidden" for="picker-muscle">Grupo muscular</label>
-                <select id="picker-muscle" class="form-select" @bind="_muscle" @bind:after="SearchSoonAsync">
+            <div class="col-span-12 sm:col-span-6 md:col-span-3">
+                <label class="sr-only" for="picker-muscle">Grupo muscular</label>
+                <select id="picker-muscle" class="@Ui.Select" @bind="_muscle" @bind:after="SearchSoonAsync">
                     <option value="">Todos os grupos musculares</option>
                     @foreach (var muscle in _muscles)
                     {
@@ -24,9 +24,9 @@
                     }
                 </select>
             </div>
-            <div class="col-md-3">
-                <label class="visually-hidden" for="picker-equipment">Equipamento</label>
-                <select id="picker-equipment" class="form-select" @bind="_equipment" @bind:after="SearchSoonAsync">
+            <div class="col-span-12 sm:col-span-6 md:col-span-3">
+                <label class="sr-only" for="picker-equipment">Equipamento</label>
+                <select id="picker-equipment" class="@Ui.Select" @bind="_equipment" @bind:after="SearchSoonAsync">
                     <option value="">Qualquer equipamento</option>
                     @foreach (var equipment in _equipments)
                     {
@@ -44,37 +44,37 @@
         }
         else if (_results.Items.Count == 0)
         {
-            <p class="small text-body-secondary mb-0">
-                Nenhum exercício encontrado. Você pode cadastrar o seu na <a href="trainer/exercises" target="_blank">biblioteca</a>.
+            <p class="@Ui.Help">
+                Nenhum exercício encontrado. Você pode cadastrar o seu na <a href="trainer/exercises" target="_blank" class="@Ui.Link">biblioteca</a>.
             </p>
         }
         else
         {
-            <div class="list-group list-group-flush picker-results">
+            <div class="max-h-80 divide-y divide-slate-200 overflow-y-auto">
                 @foreach (var exercise in _results.Items)
                 {
-                    <div class="list-group-item d-flex align-items-center gap-2 px-0">
-                        <div class="flex-grow-1">
-                            <div class="fw-semibold">
+                    <div class="flex items-center gap-2 py-2">
+                        <div class="min-w-0 flex-grow">
+                            <div class="font-semibold text-slate-900">
                                 @exercise.Name
                                 @if (exercise.IsCustom)
                                 {
-                                    <span class="badge text-bg-light border ms-1">da organização</span>
+                                    <span class="@($"{Ui.BadgeNeutral} ml-1")">da organização</span>
                                 }
                                 @if (exercise.Media.Count > 0)
                                 {
-                                    <span class="badge text-bg-light border ms-1" title="Tem vídeo ou imagem">▶ mídia</span>
+                                    <span class="@($"{Ui.BadgeNeutral} ml-1")" title="Tem vídeo ou imagem">▶ mídia</span>
                                 }
                             </div>
-                            <div class="small text-body-secondary">@string.Join(", ", exercise.MuscleGroups.Concat(exercise.Equipment))</div>
+                            <div class="text-sm text-slate-500">@string.Join(", ", exercise.MuscleGroups.Concat(exercise.Equipment))</div>
                         </div>
-                        <button class="btn btn-sm btn-outline-primary" @onclick="() => OnPick.InvokeAsync(exercise)">Adicionar</button>
+                        <button class="@Ui.ButtonOutlineSm" @onclick="() => OnPick.InvokeAsync(exercise)">Adicionar</button>
                     </div>
                 }
             </div>
             @if (_results.TotalCount > _results.Items.Count)
             {
-                <p class="small text-body-secondary mt-2 mb-0">Mostrando @_results.Items.Count de @_results.TotalCount — refine a busca.</p>
+                <p class="@($"{Ui.Help} mt-2")">Mostrando @_results.Items.Count de @_results.TotalCount — refine a busca.</p>
             }
         }
     </div>

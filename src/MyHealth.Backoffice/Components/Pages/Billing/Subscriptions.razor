@@ -5,14 +5,14 @@
 
 <PageTitle>Assinaturas · Back office</PageTitle>
 
-<h1 class="h3">Assinaturas</h1>
-<p class="text-body-secondary">Quem paga a MyHealth: cada organização ou consultório individual, seus módulos e a situação dos pagamentos.</p>
+<h1 class="@Ui.PageTitle">Assinaturas</h1>
+<p class="@($"{Ui.Help} mb-4")">Quem paga a MyHealth: cada organização ou consultório individual, seus módulos e a situação dos pagamentos.</p>
 
-<div class="d-flex flex-wrap gap-2 mb-3">
-    <button class="btn btn-sm @(Status is null ? "btn-primary" : "btn-outline-primary")" @onclick="() => Filter(null)">Todas</button>
+<div class="mb-4 flex flex-wrap gap-2">
+    <button class="@(Status is null ? Ui.ButtonSm : Ui.ButtonSecondarySm)" @onclick="() => Filter(null)">Todas</button>
     @foreach (var status in BillingLabels.Statuses)
     {
-        <button class="btn btn-sm @(Status == status ? "btn-primary" : "btn-outline-primary")" @onclick="() => Filter(status)">@Labels.Status(status)</button>
+        <button class="@(Status == status ? Ui.ButtonSm : Ui.ButtonSecondarySm)" @onclick="() => Filter(status)">@Labels.Status(status)</button>
     }
 </div>
 
@@ -24,33 +24,35 @@
 }
 else if (_items.Count == 0)
 {
-    <p class="text-body-secondary">Nenhuma assinatura nesta situação.</p>
+    <p class="@Ui.Help">Nenhuma assinatura nesta situação.</p>
 }
 else
 {
-    <table class="table table-sm align-middle">
-        <thead>
-            <tr><th>Organização</th><th>Situação</th><th>Módulos</th><th class="text-end">Mensalidade</th><th class="text-end">Em aberto</th><th class="text-end">Vencido</th><th>Próxima fatura</th><th>Último pagamento</th></tr>
-        </thead>
-        <tbody>
-            @foreach (var t in _items)
-            {
-                <tr>
-                    <td>
-                        <a href="billing/tenants/@t.TenantId">@t.Name</a>
-                        <span class="d-block small text-body-secondary">@BillingLabels.Kind(t.Kind)</span>
-                    </td>
-                    <td><StatusBadge Status="@t.Status" /></td>
-                    <td class="small">@string.Join(", ", t.Modules.Select(BillingLabels.Module))</td>
-                    <td class="text-end">@BillingLabels.Money(t.MonthlyAmountCents)</td>
-                    <td class="text-end">@BillingLabels.Money(t.OpenAmountCents)</td>
-                    <td class="text-end @(t.OverdueAmountCents > 0 ? "text-danger fw-semibold" : string.Empty)">@BillingLabels.Money(t.OverdueAmountCents)</td>
-                    <td>@(t.Status == "Trial" ? $"fim do teste {BillingLabels.Date(t.TrialEndsAt)}" : BillingLabels.Date(t.NextInvoiceAt))</td>
-                    <td>@(t.LastPaidAt is { } paid ? BillingLabels.Date(paid) : "—")</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="@Ui.TableWrap">
+        <table class="@Ui.Table">
+            <thead class="@Ui.THead">
+                <tr><th class="@Ui.Th">Organização</th><th class="@Ui.Th">Situação</th><th class="@Ui.Th">Módulos</th><th class="@($"{Ui.Th} text-right")">Mensalidade</th><th class="@($"{Ui.Th} text-right")">Em aberto</th><th class="@($"{Ui.Th} text-right")">Vencido</th><th class="@Ui.Th">Próxima fatura</th><th class="@Ui.Th">Último pagamento</th></tr>
+            </thead>
+            <tbody class="@Ui.TBody">
+                @foreach (var t in _items)
+                {
+                    <tr>
+                        <td class="@Ui.Td">
+                            <a class="@Ui.Link" href="billing/tenants/@t.TenantId">@t.Name</a>
+                            <span class="block text-xs text-slate-500">@BillingLabels.Kind(t.Kind)</span>
+                        </td>
+                        <td class="@Ui.Td"><StatusBadge Status="@t.Status" /></td>
+                        <td class="@($"{Ui.Td} text-xs")">@string.Join(", ", t.Modules.Select(BillingLabels.Module))</td>
+                        <td class="@($"{Ui.Td} text-right")">@BillingLabels.Money(t.MonthlyAmountCents)</td>
+                        <td class="@($"{Ui.Td} text-right")">@BillingLabels.Money(t.OpenAmountCents)</td>
+                        <td class="@($"{Ui.Td} text-right {(t.OverdueAmountCents > 0 ? "font-semibold text-red-700" : string.Empty)}")">@BillingLabels.Money(t.OverdueAmountCents)</td>
+                        <td class="@Ui.Td">@(t.Status == "Trial" ? $"fim do teste {BillingLabels.Date(t.TrialEndsAt)}" : BillingLabels.Date(t.NextInvoiceAt))</td>
+                        <td class="@Ui.Td">@(t.LastPaidAt is { } paid ? BillingLabels.Date(paid) : "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
 
 @code {

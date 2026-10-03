@@ -4,16 +4,16 @@
 
 <PageTitle>Qualificações · Plataforma</PageTitle>
 
-<h1 class="h3">Qualificações de terapeutas</h1>
-<p class="text-body-secondary">
+<h1 class="@Ui.PageTitle">Qualificações de terapeutas</h1>
+<p class="@($"{Ui.Help} mb-4")">
     Formação por modalidade (RF-33). A verificação só é aceita quando o conselho do profissional está entre os aceitos pela modalidade;
     revogar interrompe o atendimento imediatamente.
 </p>
 
-<div class="d-flex gap-2 mb-3">
+<div class="mb-4 flex flex-wrap gap-2">
     @foreach (var (value, label) in Filters)
     {
-        <button class="btn btn-sm @(_status == value ? "btn-primary" : "btn-outline-primary")" @onclick="() => FilterAsync(value)">@label</button>
+        <button class="@(_status == value ? Ui.ButtonSm : Ui.ButtonSecondarySm)" @onclick="() => FilterAsync(value)">@label</button>
     }
 </div>
 
@@ -31,38 +31,40 @@
 }
 else if (_items.Count == 0)
 {
-    <p class="text-body-secondary">Nenhuma qualificação nesta situação.</p>
+    <p class="@Ui.Help">Nenhuma qualificação nesta situação.</p>
 }
 else
 {
-    <table class="table table-sm align-middle">
-        <thead>
-            <tr><th>Profissional</th><th>Registro</th><th>Modalidade</th><th>Formação</th><th>Situação</th><th></th></tr>
-        </thead>
-        <tbody>
-            @foreach (var q in _items)
-            {
-                <tr>
-                    <td>@q.PractitionerName</td>
-                    <td><code>@q.Council @q.RegistrationNumber/@q.Region</code></td>
-                    <td><code>@q.ModalityCode</code></td>
-                    <td>@q.Title<div class="small text-body-secondary">@q.Issuer @(q.CertificateNumber is null ? string.Empty : $"· nº {q.CertificateNumber}")</div></td>
-                    <td><StatusBadge Status="@q.Status" />@if (q.ReviewNotes is not null){<div class="small text-body-secondary">@q.ReviewNotes</div>}</td>
-                    <td class="text-end text-nowrap">
-                        @if (q.Status == "Pending")
-                        {
-                            <button class="btn btn-sm btn-success" @onclick="@(() => Ask(q, "verify"))">Verificar</button>
-                            <button class="btn btn-sm btn-outline-danger ms-1" @onclick="@(() => Ask(q, "reject"))">Rejeitar</button>
-                        }
-                        @if (q.Status == "Verified")
-                        {
-                            <button class="btn btn-sm btn-outline-danger" @onclick="@(() => Ask(q, "revoke"))">Revogar</button>
-                        }
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="@Ui.TableWrap">
+        <table class="@Ui.Table">
+            <thead class="@Ui.THead">
+                <tr><th class="@Ui.Th">Profissional</th><th class="@Ui.Th">Registro</th><th class="@Ui.Th">Modalidade</th><th class="@Ui.Th">Formação</th><th class="@Ui.Th">Situação</th><th class="@Ui.Th"></th></tr>
+            </thead>
+            <tbody class="@Ui.TBody">
+                @foreach (var q in _items)
+                {
+                    <tr>
+                        <td class="@Ui.Td">@q.PractitionerName</td>
+                        <td class="@Ui.Td"><code class="rounded bg-slate-100 px-1 font-mono text-xs">@q.Council @q.RegistrationNumber/@q.Region</code></td>
+                        <td class="@Ui.Td"><code class="rounded bg-slate-100 px-1 font-mono text-xs">@q.ModalityCode</code></td>
+                        <td class="@Ui.Td">@q.Title<div class="text-xs text-slate-500">@q.Issuer @(q.CertificateNumber is null ? string.Empty : $"· nº {q.CertificateNumber}")</div></td>
+                        <td class="@Ui.Td"><StatusBadge Status="@q.Status" />@if (q.ReviewNotes is not null){<div class="text-xs text-slate-500">@q.ReviewNotes</div>}</td>
+                        <td class="@($"{Ui.Td} text-right whitespace-nowrap")">
+                            @if (q.Status == "Pending")
+                            {
+                                <button class="@Ui.ButtonSuccessSm" @onclick="@(() => Ask(q, "verify"))">Verificar</button>
+                                <button class="@($"{Ui.ButtonDangerOutlineSm} ml-1")" @onclick="@(() => Ask(q, "reject"))">Rejeitar</button>
+                            }
+                            @if (q.Status == "Verified")
+                            {
+                                <button class="@Ui.ButtonDangerOutlineSm" @onclick="@(() => Ask(q, "revoke"))">Revogar</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
 
 @code {

@@ -11,45 +11,45 @@
 
 <PageTitle>Entrar · @Portal.Name</PageTitle>
 
-<div class="card shadow-sm">
-    <div class="card-body p-4">
-        <h2 class="h5 mb-3">Entrar</h2>
+<div class="@Ui.Card">
+    <div class="p-6 sm:p-8">
+        <h2 class="@($"{Ui.SectionTitle} mb-4")">Entrar</h2>
 
         @if (_message is not null)
         {
-            <div class="alert @(_requiresCode ? "alert-info" : "alert-danger")" role="alert">@_message</div>
+            <div class="@($"{(_requiresCode ? Ui.AlertInfo : Ui.AlertDanger)} mb-4")" role="alert">@_message</div>
         }
 
         <EditForm Model="Input" method="post" OnValidSubmit="SubmitAsync" FormName="login">
             <DataAnnotationsValidator />
 
-            <div class="mb-3">
-                <label for="email" class="form-label">E-mail</label>
-                <InputText id="email" @bind-Value="Input.Email" class="form-control" autocomplete="username" />
+            <div class="mb-4">
+                <label for="email" class="@Ui.Label">E-mail</label>
+                <InputText id="email" @bind-Value="Input.Email" class="@Ui.Input" autocomplete="username" />
                 <ValidationMessage For="() => Input.Email" />
             </div>
 
-            <div class="mb-3">
-                <label for="password" class="form-label">Senha</label>
-                <InputText id="password" type="password" @bind-Value="Input.Password" class="form-control" autocomplete="current-password" />
+            <div class="mb-4">
+                <label for="password" class="@Ui.Label">Senha</label>
+                <InputText id="password" type="password" @bind-Value="Input.Password" class="@Ui.Input" autocomplete="current-password" />
                 <ValidationMessage For="() => Input.Password" />
             </div>
 
             @if (_requiresCode || !string.IsNullOrEmpty(Input.Code))
             {
-                <div class="mb-3">
-                    <label for="code" class="form-label">Código de verificação</label>
-                    <InputText id="code" @bind-Value="Input.Code" class="form-control" autocomplete="one-time-code" inputmode="numeric" />
-                    <div class="form-text">O código de 6 dígitos do seu aplicativo autenticador.</div>
+                <div class="mb-4">
+                    <label for="code" class="@Ui.Label">Código de verificação</label>
+                    <InputText id="code" @bind-Value="Input.Code" class="@Ui.Input" autocomplete="one-time-code" inputmode="numeric" />
+                    <div class="mt-1 text-xs text-slate-500">O código de 6 dígitos do seu aplicativo autenticador.</div>
                 </div>
             }
 
-            <button type="submit" class="btn btn-primary w-100">Entrar</button>
+            <button type="submit" class="@($"{Ui.Button} w-full")">Entrar</button>
         </EditForm>
     </div>
 </div>
 
-<p class="text-body-secondary small text-center mt-3">
+<p class="mt-4 text-center text-sm text-slate-500">
     @Portal.Tagline
 </p>
 

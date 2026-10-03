@@ -5,15 +5,15 @@
 
 <PageTitle>Auditoria · Organização</PageTitle>
 
-<h1 class="h3">Auditoria — @(Workspace.Membership?.TenantName ?? "organização")</h1>
+<h1 class="@($"{Ui.PageTitle} mb-4")">Auditoria — @(Workspace.Membership?.TenantName ?? "organização")</h1>
 
 @if (!Workspace.IsTenantAdministrator)
 {
-    <p class="alert alert-info">Selecione uma organização que você administra.</p>
+    <p class="@Ui.AlertInfo">Selecione uma organização que você administra.</p>
 }
 else
 {
-    <p class="text-body-secondary">Acessos e alterações nesta organização. Administradores veem metadados, nunca conteúdo clínico.</p>
+    <p class="@($"{Ui.Help} mb-4")">Acessos e alterações nesta organização. Administradores veem metadados, nunca conteúdo clínico.</p>
     <AuditTable @key="Workspace.Membership!.TenantId" Endpoint="tenant/audit-entries" />
 }
 

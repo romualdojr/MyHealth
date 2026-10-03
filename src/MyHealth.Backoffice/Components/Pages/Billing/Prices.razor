@@ -4,8 +4,8 @@
 
 <PageTitle>Preços dos módulos · Back office</PageTitle>
 
-<h1 class="h3">Preços dos módulos</h1>
-<p class="text-body-secondary">
+<h1 class="@Ui.PageTitle">Preços dos módulos</h1>
+<p class="@($"{Ui.Help} mb-4")">
     Valor mensal de cada módulo. Uma organização paga a soma dos módulos que contratou. Um novo preço vale a partir da data escolhida, nas faturas
     emitidas depois dela; faturas já emitidas mantêm o valor original.
 </p>
@@ -14,7 +14,7 @@
 
 @if (_message is not null)
 {
-    <div class="alert alert-success">@_message</div>
+    <div class="@($"{Ui.AlertSuccess} mb-4")">@_message</div>
 }
 
 @if (_items is null)
@@ -23,29 +23,31 @@
 }
 else
 {
-    <table class="table align-middle">
-        <thead><tr><th>Módulo</th><th class="text-end">Preço atual</th><th>Desde</th><th>Agendado</th><th style="width: 22rem;">Novo preço</th></tr></thead>
-        <tbody>
-            @foreach (var p in _items)
-            {
-                var scheduled = p.History.Where(h => h.EffectiveFrom > DateTimeOffset.UtcNow).OrderBy(h => h.EffectiveFrom).ToList();
-                <tr>
-                    <td class="fw-semibold">@BillingLabels.Module(p.Module)</td>
-                    <td class="text-end">@(p.MonthlyAmountCents is { } cents ? BillingLabels.Money(cents) : "sem preço")</td>
-                    <td>@(p.EffectiveFrom is { } from ? BillingLabels.Date(from) : "—")</td>
-                    <td class="small">@string.Join("; ", scheduled.Select(h => $"{BillingLabels.Money(h.MonthlyAmountCents)} em {BillingLabels.Date(h.EffectiveFrom)}"))</td>
-                    <td>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text">R$</span>
-                            <input type="number" min="0" step="0.01" class="form-control" placeholder="0,00" @bind="_drafts[p.Module].Amount" />
-                            <input type="date" class="form-control" title="Vale a partir de (vazio: agora)" @bind="_drafts[p.Module].From" />
-                            <button class="btn btn-primary" disabled="@(_drafts[p.Module].Amount is null)" @onclick="() => SaveAsync(p.Module)">Salvar</button>
-                        </div>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="@Ui.TableWrap">
+        <table class="@Ui.Table">
+            <thead class="@Ui.THead"><tr><th class="@Ui.Th">Módulo</th><th class="@($"{Ui.Th} text-right")">Preço atual</th><th class="@Ui.Th">Desde</th><th class="@Ui.Th">Agendado</th><th class="@($"{Ui.Th} w-[26rem]")">Novo preço</th></tr></thead>
+            <tbody class="@Ui.TBody">
+                @foreach (var p in _items)
+                {
+                    var scheduled = p.History.Where(h => h.EffectiveFrom > DateTimeOffset.UtcNow).OrderBy(h => h.EffectiveFrom).ToList();
+                    <tr>
+                        <td class="@($"{Ui.Td} font-semibold text-slate-900")">@BillingLabels.Module(p.Module)</td>
+                        <td class="@($"{Ui.Td} text-right")">@(p.MonthlyAmountCents is { } cents ? BillingLabels.Money(cents) : "sem preço")</td>
+                        <td class="@Ui.Td">@(p.EffectiveFrom is { } from ? BillingLabels.Date(from) : "—")</td>
+                        <td class="@($"{Ui.Td} text-xs")">@string.Join("; ", scheduled.Select(h => $"{BillingLabels.Money(h.MonthlyAmountCents)} em {BillingLabels.Date(h.EffectiveFrom)}"))</td>
+                        <td class="@Ui.Td">
+                            <div class="flex items-stretch gap-1">
+                                <span class="@($"{Ui.InputAddon} rounded-md")">R$</span>
+                                <input type="number" min="0" step="0.01" class="@($"{Ui.InputSm} min-w-0 flex-1")" placeholder="0,00" @bind="_drafts[p.Module].Amount" />
+                                <input type="date" class="@($"{Ui.InputSm} min-w-0 flex-1")" title="Vale a partir de (vazio: agora)" @bind="_drafts[p.Module].From" />
+                                <button class="@Ui.ButtonSm" disabled="@(_drafts[p.Module].Amount is null)" @onclick="() => SaveAsync(p.Module)">Salvar</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
 
 @code {

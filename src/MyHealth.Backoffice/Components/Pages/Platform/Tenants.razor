@@ -4,8 +4,8 @@
 
 <PageTitle>Organizações · Plataforma</PageTitle>
 
-<h1 class="h3">Organizações</h1>
-<p class="text-body-secondary">Metadados apenas: operadores da plataforma não acessam dados de dentro das organizações.</p>
+<h1 class="@Ui.PageTitle">Organizações</h1>
+<p class="@($"{Ui.Help} mb-4")">Metadados apenas: operadores da plataforma não acessam dados de dentro das organizações.</p>
 
 <ProblemAlert Problem="_problem" />
 
@@ -15,21 +15,23 @@
 }
 else
 {
-    <table class="table table-sm">
-        <thead><tr><th>Nome</th><th>Tipo</th><th>Membros ativos</th><th>Criada em</th><th>Id</th></tr></thead>
-        <tbody>
-            @foreach (var t in _items)
-            {
-                <tr>
-                    <td><a href="billing/tenants/@t.Id">@t.Name</a></td>
-                    <td>@(t.Kind == "SoloPractice" ? "Consultório individual" : "Organização")</td>
-                    <td>@t.ActiveMembers</td>
-                    <td>@t.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>
-                    <td><code class="small user-select-all">@t.Id</code></td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="@Ui.TableWrap">
+        <table class="@Ui.Table">
+            <thead class="@Ui.THead"><tr><th class="@Ui.Th">Nome</th><th class="@Ui.Th">Tipo</th><th class="@Ui.Th">Membros ativos</th><th class="@Ui.Th">Criada em</th><th class="@Ui.Th">Id</th></tr></thead>
+            <tbody class="@Ui.TBody">
+                @foreach (var t in _items)
+                {
+                    <tr>
+                        <td class="@Ui.Td"><a class="@Ui.Link" href="billing/tenants/@t.Id">@t.Name</a></td>
+                        <td class="@Ui.Td">@(t.Kind == "SoloPractice" ? "Consultório individual" : "Organização")</td>
+                        <td class="@Ui.Td">@t.ActiveMembers</td>
+                        <td class="@Ui.Td">@t.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                        <td class="@Ui.Td"><code class="select-all rounded bg-slate-100 px-1 font-mono text-xs">@t.Id</code></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
 
 @code {

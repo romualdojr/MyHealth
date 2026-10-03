@@ -5,19 +5,19 @@
 @switch (Workspace.Membership?.SubscriptionStatus)
 {
     case "PastDue":
-        <div class="alert alert-warning py-2">
-            A organização tem uma fatura vencida com a MyHealth; sem pagamento, ela será suspensa.
+        <div class="@($"{Ui.AlertWarning} mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between")">
+            <span>A organização tem uma fatura vencida com a MyHealth; sem pagamento, ela será suspensa.</span>
             @PayLink
         </div>
         break;
     case "Suspended":
-        <div class="alert alert-danger py-2">
-            A organização está suspensa: os atendimentos por ela estão bloqueados até a regularização.
+        <div class="@($"{Ui.AlertDanger} mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between")">
+            <span>A organização está suspensa: os atendimentos por ela estão bloqueados até a regularização.</span>
             @PayLink
         </div>
         break;
     case "Cancelled":
-        <div class="alert alert-danger py-2">A assinatura desta organização foi cancelada.</div>
+        <div class="@($"{Ui.AlertDanger} mb-4")">A assinatura desta organização foi cancelada.</div>
         break;
 }
 
@@ -25,11 +25,11 @@
     private RenderFragment PayLink => @<text>
         @if (Workspace.IsTenantAdministrator)
         {
-            <a href="organization/billing" class="alert-link">Ver faturas</a>
+            <a href="organization/billing" class="shrink-0 font-semibold underline underline-offset-2 hover:no-underline">Ver faturas</a>
         }
         else
         {
-            <span>Fale com o administrador da organização.</span>
+            <span class="shrink-0">Fale com o administrador da organização.</span>
         }
     </text>;
 

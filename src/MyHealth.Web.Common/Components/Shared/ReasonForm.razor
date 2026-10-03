@@ -1,17 +1,17 @@
 @* An inline confirmation with a free-text justification, used for actions that are audited with a reason. *@
 
-<div class="card border-@Tone mb-3">
-    <div class="card-body">
-        <h2 class="h6">@Title</h2>
+<div class="@($"{(Tone == "danger" ? Ui.CardDanger : Ui.CardHighlight)} mb-4")">
+    <div class="@Ui.CardBody">
+        <h2 class="@Ui.CardTitle">@Title</h2>
         @if (Description is not null)
         {
-            <p class="small text-body-secondary">@Description</p>
+            <p class="@($"{Ui.Help} mt-1")">@Description</p>
         }
-        <label class="form-label small" for="reason-text">@Label</label>
-        <textarea id="reason-text" class="form-control mb-2" rows="2" @bind="_text" @bind:event="oninput"></textarea>
-        <div class="d-flex gap-2">
-            <button class="btn btn-@Tone btn-sm" disabled="@(Required && string.IsNullOrWhiteSpace(_text))" @onclick="() => OnConfirm.InvokeAsync(_text)">@ConfirmText</button>
-            <button class="btn btn-link btn-sm" @onclick="OnCancel">Cancelar</button>
+        <label class="@($"{Ui.Label} mt-3")" for="reason-text">@Label</label>
+        <textarea id="reason-text" class="@($"{Ui.Textarea} mb-3")" rows="2" @bind="_text" @bind:event="oninput"></textarea>
+        <div class="flex gap-2">
+            <button class="@(Tone switch { "danger" => Ui.ButtonDangerSm, "success" => Ui.ButtonSuccessSm, _ => Ui.ButtonSm })" disabled="@(Required && string.IsNullOrWhiteSpace(_text))" @onclick="() => OnConfirm.InvokeAsync(_text)">@ConfirmText</button>
+            <button class="@Ui.ButtonLinkSm" @onclick="OnCancel">Cancelar</button>
         </div>
     </div>
 </div>
@@ -32,7 +32,7 @@
     [Parameter]
     public bool Required { get; set; } = true;
 
-    /// <summary>Bootstrap colour of the confirmation (primary, danger…).</summary>
+    /// <summary>Tone of the confirmation: <c>primary</c>, <c>success</c> or <c>danger</c>.</summary>
     [Parameter]
     public string Tone { get; set; } = "primary";
 

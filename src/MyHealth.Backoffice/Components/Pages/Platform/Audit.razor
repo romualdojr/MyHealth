@@ -3,7 +3,7 @@
 
 <PageTitle>Auditoria · Plataforma</PageTitle>
 
-<h1 class="h3">Auditoria de acessos</h1>
-<p class="text-body-secondary">Todas as organizações. Tentativas negadas (<code>deny</code>) aparecem destacadas e nunca identificam o titular.</p>
+<h1 class="@Ui.PageTitle">Auditoria de acessos</h1>
+<p class="@($"{Ui.Help} mb-4")">Todas as organizações. Tentativas negadas (<code class="rounded bg-slate-100 px-1 font-mono text-xs">deny</code>) aparecem destacadas e nunca identificam o titular.</p>
 
 <AuditTable Endpoint="admin/audit-entries" AllowTenantFilter="true" />

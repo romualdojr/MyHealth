@@ -1,71 +1,77 @@
 @* A performed workout as the trainer reviews it: logged sets, the client's feedback, body checks and the reply. *@
 
-<div class="p-2">
+<div class="space-y-4 p-2">
     @if (Session.Sets.Count == 0)
     {
-        <p class="small text-body-secondary">Nenhuma série registrada.</p>
+        <p class="@Ui.Help">Nenhuma série registrada.</p>
     }
     else
     {
-        <table class="table table-sm small mb-3">
-            <thead><tr><th>Série</th><th>Repetições</th><th>Carga</th><th>Duração</th><th>Dificuldade</th><th>Nota</th></tr></thead>
-            <tbody>
-                @foreach (var set in Session.Sets.OrderBy(s => s.SetNumber))
-                {
-                    <tr>
-                        <td>@set.SetNumber</td>
-                        <td>@(set.Repetitions?.ToString() ?? "—")</td>
-                        <td>@(set.LoadKg is { } kg ? $"{kg:0.#} kg" : "—")</td>
-                        <td>@(set.DurationSeconds is { } d ? $"{d}s" : "—")</td>
-                        <td>@(set.Difficulty?.ToString() ?? "—")</td>
-                        <td>@set.Notes</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <div class="@Ui.TableWrap">
+            <table class="@Ui.Table">
+                <thead class="@Ui.THead"><tr><th class="@Ui.Th">Série</th><th class="@Ui.Th">Repetições</th><th class="@Ui.Th">Carga</th><th class="@Ui.Th">Duração</th><th class="@Ui.Th">Dificuldade</th><th class="@Ui.Th">Nota</th></tr></thead>
+                <tbody class="@Ui.TBody">
+                    @foreach (var set in Session.Sets.OrderBy(s => s.SetNumber))
+                    {
+                        <tr>
+                            <td class="@Ui.Td">@set.SetNumber</td>
+                            <td class="@Ui.Td">@(set.Repetitions?.ToString() ?? "—")</td>
+                            <td class="@Ui.Td">@(set.LoadKg is { } kg ? $"{kg:0.#} kg" : "—")</td>
+                            <td class="@Ui.Td">@(set.DurationSeconds is { } d ? $"{d}s" : "—")</td>
+                            <td class="@Ui.Td">@(set.Difficulty?.ToString() ?? "—")</td>
+                            <td class="@Ui.Td">@set.Notes</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     }
 
     @if (Session.BodyChecks.Count > 0)
     {
-        <h3 class="h6">Como o corpo respondeu</h3>
-        <ul class="small">
-            @foreach (var check in Session.BodyChecks)
-            {
-                <li><strong>@check.Subject</strong>: @TrainingLabels.BodyCheckAnswer(check.Answer)@(check.Details is { } d ? $" — {d}" : string.Empty)</li>
-            }
-        </ul>
+        <div>
+            <h3 class="@($"{Ui.CardTitle} mb-2")">Como o corpo respondeu</h3>
+            <ul class="list-disc space-y-1 pl-5 text-sm text-slate-700">
+                @foreach (var check in Session.BodyChecks)
+                {
+                    <li><strong>@check.Subject</strong>: @TrainingLabels.BodyCheckAnswer(check.Answer)@(check.Details is { } d ? $" — {d}" : string.Empty)</li>
+                }
+            </ul>
+        </div>
     }
 
     @if (Session.Feedback is { } feedback)
     {
-        <h3 class="h6">Feedback do cliente</h3>
-        <p class="small mb-1">Esforço percebido: <strong>@feedback.PerceivedExertion/10</strong></p>
-        @if (feedback.ReportedDiscomfort)
-        {
-            <p class="small text-danger mb-1">Relatou desconforto@(feedback.DiscomfortDetails is { } d ? $": {d}" : ".")</p>
-        }
-        @if (feedback.Comments is { } comments)
-        {
-            <p class="small mb-2">“@comments”</p>
-        }
+        <div>
+            <h3 class="@($"{Ui.CardTitle} mb-2")">Feedback do cliente</h3>
+            <p class="mb-1 text-sm text-slate-700">Esforço percebido: <strong>@feedback.PerceivedExertion/10</strong></p>
+            @if (feedback.ReportedDiscomfort)
+            {
+                <p class="mb-1 text-sm text-red-700">Relatou desconforto@(feedback.DiscomfortDetails is { } d ? $": {d}" : ".")</p>
+            }
+            @if (feedback.Comments is { } comments)
+            {
+                <p class="mb-3 text-sm text-slate-700">“@comments”</p>
+            }
 
-        @if (Session.Reply is { } reply)
-        {
-            <div class="border-start border-success border-3 ps-2 small">
-                <div class="text-body-secondary">Sua resposta em @reply.RepliedAt.ToLocalTime().ToString("dd/MM HH:mm")</div>
-                @reply.Message
-            </div>
-        }
-        else
-        {
-            <label class="form-label small" for="reply-@Session.Id">Responder ao cliente</label>
-            <textarea id="reply-@Session.Id" class="form-control mb-2" rows="2" @bind="_reply" @bind:event="oninput"></textarea>
-            <button class="btn btn-sm btn-primary" disabled="@string.IsNullOrWhiteSpace(_reply)" @onclick="ReplyAsync">Enviar resposta</button>
-        }
+            @if (Session.Reply is { } reply)
+            {
+                <div class="border-l-4 border-emerald-500 pl-3 text-sm text-slate-700">
+                    <div class="text-slate-500">Sua resposta em @reply.RepliedAt.ToLocalTime().ToString("dd/MM HH:mm")</div>
+                    @reply.Message
+                </div>
+            }
+            else
+            {
+                <label class="@Ui.Label" for="reply-@Session.Id">Responder ao cliente</label>
+                <textarea id="reply-@Session.Id" class="@($"{Ui.Textarea} mb-2")" rows="2" @bind="_reply" @bind:event="oninput"></textarea>
+                <button class="@Ui.ButtonSm" disabled="@string.IsNullOrWhiteSpace(_reply)" @onclick="ReplyAsync">Enviar resposta</button>
+            }
+        </div>
     }
     else
     {
-        <p class="small text-body-secondary mb-0">O cliente ainda não enviou feedback deste treino.</p>
+        <p class="@Ui.Help">O cliente ainda não enviou feedback deste treino.</p>
     }
 </div>
 

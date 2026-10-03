@@ -208,11 +208,11 @@ public static class Labels
 
     public static string BadgeClass(string status) => status switch
     {
-        "Verified" or "Enabled" or "Completed" or "Active" or "Paid" => "text-bg-success",
-        "Trial" => "text-bg-info",
-        "Pending" or "Submitted" or "InProgress" or "PastDue" or "Open" => "text-bg-warning",
-        "Rejected" or "Suspended" or "Revoked" or "Disabled" or "Declined" or "Cancelled" => "text-bg-danger",
-        _ => "text-bg-secondary",
+        "Verified" or "Enabled" or "Completed" or "Active" or "Paid" => Ui.BadgeSuccess,
+        "Trial" => Ui.BadgeInfo,
+        "Pending" or "Submitted" or "InProgress" or "PastDue" or "Open" => Ui.BadgeWarning,
+        "Rejected" or "Suspended" or "Revoked" or "Disabled" or "Declined" or "Cancelled" => Ui.BadgeDanger,
+        _ => Ui.BadgeNeutral,
     };
 }
 
@@ -239,9 +239,9 @@ public static class TrainingLabels
 
     public static string PlanBadge(string value) => value switch
     {
-        "Published" => "text-bg-success",
-        "Draft" => "text-bg-warning",
-        _ => "text-bg-secondary",
+        "Published" => Ui.BadgeSuccess,
+        "Draft" => Ui.BadgeWarning,
+        _ => Ui.BadgeNeutral,
     };
 
     public static string SessionKind(string value) => value switch

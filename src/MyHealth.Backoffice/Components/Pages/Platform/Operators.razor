@@ -4,17 +4,17 @@
 
 <PageTitle>Operadores · Plataforma</PageTitle>
 
-<h1 class="h3">Operadores da plataforma</h1>
-<p class="text-body-secondary">
+<h1 class="@Ui.PageTitle">Operadores da plataforma</h1>
+<p class="@($"{Ui.Help} mb-4")">
     Operadores verificam credenciais, tratam solicitações LGPD e consultam a auditoria. Ninguém remove o próprio papel, e o último operador
     não pode ser removido.
 </p>
 
 <ProblemAlert Problem="_problem" />
 
-<div class="d-flex gap-2 mb-3" style="max-width: 36rem;">
-    <input class="form-control" placeholder="Id do usuário a promover" @bind="_newUserId" @bind:event="oninput" aria-label="Id do usuário" />
-    <button class="btn btn-primary" disabled="@(!Guid.TryParse(_newUserId, out _))" @onclick="GrantAsync">Adicionar</button>
+<div class="mb-4 flex max-w-xl gap-2">
+    <input class="@Ui.Input" placeholder="Id do usuário a promover" @bind="_newUserId" @bind:event="oninput" aria-label="Id do usuário" />
+    <button class="@($"{Ui.Button} shrink-0")" disabled="@(!Guid.TryParse(_newUserId, out _))" @onclick="GrantAsync">Adicionar</button>
 </div>
 
 @if (_items is null)
@@ -23,20 +23,22 @@
 }
 else
 {
-    <table class="table table-sm align-middle">
-        <thead><tr><th>E-mail</th><th>Duas etapas</th><th>Id</th><th></th></tr></thead>
-        <tbody>
-            @foreach (var a in _items)
-            {
-                <tr>
-                    <td>@a.Email</td>
-                    <td>@(a.TwoFactorEnabled ? "Ativa" : "Inativa")</td>
-                    <td><code class="small">@a.UserId</code></td>
-                    <td class="text-end"><button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeAsync(a)">Remover</button></td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="@Ui.TableWrap">
+        <table class="@Ui.Table">
+            <thead class="@Ui.THead"><tr><th class="@Ui.Th">E-mail</th><th class="@Ui.Th">Duas etapas</th><th class="@Ui.Th">Id</th><th class="@Ui.Th"></th></tr></thead>
+            <tbody class="@Ui.TBody">
+                @foreach (var a in _items)
+                {
+                    <tr>
+                        <td class="@Ui.Td">@a.Email</td>
+                        <td class="@Ui.Td">@(a.TwoFactorEnabled ? "Ativa" : "Inativa")</td>
+                        <td class="@Ui.Td"><code class="rounded bg-slate-100 px-1 font-mono text-xs">@a.UserId</code></td>
+                        <td class="@($"{Ui.Td} text-right")"><button class="@Ui.ButtonDangerOutlineSm" @onclick="() => RevokeAsync(a)">Remover</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
 
 @code {

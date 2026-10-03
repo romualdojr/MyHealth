@@ -6,23 +6,23 @@
 
 <PageTitle>Biblioteca de exercícios · MyHealth</PageTitle>
 
-<nav aria-label="Caminho" class="small mb-2"><a href="trainer">Clientes</a> / Biblioteca de exercícios</nav>
+<nav aria-label="Caminho" class="@Ui.Breadcrumb"><a href="trainer" class="@Ui.Link">Clientes</a> / Biblioteca de exercícios</nav>
 
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-    <h1 class="h3 mb-0">Biblioteca de exercícios</h1>
+<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+    <h1 class="@Ui.PageTitle">Biblioteca de exercícios</h1>
     @if (Workspace.Practices("PersonalTrainer"))
     {
-        <button class="btn btn-primary" @onclick="StartNew">Novo exercício</button>
+        <button class="@Ui.Button" @onclick="StartNew">Novo exercício</button>
     }
 </div>
 
 @if (!Workspace.Practices("PersonalTrainer"))
 {
-    <p class="alert alert-info">Selecione uma organização em que você atua como personal trainer.</p>
+    <p class="@Ui.AlertInfo">Selecione uma organização em que você atua como personal trainer.</p>
 }
 else
 {
-    <p class="text-body-secondary">
+    <p class="@($"{Ui.Help} mb-4")">
         A biblioteca do MyHealth mais os exercícios criados pela sua organização. Os exercícios da organização só aparecem para quem atua nela.
     </p>
 
@@ -30,43 +30,43 @@ else
 
     @if (_editing is not null)
     {
-        <div class="card border-primary mb-4">
-            <div class="card-body">
-                <h2 class="h6">@(_editingId is null ? "Novo exercício da organização" : $"Editar {_editing.Name}")</h2>
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <label class="form-label small" for="ex-name">Nome</label>
-                        <input id="ex-name" class="form-control" @bind="_editing.Name" @bind:event="oninput" />
+        <div class="@($"{Ui.CardHighlight} mb-6")">
+            <div class="@Ui.CardBody">
+                <h2 class="@($"{Ui.CardTitle} mb-3")">@(_editingId is null ? "Novo exercício da organização" : $"Editar {_editing.Name}")</h2>
+                <div class="grid grid-cols-12 gap-3">
+                    <div class="col-span-12 md:col-span-6">
+                        <label class="@Ui.Label" for="ex-name">Nome</label>
+                        <input id="ex-name" class="@Ui.Input" @bind="_editing.Name" @bind:event="oninput" />
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label small" for="ex-purpose">Finalidade (opcional)</label>
-                        <input id="ex-purpose" class="form-control" placeholder="Ex.: força, mobilidade" @bind="_editing.Purpose" />
+                    <div class="col-span-12 md:col-span-6">
+                        <label class="@Ui.Label" for="ex-purpose">Finalidade (opcional)</label>
+                        <input id="ex-purpose" class="@Ui.Input" placeholder="Ex.: força, mobilidade" @bind="_editing.Purpose" />
                     </div>
-                    <div class="col-12">
-                        <label class="form-label small" for="ex-description">Como executar</label>
-                        <textarea id="ex-description" class="form-control" rows="3" @bind="_editing.Description" @bind:event="oninput"></textarea>
+                    <div class="col-span-12">
+                        <label class="@Ui.Label" for="ex-description">Como executar</label>
+                        <textarea id="ex-description" class="@Ui.Textarea" rows="3" @bind="_editing.Description" @bind:event="oninput"></textarea>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label small" for="ex-muscles">Grupos musculares (separados por vírgula)</label>
-                        <input id="ex-muscles" class="form-control" placeholder="quadríceps, glúteos" @bind="_editing.MuscleGroups" />
+                    <div class="col-span-12 md:col-span-6">
+                        <label class="@Ui.Label" for="ex-muscles">Grupos musculares (separados por vírgula)</label>
+                        <input id="ex-muscles" class="@Ui.Input" placeholder="quadríceps, glúteos" @bind="_editing.MuscleGroups" />
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label small" for="ex-equipment">Equipamentos (separados por vírgula)</label>
-                        <input id="ex-equipment" class="form-control" placeholder="halter, banco" @bind="_editing.Equipment" />
+                    <div class="col-span-12 md:col-span-6">
+                        <label class="@Ui.Label" for="ex-equipment">Equipamentos (separados por vírgula)</label>
+                        <input id="ex-equipment" class="@Ui.Input" placeholder="halter, banco" @bind="_editing.Equipment" />
                     </div>
-                    <div class="col-12">
-                        <label class="form-label small" for="ex-precautions">Cuidados (opcional)</label>
-                        <textarea id="ex-precautions" class="form-control" rows="2" @bind="_editing.Precautions"></textarea>
+                    <div class="col-span-12">
+                        <label class="@Ui.Label" for="ex-precautions">Cuidados (opcional)</label>
+                        <textarea id="ex-precautions" class="@Ui.Textarea" rows="2" @bind="_editing.Precautions"></textarea>
                     </div>
-                    <div class="col-12">
-                        <label class="form-label small" for="ex-caption">Descrição do vídeo, para acessibilidade (necessária antes de adicionar vídeo)</label>
-                        <textarea id="ex-caption" class="form-control" rows="2" @bind="_editing.MediaCaption"></textarea>
+                    <div class="col-span-12">
+                        <label class="@Ui.Label" for="ex-caption">Descrição do vídeo, para acessibilidade (necessária antes de adicionar vídeo)</label>
+                        <textarea id="ex-caption" class="@Ui.Textarea" rows="2" @bind="_editing.MediaCaption"></textarea>
                     </div>
                 </div>
-                <div class="d-flex gap-2 mt-3">
-                    <button class="btn btn-primary" disabled="@(string.IsNullOrWhiteSpace(_editing.Name) || string.IsNullOrWhiteSpace(_editing.Description))"
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <button class="@Ui.Button" disabled="@(string.IsNullOrWhiteSpace(_editing.Name) || string.IsNullOrWhiteSpace(_editing.Description))"
                             @onclick="SaveAsync">Salvar</button>
-                    <button class="btn btn-link" @onclick="() => _editing = null">Cancelar</button>
+                    <button class="@Ui.ButtonLink" @onclick="() => _editing = null">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -77,10 +77,10 @@ else
         <MotionCapturePanel @key="target.Id" ExerciseId="target.Id" ExerciseName="@target.Name" OnClose="() => _motionFor = null" OnAccepted="() => LoadAsync()" />
     }
 
-    <div class="row g-2 mb-3">
-        <div class="col-md-6">
-            <label class="visually-hidden" for="library-search">Buscar</label>
-            <input id="library-search" class="form-control" placeholder="Buscar por nome ou descrição" @bind="_search" @bind:event="oninput" @bind:after="SearchSoonAsync" />
+    <div class="mb-4 grid grid-cols-12 gap-3">
+        <div class="col-span-12 md:col-span-6">
+            <label class="sr-only" for="library-search">Buscar</label>
+            <input id="library-search" class="@Ui.Input" placeholder="Buscar por nome ou descrição" @bind="_search" @bind:event="oninput" @bind:after="SearchSoonAsync" />
         </div>
     </div>
 
@@ -90,42 +90,46 @@ else
     }
     else
     {
-        <table class="table table-sm align-middle">
-            <thead><tr><th>Exercício</th><th>Músculos</th><th>Equipamento</th><th>Mídia</th><th></th></tr></thead>
-            <tbody>
-                @foreach (var e in _results.Items)
-                {
-                    <tr>
-                        <td>
-                            <span class="fw-semibold">@e.Name</span>
-                            @if (e.IsCustom)
-                            {
-                                <span class="badge text-bg-light border ms-1">da organização</span>
-                            }
-                            <div class="small text-body-secondary text-truncate exercise-description">@e.Description</div>
-                        </td>
-                        <td class="small">@string.Join(", ", e.MuscleGroups)</td>
-                        <td class="small">@string.Join(", ", e.Equipment)</td>
-                        <td class="small">@(e.Media.Count == 0 ? "—" : $"{e.Media.Count} item(ns)")@if (e.Media.Any(m => m.Kind == "Model3D"))
-                            {
-                                <span class="badge text-bg-primary ms-1">3D</span>
-                            }</td>
-                        <td class="text-end">
-                            @if (e.IsCustom)
-                            {
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => StartEdit(e)">Editar</button>
-                                <button class="btn btn-sm btn-outline-primary ms-1" @onclick="() => { _motionFor = e; _editing = null; }">Vídeo 3D</button>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <div class="@($"{Ui.TableWrap} mb-4")">
+            <table class="@Ui.Table">
+                <thead class="@Ui.THead"><tr><th class="@Ui.Th">Exercício</th><th class="@Ui.Th">Músculos</th><th class="@Ui.Th">Equipamento</th><th class="@Ui.Th">Mídia</th><th class="@Ui.Th"></th></tr></thead>
+                <tbody class="@Ui.TBody">
+                    @foreach (var e in _results.Items)
+                    {
+                        <tr>
+                            <td class="@Ui.Td">
+                                <span class="font-semibold text-slate-900">@e.Name</span>
+                                @if (e.IsCustom)
+                                {
+                                    <span class="@($"{Ui.BadgeNeutral} ml-1")">da organização</span>
+                                }
+                                <div class="max-w-lg truncate text-xs text-slate-500">@e.Description</div>
+                            </td>
+                            <td class="@($"{Ui.Td} text-sm")">@string.Join(", ", e.MuscleGroups)</td>
+                            <td class="@($"{Ui.Td} text-sm")">@string.Join(", ", e.Equipment)</td>
+                            <td class="@($"{Ui.Td} text-sm")">@(e.Media.Count == 0 ? "—" : $"{e.Media.Count} item(ns)")@if (e.Media.Any(m => m.Kind == "Model3D"))
+                                {
+                                    <span class="@($"{Ui.BadgePrimary} ml-1")">3D</span>
+                                }</td>
+                            <td class="@($"{Ui.Td} text-right")">
+                                @if (e.IsCustom)
+                                {
+                                    <div class="flex justify-end gap-1">
+                                        <button class="@Ui.ButtonSecondarySm" @onclick="() => StartEdit(e)">Editar</button>
+                                        <button class="@Ui.ButtonOutlineSm" @onclick="() => { _motionFor = e; _editing = null; }">Vídeo 3D</button>
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
 
-        <div class="d-flex align-items-center gap-2">
-            <button class="btn btn-sm btn-outline-secondary" disabled="@(_page <= 1)" @onclick="() => GoToAsync(_page - 1)">Anterior</button>
-            <span class="small text-body-secondary">Página @_page de @Math.Max(1, (int)Math.Ceiling(_results.TotalCount / (double)PageSize)) · @_results.TotalCount exercícios</span>
-            <button class="btn btn-sm btn-outline-secondary" disabled="@(_page * PageSize >= _results.TotalCount)" @onclick="() => GoToAsync(_page + 1)">Próxima</button>
+        <div class="flex flex-wrap items-center gap-2">
+            <button class="@Ui.ButtonSecondarySm" disabled="@(_page <= 1)" @onclick="() => GoToAsync(_page - 1)">Anterior</button>
+            <span class="text-sm text-slate-500">Página @_page de @Math.Max(1, (int)Math.Ceiling(_results.TotalCount / (double)PageSize)) · @_results.TotalCount exercícios</span>
+            <button class="@Ui.ButtonSecondarySm" disabled="@(_page * PageSize >= _results.TotalCount)" @onclick="() => GoToAsync(_page + 1)">Próxima</button>
         </div>
     }
 }

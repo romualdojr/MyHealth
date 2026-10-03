@@ -1,0 +1,54 @@
+@* The frame of both apps: a dark sidebar (a drawer on small screens, opened with a CSS-only toggle) and a top bar. *@
+
+<div class="min-h-screen lg:flex">
+    <input id="nav-toggle" type="checkbox" class="peer sr-only" aria-hidden="true" tabindex="-1" />
+
+    <aside class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full overflow-y-auto bg-slate-900 transition-transform peer-checked:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0">
+        <div class="flex h-14 items-center justify-between px-4">
+            <a href="" class="text-base font-semibold tracking-tight text-white">@Brand</a>
+            <label for="nav-toggle" class="cursor-pointer rounded-md p-1 text-slate-400 hover:text-white lg:hidden" aria-label="Fechar menu">✕</label>
+        </div>
+        @* Following a link closes the drawer on small screens. *@
+        <nav class="flex flex-col gap-0.5 px-2 pb-6" aria-label="Navegação principal" onclick="document.getElementById('nav-toggle').checked = false">
+            @Navigation
+        </nav>
+    </aside>
+
+    <label for="nav-toggle" class="fixed inset-0 z-30 hidden bg-slate-900/40 peer-checked:block lg:hidden" aria-hidden="true"></label>
+
+    <div class="flex min-w-0 flex-1 flex-col">
+        <header class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:px-6">
+            <label for="nav-toggle" class="cursor-pointer rounded-md p-1 text-xl leading-none text-slate-600 hover:bg-slate-100 lg:hidden" aria-label="Abrir menu">☰</label>
+            <div class="ml-auto flex flex-wrap items-center justify-end gap-3">
+                @TopBar
+            </div>
+        </header>
+
+        <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-7xl">
+                @ChildContent
+            </div>
+        </main>
+    </div>
+</div>
+
+@* Shown by Blazor (inline display) when the connection fails or an unhandled error happens. *@
+<div id="blazor-error-ui" class="fixed inset-x-0 bottom-0 z-50 hidden items-center gap-4 bg-amber-100 px-6 py-3 text-sm text-amber-900 shadow-lg" data-nosnippet>
+    Ocorreu um erro inesperado.
+    <a href="." class="reload font-medium underline">Recarregar</a>
+    <span class="dismiss ml-auto cursor-pointer" aria-label="Fechar">✕</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Brand { get; set; } = string.Empty;
+
+    [Parameter]
+    public RenderFragment? Navigation { get; set; }
+
+    [Parameter]
+    public RenderFragment? TopBar { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

@@ -6,15 +6,15 @@
 
 <PageTitle>Membros · Organização</PageTitle>
 
-<h1 class="h3">Membros — @(Workspace.Membership?.TenantName ?? "organização")</h1>
+<h1 class="@($"{Ui.PageTitle} mb-4")">Membros — @(Workspace.Membership?.TenantName ?? "organização")</h1>
 
 @if (!Workspace.IsTenantAdministrator)
 {
-    <p class="alert alert-info">Selecione uma organização que você administra.</p>
+    <p class="@Ui.AlertInfo">Selecione uma organização que você administra.</p>
 }
 else
 {
-    <p class="text-body-secondary">
+    <p class="@($"{Ui.Help} mb-4")">
         Administrar membros não dá acesso a dados clínicos (MT-05). Remover alguém encerra os vínculos dessa pessoa com clientes nesta
         organização; os registros permanecem com a organização (MT-08).
     </p>
@@ -27,31 +27,33 @@ else
                     OnConfirm="RevokeAsync" OnCancel="() => _revoking = null" />
     }
 
-    <div class="card mb-4">
-        <div class="card-body">
-            <h2 class="h6">Convidar profissional</h2>
-            <div class="row g-2 align-items-end">
-                <div class="col-md-4">
-                    <label class="form-label small" for="invite-email">E-mail</label>
-                    <input id="invite-email" type="email" class="form-control" @bind="_email" @bind:event="oninput" />
+    <div class="@($"{Ui.Card} mb-6")">
+        <div class="@Ui.CardBody">
+            <h2 class="@($"{Ui.CardTitle} mb-3")">Convidar profissional</h2>
+            <div class="grid grid-cols-12 items-end gap-3">
+                <div class="col-span-12 md:col-span-4">
+                    <label class="@Ui.Label" for="invite-email">E-mail</label>
+                    <input id="invite-email" type="email" class="@Ui.Input" @bind="_email" @bind:event="oninput" />
                 </div>
-                <div class="col-md-5">
-                    <span class="form-label small d-block">Áreas de atuação</span>
-                    @foreach (var discipline in Disciplines)
-                    {
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="checkbox" id="d-@discipline" checked="@_disciplines.Contains(discipline)"
-                                   @onchange="e => Toggle(discipline, (bool)e.Value!)" />
-                            <label class="form-check-label small" for="d-@discipline">@Labels.Discipline(discipline)</label>
-                        </div>
-                    }
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" id="d-admin" @bind="_isAdministrator" />
-                        <label class="form-check-label small" for="d-admin">Administrador</label>
+                <div class="col-span-12 md:col-span-5">
+                    <span class="@Ui.Label">Áreas de atuação</span>
+                    <div class="flex flex-wrap gap-x-4 gap-y-2 py-1">
+                        @foreach (var discipline in Disciplines)
+                        {
+                            <label class="@Ui.CheckLabel" for="d-@discipline">
+                                <input class="@Ui.Checkbox" type="checkbox" id="d-@discipline" checked="@_disciplines.Contains(discipline)"
+                                       @onchange="e => Toggle(discipline, (bool)e.Value!)" />
+                                @Labels.Discipline(discipline)
+                            </label>
+                        }
+                        <label class="@Ui.CheckLabel" for="d-admin">
+                            <input class="@Ui.Checkbox" type="checkbox" id="d-admin" @bind="_isAdministrator" />
+                            Administrador
+                        </label>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <button class="btn btn-primary w-100" disabled="@(string.IsNullOrWhiteSpace(_email) || (_disciplines.Count == 0 && !_isAdministrator))"
+                <div class="col-span-12 md:col-span-3">
+                    <button class="@($"{Ui.Button} w-full")" disabled="@(string.IsNullOrWhiteSpace(_email) || (_disciplines.Count == 0 && !_isAdministrator))"
                             @onclick="InviteAsync">Convidar</button>
                 </div>
             </div>
@@ -64,26 +66,28 @@ else
     }
     else
     {
-        <table class="table table-sm align-middle">
-            <thead><tr><th>Pessoa</th><th>Áreas</th><th>Situação</th><th>Desde</th><th></th></tr></thead>
-            <tbody>
-                @foreach (var m in _items)
-                {
-                    <tr>
-                        <td>@(m.FullName ?? "—")<div class="small text-body-secondary">@m.Email</div></td>
-                        <td>@string.Join(", ", m.Disciplines.Select(Labels.Discipline))@(m.IsAdministrator ? " · administrador" : string.Empty)</td>
-                        <td><StatusBadge Status="@m.Status" /></td>
-                        <td>@((m.JoinedAt ?? m.InvitedAt).ToLocalTime().ToString("dd/MM/yyyy"))</td>
-                        <td class="text-end">
-                            @if (m.Status is "Active" or "Pending")
-                            {
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => _revoking = m">@(m.Status == "Pending" ? "Cancelar convite" : "Remover")</button>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <div class="@Ui.TableWrap">
+            <table class="@Ui.Table">
+                <thead class="@Ui.THead"><tr><th class="@Ui.Th">Pessoa</th><th class="@Ui.Th">Áreas</th><th class="@Ui.Th">Situação</th><th class="@Ui.Th">Desde</th><th class="@Ui.Th"></th></tr></thead>
+                <tbody class="@Ui.TBody">
+                    @foreach (var m in _items)
+                    {
+                        <tr>
+                            <td class="@Ui.Td"><span class="font-medium text-slate-900">@(m.FullName ?? "—")</span><div class="text-xs text-slate-500">@m.Email</div></td>
+                            <td class="@Ui.Td">@string.Join(", ", m.Disciplines.Select(Labels.Discipline))@(m.IsAdministrator ? " · administrador" : string.Empty)</td>
+                            <td class="@Ui.Td"><StatusBadge Status="@m.Status" /></td>
+                            <td class="@($"{Ui.Td} whitespace-nowrap")">@((m.JoinedAt ?? m.InvitedAt).ToLocalTime().ToString("dd/MM/yyyy"))</td>
+                            <td class="@($"{Ui.Td} text-right")">
+                                @if (m.Status is "Active" or "Pending")
+                                {
+                                    <button class="@Ui.ButtonDangerOutlineSm" @onclick="() => _revoking = m">@(m.Status == "Pending" ? "Cancelar convite" : "Remover")</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     }
 }
 

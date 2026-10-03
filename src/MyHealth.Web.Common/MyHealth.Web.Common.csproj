@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <!-- Shared by the organization dashboard (MyHealth.Web) and the operators' back office (MyHealth.Backoffice):
-       the API client and session, sign-in, account pages and common components. -->
+       the API client and session, sign-in, account pages, common components and the Tailwind CSS stylesheet. -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <Using Include="System.Net.Http.Json" />
@@ -17,5 +17,24 @@
     <!-- To take the default resilience pipeline off the upload client. -->
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
   </ItemGroup>
+
+  <!-- Tailwind CSS (v4, npm). Rebuilds wwwroot/css/app.css when markup or the class constants change. The generated file
+       is committed, so machines without Node still build (with the last generated stylesheet). -->
+  <ItemGroup>
+    <TailwindInput Include="Styles/tailwind.css;**/*.razor;**/*.cs;../MyHealth.Web/**/*.razor;../MyHealth.Web/**/*.cs;../MyHealth.Backoffice/**/*.razor;../MyHealth.Backoffice/**/*.cs"
+                   Exclude="bin/**;obj/**;node_modules/**;../MyHealth.Web/bin/**;../MyHealth.Web/obj/**;../MyHealth.Backoffice/bin/**;../MyHealth.Backoffice/obj/**" />
+    <None Remove="node_modules/**" />
+    <Content Remove="node_modules/**;package.json;package-lock.json" />
+  </ItemGroup>
+
+  <Target Name="TailwindRestore" BeforeTargets="TailwindBuild" Condition="!Exists('node_modules/.bin')">
+    <Exec Command="npm ci --no-audit --no-fund" WorkingDirectory="$(MSBuildProjectDirectory)" IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" />
+  </Target>
+
+  <Target Name="TailwindBuild" BeforeTargets="BeforeBuild" Inputs="@(TailwindInput)" Outputs="wwwroot/css/app.css">
+    <Exec Command="npm run build:css --silent" WorkingDirectory="$(MSBuildProjectDirectory)" Condition="Exists('node_modules/.bin')" />
+    <Message Importance="high" Text="Tailwind CSS: Node packages are missing (run npm ci in src/MyHealth.Web.Common); using the committed stylesheet."
+             Condition="!Exists('node_modules/.bin')" />
+  </Target>
 
 </Project>

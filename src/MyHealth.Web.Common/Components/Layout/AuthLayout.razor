@@ -1,7 +1,9 @@
 @inherits LayoutComponentBase
 @inject PortalOptions Portal
 
-<main class="container py-5" style="max-width: 28rem;">
-    <h1 class="h3 mb-4 text-center">@Portal.Name</h1>
-    @Body
+<main class="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 py-12">
+    <div class="w-full max-w-md">
+        <h1 class="mb-6 text-center text-2xl font-semibold tracking-tight text-slate-900">@Portal.Name</h1>
+        @Body
+    </div>
 </main>

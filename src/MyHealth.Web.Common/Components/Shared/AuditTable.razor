@@ -1,22 +1,14 @@
 @* Who did what to which record, whose data it was, in which organization (RNF-03). Metadata only — never clinical content. *@
 @inject MyHealthApiClient Api
 
-<div class="row g-2 mb-3">
-    <div class="col-md-4">
-        <input class="form-control form-control-sm" placeholder="Titular (id do usuário)" @bind="_subject" aria-label="Titular" />
-    </div>
-    <div class="col-md-4">
-        <input class="form-control form-control-sm" placeholder="Autor (id do usuário)" @bind="_actor" aria-label="Autor" />
-    </div>
+<div class="mb-4 flex flex-wrap items-end gap-2">
+    <input class="@($"{Ui.InputSm} w-full sm:w-64")" placeholder="Titular (id do usuário)" @bind="_subject" aria-label="Titular" />
+    <input class="@($"{Ui.InputSm} w-full sm:w-64")" placeholder="Autor (id do usuário)" @bind="_actor" aria-label="Autor" />
     @if (AllowTenantFilter)
     {
-        <div class="col-md-3">
-            <input class="form-control form-control-sm" placeholder="Organização (id)" @bind="_tenant" aria-label="Organização" />
-        </div>
+        <input class="@($"{Ui.InputSm} w-full sm:w-56")" placeholder="Organização (id)" @bind="_tenant" aria-label="Organização" />
     }
-    <div class="col-md-1">
-        <button class="btn btn-sm btn-primary w-100" @onclick="() => LoadAsync(1)">Filtrar</button>
-    </div>
+    <button class="@Ui.ButtonSm" @onclick="() => LoadAsync(1)">Filtrar</button>
 </div>
 
 <ProblemAlert Problem="_problem" />
@@ -27,43 +19,45 @@
 }
 else
 {
-    <table class="table table-sm small">
-        <thead>
-            <tr>
-                <th>Quando</th><th>Ação</th><th>Recurso</th><th>Autor</th><th>Titular</th>
-                @if (AllowTenantFilter)
-                {
-                    <th>Organização</th>
-                }
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var e in _page.Items)
-            {
-                <tr class="@(e.Action == "deny" ? "table-danger" : string.Empty)">
-                    <td class="text-nowrap">@e.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
-                    <td><code>@e.Action</code></td>
-                    <td>@e.ResourceType <span class="text-body-secondary">@Short(e.ResourceId)</span></td>
-                    <td><button class="btn btn-link btn-sm p-0" @onclick="() => FilterActor(e.ActorUserId)">@Short(e.ActorUserId)</button></td>
-                    <td>
-                        @if (e.SubjectUserId is { } subject)
-                        {
-                            <button class="btn btn-link btn-sm p-0" @onclick="() => FilterSubject(subject)">@Short(subject)</button>
-                        }
-                    </td>
+    <div class="@Ui.TableWrap">
+        <table class="@Ui.Table">
+            <thead class="@Ui.THead">
+                <tr>
+                    <th class="@Ui.Th">Quando</th><th class="@Ui.Th">Ação</th><th class="@Ui.Th">Recurso</th><th class="@Ui.Th">Autor</th><th class="@Ui.Th">Titular</th>
                     @if (AllowTenantFilter)
                     {
-                        <td>@(e.TenantId is { } t ? Short(t) : "—")</td>
+                        <th class="@Ui.Th">Organização</th>
                     }
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody class="@Ui.TBody">
+                @foreach (var e in _page.Items)
+                {
+                    <tr class="@(e.Action == "deny" ? "bg-red-50" : string.Empty)">
+                        <td class="@($"{Ui.Td} whitespace-nowrap")">@e.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                        <td class="@Ui.Td"><code class="rounded bg-slate-100 px-1 font-mono text-xs">@e.Action</code></td>
+                        <td class="@Ui.Td">@e.ResourceType <span class="text-slate-500">@Short(e.ResourceId)</span></td>
+                        <td class="@Ui.Td"><button class="@Ui.Link" @onclick="() => FilterActor(e.ActorUserId)">@Short(e.ActorUserId)</button></td>
+                        <td class="@Ui.Td">
+                            @if (e.SubjectUserId is { } subject)
+                            {
+                                <button class="@Ui.Link" @onclick="() => FilterSubject(subject)">@Short(subject)</button>
+                            }
+                        </td>
+                        @if (AllowTenantFilter)
+                        {
+                            <td class="@Ui.Td">@(e.TenantId is { } t ? Short(t) : "—")</td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 
-    <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-sm btn-outline-secondary" disabled="@(_page.Page <= 1)" @onclick="() => LoadAsync(_page.Page - 1)">Anterior</button>
-        <span class="small text-body-secondary">Página @_page.Page de @Pages · @_page.TotalCount registros</span>
-        <button class="btn btn-sm btn-outline-secondary" disabled="@(_page.Page >= Pages)" @onclick="() => LoadAsync(_page.Page + 1)">Próxima</button>
+    <div class="mt-4 flex items-center gap-3">
+        <button class="@Ui.ButtonSecondarySm" disabled="@(_page.Page <= 1)" @onclick="() => LoadAsync(_page.Page - 1)">Anterior</button>
+        <span class="text-sm text-slate-500">Página @_page.Page de @Pages · @_page.TotalCount registros</span>
+        <button class="@Ui.ButtonSecondarySm" disabled="@(_page.Page >= Pages)" @onclick="() => LoadAsync(_page.Page + 1)">Próxima</button>
     </div>
 }
 

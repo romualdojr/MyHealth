@@ -13,6 +13,7 @@ Backend API for a training-first health app for clients, personal trainers, diet
 ```bash
 dotnet run --project src/MyHealth.AppHost   # needs Docker for PostgreSQL
 dotnet test                                 # unit, architecture and integration tests
+npm ci --prefix src/MyHealth.Web.Common      # once, to rebuild the Tailwind CSS of the web apps when markup changes
 ```
 
 In Development the API applies migrations on startup and serves an API reference at `/scalar/v1`.

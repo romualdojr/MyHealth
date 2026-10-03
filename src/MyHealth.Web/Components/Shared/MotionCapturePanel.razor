@@ -3,16 +3,16 @@
 @inject MyHealthApiClient Api
 @inject IJSRuntime JS
 
-<div class="card border-primary mb-4">
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h2 class="h6 mb-0">Vídeo 3D — @ExerciseName</h2>
-            <button class="btn-close" aria-label="Fechar" @onclick="OnClose"></button>
+<div class="@($"{Ui.CardHighlight} mb-6")">
+    <div class="@Ui.CardBody">
+        <div class="mb-3 flex items-center justify-between gap-2">
+            <h2 class="@Ui.CardTitle">Vídeo 3D — @ExerciseName</h2>
+            <button class="@Ui.CloseButton" aria-label="Fechar" @onclick="OnClose">✕</button>
         </div>
 
         <ProblemAlert Problem="_problem" />
 
-        <ol class="small text-body-secondary ps-3">
+        <ol class="mb-4 list-decimal space-y-1 pl-5 text-sm text-slate-500">
             <li>Grave você fazendo o movimento, corpo inteiro no quadro, câmera parada, de 5 a @MaxSeconds segundos.</li>
             <li>Envie o vídeo: ele vira um modelo 3D e vídeos de lado, de frente e de costas (leva alguns minutos).</li>
             <li>Confira o resultado e use no exercício. Seus clientes passam a ver o modelo 3D no app.</li>
@@ -20,24 +20,26 @@
 
         @if (_terms is not null)
         {
-            <div class="border rounded p-2 small bg-body-tertiary mb-2" style="white-space: pre-line">@_terms.Text.Trim()</div>
-            <div class="form-check mb-2">
-                <input class="form-check-input" type="checkbox" id="mc-consent" @bind="_consent" />
-                <label class="form-check-label small" for="mc-consent">Li e concordo em enviar o vídeo para gerar o modelo 3D.</label>
+            <div class="mb-3 whitespace-pre-line rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">@_terms.Text.Trim()</div>
+            <div class="mb-3">
+                <label class="@Ui.CheckLabel" for="mc-consent">
+                    <input class="@Ui.Checkbox" type="checkbox" id="mc-consent" @bind="_consent" />
+                    Li e concordo em enviar o vídeo para gerar o modelo 3D.
+                </label>
             </div>
         }
 
-        <div class="row g-2 align-items-end mb-3">
-            <div class="col-md-8">
-                <label class="form-label small" for="mc-file">Vídeo (MP4 ou MOV, até @MaxMegabytes MB)</label>
-                <InputFile id="mc-file" class="form-control" accept="video/mp4,video/quicktime,video/webm" OnChange="ChooseAsync" disabled="@(!_consent || _uploading)" />
+        <div class="mb-4 grid grid-cols-12 items-end gap-2">
+            <div class="col-span-12 md:col-span-8">
+                <label class="@Ui.Label" for="mc-file">Vídeo (MP4 ou MOV, até @MaxMegabytes MB)</label>
+                <InputFile id="mc-file" class="@($"{Ui.Input} file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:text-slate-700")" accept="video/mp4,video/quicktime,video/webm" OnChange="ChooseAsync" disabled="@(!_consent || _uploading)" />
                 @if (_file is not null)
                 {
-                    <div class="small text-body-secondary mt-1">@_file.Name · @(_file.Size / 1024 / 1024) MB · @(_duration > 0 ? $"{_duration} s" : "duração desconhecida")</div>
+                    <div class="mt-1 text-xs text-slate-500">@_file.Name · @(_file.Size / 1024 / 1024) MB · @(_duration > 0 ? $"{_duration} s" : "duração desconhecida")</div>
                 }
             </div>
-            <div class="col-md-4">
-                <button class="btn btn-primary w-100" disabled="@(!_consent || _file is null || _duration is < 1 or > MaxSeconds || _uploading)" @onclick="UploadAsync">
+            <div class="col-span-12 md:col-span-4">
+                <button class="@($"{Ui.Button} w-full")" disabled="@(!_consent || _file is null || _duration is < 1 or > MaxSeconds || _uploading)" @onclick="UploadAsync">
                     @(_uploading ? "Enviando…" : "Gerar modelo 3D")
                 </button>
             </div>
@@ -47,49 +49,49 @@
         {
             @foreach (var job in _jobs)
             {
-                <div class="border rounded p-2 mb-2">
-                    <div class="d-flex flex-wrap align-items-center gap-2 small">
-                        <strong>@job.SourceFileName</strong>
-                        <span class="text-body-secondary">@job.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm") · @job.DurationSeconds s</span>
-                        <span class="badge @Badge(job)">@Label(job)</span>
+                <div class="mb-2 rounded-lg border border-slate-200 p-3">
+                    <div class="flex flex-wrap items-center gap-2 text-sm">
+                        <strong class="text-slate-900">@job.SourceFileName</strong>
+                        <span class="text-slate-500">@job.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm") · @job.DurationSeconds s</span>
+                        <span class="@Badge(job)">@Label(job)</span>
                         @if (job.AcceptedAt is not null)
                         {
-                            <span class="badge text-bg-success">em uso no exercício</span>
+                            <span class="@Ui.BadgeSuccess">em uso no exercício</span>
                         }
                     </div>
 
                     @if (job.Status is "Queued" or "Processing")
                     {
-                        <div class="progress mt-2" role="progressbar" aria-label="Progresso da conversão" aria-valuenow="@job.ProgressPercent" aria-valuemin="0" aria-valuemax="100">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: @(Math.Max(5, job.ProgressPercent))%"></div>
+                        <div class="@($"{Ui.ProgressTrack} mt-3")" role="progressbar" aria-label="Progresso da conversão" aria-valuenow="@job.ProgressPercent" aria-valuemin="0" aria-valuemax="100">
+                            <div class="@($"{Ui.ProgressBar} animate-pulse")" style="width: @(Math.Max(5, job.ProgressPercent))%"></div>
                         </div>
                     }
                     else if (job.Status == "Failed")
                     {
-                        <p class="small text-danger mt-2 mb-0">@job.Error</p>
+                        <p class="mt-2 text-sm text-red-700">@job.Error</p>
                     }
                     else
                     {
-                        <div class="row g-2 mt-1">
+                        <div class="mt-2 grid grid-cols-12 gap-2">
                             @if (job.Outputs.FirstOrDefault(o => o.Format == "glb") is { } model)
                             {
-                                <div class="col-md-6">
-                                    <model-viewer src="@model.Url" camera-controls auto-rotate shadow-intensity="1" class="model-preview"
+                                <div class="col-span-12 md:col-span-6">
+                                    <model-viewer src="@model.Url" camera-controls auto-rotate shadow-intensity="1" class="block h-64 w-full rounded-lg bg-slate-100"
                                                   alt="@($"Modelo 3D do exercício {ExerciseName}")"></model-viewer>
-                                    <div class="small text-body-secondary">Modelo 3D — arraste para girar</div>
+                                    <div class="mt-1 text-xs text-slate-500">Modelo 3D — arraste para girar</div>
                                 </div>
                             }
                             @foreach (var video in job.Outputs.Where(o => o.Format == "mp4"))
                             {
-                                <div class="col-md-2 col-4">
-                                    <video src="@video.Url" class="w-100 rounded" muted loop autoplay playsinline aria-label="@($"Vídeo 3D, ângulo {AngleLabel(video.Angle)}")"></video>
-                                    <div class="small text-body-secondary">@AngleLabel(video.Angle)</div>
+                                <div class="col-span-4 md:col-span-2">
+                                    <video src="@video.Url" class="w-full rounded-lg" muted loop autoplay playsinline aria-label="@($"Vídeo 3D, ângulo {AngleLabel(video.Angle)}")"></video>
+                                    <div class="mt-1 text-xs text-slate-500">@AngleLabel(video.Angle)</div>
                                 </div>
                             }
                         </div>
                         @if (job.AcceptedAt is null)
                         {
-                            <button class="btn btn-sm btn-success mt-2" disabled="@_busy" @onclick="() => AcceptAsync(job)">Usar no exercício</button>
+                            <button class="@($"{Ui.ButtonSuccessSm} mt-3")" disabled="@_busy" @onclick="() => AcceptAsync(job)">Usar no exercício</button>
                         }
                     }
                 </div>
@@ -236,9 +238,9 @@
 
     private static string Badge(MotionCaptureJobItem job) => job.Status switch
     {
-        "Succeeded" => "text-bg-success",
-        "Failed" => "text-bg-danger",
-        _ => "text-bg-info",
+        "Succeeded" => Ui.BadgeSuccess,
+        "Failed" => Ui.BadgeDanger,
+        _ => Ui.BadgeInfo,
     };
 
     private static string AngleLabel(string? angle) => angle switch

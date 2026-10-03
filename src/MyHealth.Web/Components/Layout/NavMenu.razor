@@ -1,43 +1,29 @@
 @implements IDisposable
 @inject WorkspaceState Workspace
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">MyHealth</a>
-    </div>
-</div>
+<NavLink class="@Ui.NavLink" href="" Match="NavLinkMatch.All">Início</NavLink>
 
-<input type="checkbox" title="Menu de navegação" class="navbar-toggler" />
+<AuthorizeView>
+    @if (Workspace.Practices("PersonalTrainer"))
+    {
+        <div class="@Ui.NavSection">Treino</div>
+        <NavLink class="@Ui.NavLink" href="trainer" Match="NavLinkMatch.All">Clientes</NavLink>
+        <NavLink class="@Ui.NavLink" href="trainer/exercises">Biblioteca de exercícios</NavLink>
+    }
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Início</NavLink>
-        </div>
+    @if (Workspace.IsTenantAdministrator)
+    {
+        <div class="@Ui.NavSection">Organização</div>
+        <NavLink class="@Ui.NavLink" href="organization/members">Membros</NavLink>
+        <NavLink class="@Ui.NavLink" href="organization/audit">Auditoria</NavLink>
+        <NavLink class="@Ui.NavLink" href="organization/billing">Plano e cobrança</NavLink>
+    }
+</AuthorizeView>
 
-        <AuthorizeView>
-            @if (Workspace.Practices("PersonalTrainer"))
-            {
-                <div class="nav-section px-3">Treino</div>
-                <div class="nav-item px-3"><NavLink class="nav-link" href="trainer" Match="NavLinkMatch.All">Clientes</NavLink></div>
-                <div class="nav-item px-3"><NavLink class="nav-link" href="trainer/exercises">Biblioteca de exercícios</NavLink></div>
-            }
-
-            @if (Workspace.IsTenantAdministrator)
-            {
-                <div class="nav-section px-3">Organização</div>
-                <div class="nav-item px-3"><NavLink class="nav-link" href="organization/members">Membros</NavLink></div>
-                <div class="nav-item px-3"><NavLink class="nav-link" href="organization/audit">Auditoria</NavLink></div>
-                <div class="nav-item px-3"><NavLink class="nav-link" href="organization/billing">Plano e cobrança</NavLink></div>
-            }
-        </AuthorizeView>
-
-        <AuthorizeView>
-            <div class="nav-section px-3">Conta</div>
-            <div class="nav-item px-3"><NavLink class="nav-link" href="account/security">Segurança</NavLink></div>
-        </AuthorizeView>
-    </nav>
-</div>
+<AuthorizeView>
+    <div class="@Ui.NavSection">Conta</div>
+    <NavLink class="@Ui.NavLink" href="account/security">Segurança</NavLink>
+</AuthorizeView>
 
 @code {
     protected override void OnInitialized() => Workspace.Changed += OnChanged;

@@ -4,7 +4,7 @@
             <NotAuthorized>
                 @if (context.User.Identity?.IsAuthenticated == true)
                 {
-                    <p class="alert alert-warning m-4">Você não tem acesso a esta página.</p>
+                    <p class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Você não tem acesso a esta página.</p>
                 }
                 else
                 {

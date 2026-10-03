@@ -5,8 +5,8 @@
 
 <PageTitle>Segurança · @Portal.Name</PageTitle>
 
-<h1 class="h3">Verificação em duas etapas</h1>
-<p class="text-body-secondary">
+<h1 class="@Ui.PageTitle">Verificação em duas etapas</h1>
+<p class="@($"{Ui.Help} mt-1 mb-6")">
     Obrigatória para profissionais e operadores (RNF-02). Use um aplicativo autenticador (Google Authenticator, Microsoft Authenticator, 1Password…).
 </p>
 
@@ -18,36 +18,36 @@
 }
 else if (_status.IsTwoFactorEnabled)
 {
-    <div class="alert alert-success">A verificação em duas etapas está ativa. Códigos de recuperação restantes: @_status.RecoveryCodesLeft.</div>
+    <div class="@($"{Ui.AlertSuccess} mb-4")">A verificação em duas etapas está ativa. Códigos de recuperação restantes: @_status.RecoveryCodesLeft.</div>
 
     @if (_status.RecoveryCodes is { Count: > 0 } codes)
     {
-        <div class="card mb-3">
-            <div class="card-body">
-                <h2 class="h6">Códigos de recuperação</h2>
-                <p class="small text-body-secondary">Guarde-os em local seguro. Eles não serão exibidos novamente.</p>
-                <pre class="mb-0">@string.Join(Environment.NewLine, codes)</pre>
+        <div class="@($"{Ui.Card} mb-4")">
+            <div class="@Ui.CardBody">
+                <h2 class="@Ui.CardTitle">Códigos de recuperação</h2>
+                <p class="@($"{Ui.Help} mt-1 mb-3")">Guarde-os em local seguro. Eles não serão exibidos novamente.</p>
+                <pre class="overflow-x-auto rounded-lg bg-slate-100 p-3 font-mono text-sm">@string.Join(Environment.NewLine, codes)</pre>
             </div>
         </div>
     }
 
-    <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary" @onclick="ResetRecoveryCodesAsync">Gerar novos códigos de recuperação</button>
-        <button class="btn btn-outline-danger" @onclick="DisableAsync">Desativar</button>
+    <div class="flex flex-wrap gap-2">
+        <button class="@Ui.ButtonSecondary" @onclick="ResetRecoveryCodesAsync">Gerar novos códigos de recuperação</button>
+        <button class="@Ui.ButtonDangerOutline" @onclick="DisableAsync">Desativar</button>
     </div>
 }
 else
 {
-    <ol>
-        <li class="mb-2">
+    <ol class="list-decimal space-y-4 pl-5 text-slate-700">
+        <li>
             No aplicativo autenticador, adicione uma conta com a chave:
-            <code class="d-block fs-5 my-2 user-select-all">@FormatKey(_status.SharedKey)</code>
+            <code class="my-2 block select-all rounded-lg bg-slate-100 px-3 py-2 font-mono text-lg text-slate-900">@FormatKey(_status.SharedKey)</code>
         </li>
         <li>
             Informe o código de 6 dígitos gerado:
-            <div class="d-flex gap-2 mt-2" style="max-width: 20rem;">
-                <input class="form-control" @bind="_code" inputmode="numeric" autocomplete="one-time-code" aria-label="Código de verificação" />
-                <button class="btn btn-primary" @onclick="EnableAsync" disabled="@string.IsNullOrWhiteSpace(_code)">Ativar</button>
+            <div class="mt-2 flex max-w-xs gap-2">
+                <input class="@Ui.Input" @bind="_code" inputmode="numeric" autocomplete="one-time-code" aria-label="Código de verificação" />
+                <button class="@Ui.Button" @onclick="EnableAsync" disabled="@string.IsNullOrWhiteSpace(_code)">Ativar</button>
             </div>
         </li>
     </ol>

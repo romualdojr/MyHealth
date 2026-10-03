@@ -4,8 +4,8 @@
 
 <PageTitle>Retenção · Plataforma</PageTitle>
 
-<h1 class="h3">Políticas de retenção</h1>
-<p class="text-body-secondary">
+<h1 class="@Ui.PageTitle">Políticas de retenção</h1>
+<p class="@($"{Ui.Help} mb-4")">
     Prazo e base legal por tipo de registro (RF-50, RNF-01). Os valores devem vir da assessoria jurídica; por enquanto são registrados e
     publicados, ainda sem expurgo automático.
 </p>
@@ -18,32 +18,34 @@
 }
 else
 {
-    <table class="table table-sm align-middle">
-        <thead>
-            <tr><th>Registro</th><th style="width: 9rem;">Meses</th><th>Base legal</th><th>Observações</th><th></th></tr>
-        </thead>
-        <tbody>
-            @foreach (var row in _items)
-            {
-                <tr>
-                    <td>
-                        <code>@row.RecordType</code>
-                        @if (row.UpdatedAt is { } at)
-                        {
-                            <div class="small text-body-secondary">@at.ToLocalTime().ToString("dd/MM/yyyy")</div>
-                        }
-                    </td>
-                    <td><input type="number" min="1" max="1200" class="form-control form-control-sm" @bind="row.Months" aria-label="Meses" /></td>
-                    <td><input class="form-control form-control-sm" @bind="row.LegalBasis" aria-label="Base legal" /></td>
-                    <td><input class="form-control form-control-sm" @bind="row.Notes" aria-label="Observações" /></td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-primary" disabled="@(row.Months is null || string.IsNullOrWhiteSpace(row.LegalBasis))"
-                                @onclick="() => SaveAsync(row)">Salvar</button>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="@Ui.TableWrap">
+        <table class="@Ui.Table">
+            <thead class="@Ui.THead">
+                <tr><th class="@Ui.Th">Registro</th><th class="@($"{Ui.Th} w-36")">Meses</th><th class="@Ui.Th">Base legal</th><th class="@Ui.Th">Observações</th><th class="@Ui.Th"></th></tr>
+            </thead>
+            <tbody class="@Ui.TBody">
+                @foreach (var row in _items)
+                {
+                    <tr>
+                        <td class="@Ui.Td">
+                            <code class="rounded bg-slate-100 px-1 font-mono text-xs">@row.RecordType</code>
+                            @if (row.UpdatedAt is { } at)
+                            {
+                                <div class="text-xs text-slate-500">@at.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                            }
+                        </td>
+                        <td class="@Ui.Td"><input type="number" min="1" max="1200" class="@Ui.InputSm" @bind="row.Months" aria-label="Meses" /></td>
+                        <td class="@Ui.Td"><input class="@($"{Ui.InputSm} min-w-40")" @bind="row.LegalBasis" aria-label="Base legal" /></td>
+                        <td class="@Ui.Td"><input class="@($"{Ui.InputSm} min-w-40")" @bind="row.Notes" aria-label="Observações" /></td>
+                        <td class="@Ui.Td">
+                            <button class="@Ui.ButtonOutlineSm" disabled="@(row.Months is null || string.IsNullOrWhiteSpace(row.LegalBasis))"
+                                    @onclick="() => SaveAsync(row)">Salvar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
 
 @code {

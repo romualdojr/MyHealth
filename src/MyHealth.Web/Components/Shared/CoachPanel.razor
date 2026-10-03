@@ -1,10 +1,10 @@
 @* The trainer's AI coach for one plan: request an analysis, then apply suggestions to the draft or dismiss them. *@
 @inject MyHealthApiClient Api
 
-<section class="card mb-3 coach-panel" aria-labelledby="coach-title">
-    <div class="card-body">
-        <h2 id="coach-title" class="h6 mb-1">Assistente de treino (IA)</h2>
-        <p class="small text-body-secondary mb-2">
+<section class="@($"{Ui.Card} mb-4")" aria-labelledby="coach-title">
+    <div class="@Ui.CardBody">
+        <h2 id="coach-title" class="@($"{Ui.CardTitle} mb-1")">Assistente de treino (IA)</h2>
+        <p class="@($"{Ui.Help} mb-3")">
             Compara o que o cliente fez com o que foi prescrito e sugere ajustes. A decisão é sua: nada muda até você aplicar e publicar.
         </p>
 
@@ -19,7 +19,7 @@
         }
         else if (!_overview.SharingGranted)
         {
-            <p class="small alert alert-secondary mb-0">
+            <p class="@Ui.AlertNeutral">
                 O cliente ainda não autorizou a análise por IA dos treinos dele. Ele pode ativar em <strong>Compartilhamento › Análise por IA</strong> no aplicativo.
             </p>
         }
@@ -27,56 +27,56 @@
         {
             @if (!ReadOnly)
             {
-                <label class="form-label small" for="coach-focus">Algo específico? (opcional)</label>
-                <input id="coach-focus" class="form-control form-control-sm mb-2" placeholder="Ex.: estagnação no supino" maxlength="500" @bind="_focus" />
-                <button class="btn btn-sm btn-primary w-100" disabled="@(_busy || _overview.UsedToday >= _overview.DailyLimit)" @onclick="AnalyzeAsync">
+                <label class="@Ui.Label" for="coach-focus">Algo específico? (opcional)</label>
+                <input id="coach-focus" class="@($"{Ui.InputSm} mb-2")" placeholder="Ex.: estagnação no supino" maxlength="500" @bind="_focus" />
+                <button class="@($"{Ui.ButtonSm} w-full")" disabled="@(_busy || _overview.UsedToday >= _overview.DailyLimit)" @onclick="AnalyzeAsync">
                     @(_busy ? "Analisando…" : "Analisar progresso")
                 </button>
-                <p class="small text-body-secondary mt-1 mb-2">@_overview.UsedToday de @_overview.DailyLimit análises nas últimas 24 h na organização.</p>
+                <p class="mt-1 mb-3 text-xs text-slate-500">@_overview.UsedToday de @_overview.DailyLimit análises nas últimas 24 h na organização.</p>
             }
 
             @if (_overview.Analyses.Count > 0)
             {
                 var latest = _overview.Analyses[0];
-                <div class="border-top pt-2" aria-live="polite">
-                    <div class="small text-body-secondary mb-1">
+                <div class="border-t border-slate-200 pt-3" aria-live="polite">
+                    <div class="mb-1 text-xs text-slate-500">
                         @latest.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm") · versão @latest.PlanVersionNumber@(latest.Focus is { } f ? $" · foco: {f}" : string.Empty)
                     </div>
-                    <p class="small">@latest.Summary</p>
+                    <p class="mb-3 text-sm text-slate-700">@latest.Summary</p>
                     @foreach (var notice in latest.Notices)
                     {
-                        <p class="small alert alert-warning py-1 px-2">@notice</p>
+                        <p class="mb-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm text-amber-900">@notice</p>
                     }
 
                     @if (IsDirty && latest.Suggestions.Any(s => s.Status == "Pending"))
                     {
-                        <p class="small text-warning-emphasis">Salve o rascunho antes de aplicar sugestões.</p>
+                        <p class="mb-2 text-sm text-amber-700">Salve o rascunho antes de aplicar sugestões.</p>
                     }
 
                     @foreach (var suggestion in latest.Suggestions)
                     {
-                        <div class="border rounded p-2 mb-2 small @(suggestion.Status == "Pending" ? string.Empty : "opacity-75")">
-                            <div class="fw-semibold">@suggestion.Title</div>
+                        <div class="mb-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-700 @(suggestion.Status == "Pending" ? string.Empty : "opacity-75")">
+                            <div class="font-semibold text-slate-900">@suggestion.Title</div>
                             @if (suggestion.Change is { } change)
                             {
                                 <div>@change</div>
                             }
-                            <div class="text-body-secondary">@suggestion.Reason</div>
+                            <div class="text-slate-500">@suggestion.Reason</div>
                             @if (suggestion.Status == "Pending")
                             {
                                 @if (!ReadOnly)
                                 {
-                                    <div class="d-flex gap-2 mt-1">
-                                        <button class="btn btn-sm btn-outline-primary" disabled="@(_busy || IsDirty)" @onclick="() => ResolveAsync(latest, suggestion, apply: true)">
+                                    <div class="mt-2 flex gap-2">
+                                        <button class="@Ui.ButtonOutlineSm" disabled="@(_busy || IsDirty)" @onclick="() => ResolveAsync(latest, suggestion, apply: true)">
                                             @(suggestion.Kind == "TalkToClient" ? "Feito" : "Aplicar ao rascunho")
                                         </button>
-                                        <button class="btn btn-sm btn-link" disabled="@_busy" @onclick="() => ResolveAsync(latest, suggestion, apply: false)">Dispensar</button>
+                                        <button class="@Ui.ButtonLinkSm" disabled="@_busy" @onclick="() => ResolveAsync(latest, suggestion, apply: false)">Dispensar</button>
                                     </div>
                                 }
                             }
                             else
                             {
-                                <span class="badge @(suggestion.Status == "Applied" ? "text-bg-success" : "text-bg-secondary") mt-1">
+                                <span class="@($"{(suggestion.Status == "Applied" ? Ui.BadgeSuccess : Ui.BadgeNeutral)} mt-1")">
                                     @(suggestion.Status == "Applied" ? "aplicada" : "dispensada")
                                 </span>
                             }
@@ -86,12 +86,12 @@
 
                 @if (_overview.Analyses.Count > 1)
                 {
-                    <details class="small">
-                        <summary>Análises anteriores</summary>
+                    <details class="mt-2 text-sm text-slate-700">
+                        <summary class="cursor-pointer py-1 font-medium text-slate-600 hover:text-slate-900">Análises anteriores</summary>
                         @foreach (var older in _overview.Analyses.Skip(1))
                         {
                             <div class="mt-2">
-                                <div class="text-body-secondary">@older.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm") · @older.Suggestions.Count(s => s.Status == "Applied") aplicada(s)</div>
+                                <div class="text-slate-500">@older.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm") · @older.Suggestions.Count(s => s.Status == "Applied") aplicada(s)</div>
                                 @older.Summary
                             </div>
                         }
