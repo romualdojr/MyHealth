@@ -1,0 +1,82 @@
+@page "/account/security"
+@attribute [Authorize]
+@inject PortalOptions Portal
+@inject MyHealthApiClient Api
+
+<PageTitle>Segurança · @Portal.Name</PageTitle>
+
+<h1 class="@Ui.PageTitle">Verificação em duas etapas</h1>
+<p class="@($"{Ui.Help} mt-1 mb-6")">
+    Obrigatória para profissionais e operadores (RNF-02). Use um aplicativo autenticador (Google Authenticator, Microsoft Authenticator, 1Password…).
+</p>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_status is null)
+{
+    <Loading />
+}
+else if (_status.IsTwoFactorEnabled)
+{
+    <div class="@($"{Ui.AlertSuccess} mb-4")">A verificação em duas etapas está ativa. Códigos de recuperação restantes: @_status.RecoveryCodesLeft.</div>
+
+    @if (_status.RecoveryCodes is { Count: > 0 } codes)
+    {
+        <div class="@($"{Ui.Card} mb-4")">
+            <div class="@Ui.CardBody">
+                <h2 class="@Ui.CardTitle">Códigos de recuperação</h2>
+                <p class="@($"{Ui.Help} mt-1 mb-3")">Guarde-os em local seguro. Eles não serão exibidos novamente.</p>
+                <pre class="overflow-x-auto rounded-lg bg-slate-100 p-3 font-mono text-sm">@string.Join(Environment.NewLine, codes)</pre>
+            </div>
+        </div>
+    }
+
+    <div class="flex flex-wrap gap-2">
+        <button class="@Ui.ButtonSecondary" @onclick="ResetRecoveryCodesAsync">Gerar novos códigos de recuperação</button>
+        <button class="@Ui.ButtonDangerOutline" @onclick="DisableAsync">Desativar</button>
+    </div>
+}
+else
+{
+    <ol class="list-decimal space-y-4 pl-5 text-slate-700">
+        <li>
+            No aplicativo autenticador, adicione uma conta com a chave:
+            <code class="my-2 block select-all rounded-lg bg-slate-100 px-3 py-2 font-mono text-lg text-slate-900">@FormatKey(_status.SharedKey)</code>
+        </li>
+        <li>
+            Informe o código de 6 dígitos gerado:
+            <div class="mt-2 flex max-w-xs gap-2">
+                <input class="@Ui.Input" @bind="_code" inputmode="numeric" autocomplete="one-time-code" aria-label="Código de verificação" />
+                <button class="@Ui.Button" @onclick="EnableAsync" disabled="@string.IsNullOrWhiteSpace(_code)">Ativar</button>
+            </div>
+        </li>
+    </ol>
+}
+
+@code {
+    private TwoFactorStatus? _status;
+    private ApiProblem? _problem;
+    private string? _code;
+
+    protected override Task OnInitializedAsync() => ChangeAsync(new { });
+
+    private Task EnableAsync() => ChangeAsync(new { enable = true, twoFactorCode = _code?.Trim().Replace(" ", string.Empty, StringComparison.Ordinal) });
+
+    private Task DisableAsync() => ChangeAsync(new { enable = false });
+
+    private Task ResetRecoveryCodesAsync() => ChangeAsync(new { resetRecoveryCodes = true });
+
+    private async Task ChangeAsync(object change)
+    {
+        var result = await Api.PostAsync<TwoFactorStatus>("auth/manage/2fa", change);
+        _problem = result.Problem;
+        if (result.Value is not null)
+        {
+            _status = result.Value;
+            _code = null;
+        }
+    }
+
+    private static string FormatKey(string key) =>
+        string.Join(' ', Enumerable.Range(0, (key.Length + 3) / 4).Select(i => key.Substring(i * 4, Math.Min(4, key.Length - (i * 4))))).ToLowerInvariant();
+}

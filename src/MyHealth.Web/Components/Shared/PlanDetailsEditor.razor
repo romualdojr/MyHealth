@@ -1,0 +1,56 @@
+@* The plan's name, goal, level, dates and weekly frequency; used when creating a plan and in the plan editor. *@
+
+<div class="grid grid-cols-12 gap-3">
+    <div class="col-span-12 md:col-span-6">
+        <label class="@Ui.Label" for="@($"{Prefix}-name")">Nome do plano</label>
+        <input id="@($"{Prefix}-name")" class="@Ui.Input" placeholder="Ex.: Hipertrofia — fase 1" @bind="Form.Name" @bind:event="oninput" @bind:after="Changed" />
+    </div>
+    <div class="col-span-6 md:col-span-3">
+        <label class="@Ui.Label" for="@($"{Prefix}-level")">Nível</label>
+        <select id="@($"{Prefix}-level")" class="@Ui.Select" @bind="Form.Level" @bind:after="Changed">
+            @foreach (var level in TrainingLabels.Levels)
+            {
+                <option value="@level">@TrainingLabels.Level(level)</option>
+            }
+        </select>
+    </div>
+    <div class="col-span-6 md:col-span-3">
+        <label class="@Ui.Label" for="@($"{Prefix}-freq")">Treinos por semana</label>
+        <input id="@($"{Prefix}-freq")" type="number" min="1" max="14" class="@Ui.Input" @bind="Form.SuggestedSessionsPerWeek" @bind:after="Changed" />
+    </div>
+    <div class="col-span-12 md:col-span-6">
+        <label class="@Ui.Label" for="@($"{Prefix}-goal")">Objetivo</label>
+        <input id="@($"{Prefix}-goal")" class="@Ui.Input" placeholder="Ex.: ganhar força nos membros inferiores" @bind="Form.Goal" @bind:event="oninput" @bind:after="Changed" />
+    </div>
+    <div class="col-span-6 md:col-span-3">
+        <label class="@Ui.Label" for="@($"{Prefix}-start")">Início</label>
+        <input id="@($"{Prefix}-start")" type="date" class="@Ui.Input" @bind="Form.StartDate" @bind:after="Changed" />
+    </div>
+    <div class="col-span-6 md:col-span-3">
+        <label class="@Ui.Label" for="@($"{Prefix}-end")">Fim (opcional)</label>
+        <input id="@($"{Prefix}-end")" type="date" class="@Ui.Input" @bind="Form.EndDate" @bind:after="Changed" />
+    </div>
+    @if (ShowNotes)
+    {
+        <div class="col-span-12">
+            <label class="@Ui.Label" for="@($"{Prefix}-notes")">Observações para o cliente (opcional)</label>
+            <textarea id="@($"{Prefix}-notes")" class="@Ui.Textarea" rows="2" @bind="Form.Notes" @bind:event="oninput" @bind:after="Changed"></textarea>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public PlanDetailsForm Form { get; set; } = default!;
+
+    [Parameter]
+    public bool ShowNotes { get; set; }
+
+    [Parameter]
+    public string Prefix { get; set; } = "plan";
+
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
+    private Task Changed() => OnChanged.InvokeAsync();
+}

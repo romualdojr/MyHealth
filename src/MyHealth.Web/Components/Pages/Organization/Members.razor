@@ -1,0 +1,166 @@
+@page "/organization/members"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+
+<PageTitle>Membros · Organização</PageTitle>
+
+<h1 class="@($"{Ui.PageTitle} mb-4")">Membros — @(Workspace.Membership?.TenantName ?? "organização")</h1>
+
+@if (!Workspace.IsTenantAdministrator)
+{
+    <p class="@Ui.AlertInfo">Selecione uma organização que você administra.</p>
+}
+else
+{
+    <p class="@($"{Ui.Help} mb-4")">
+        Administrar membros não dá acesso a dados clínicos (MT-05). Remover alguém encerra os vínculos dessa pessoa com clientes nesta
+        organização; os registros permanecem com a organização (MT-08).
+    </p>
+
+    <ProblemAlert Problem="_problem" />
+
+    @if (_revoking is { } member)
+    {
+        <ReasonForm Title="@($"Remover {member.FullName ?? member.Email}")" Tone="danger" Required="false" Label="Motivo (opcional)" ConfirmText="Remover"
+                    OnConfirm="RevokeAsync" OnCancel="() => _revoking = null" />
+    }
+
+    <div class="@($"{Ui.Card} mb-6")">
+        <div class="@Ui.CardBody">
+            <h2 class="@($"{Ui.CardTitle} mb-3")">Convidar profissional</h2>
+            <div class="grid grid-cols-12 items-end gap-3">
+                <div class="col-span-12 md:col-span-4">
+                    <label class="@Ui.Label" for="invite-email">E-mail</label>
+                    <input id="invite-email" type="email" class="@Ui.Input" @bind="_email" @bind:event="oninput" />
+                </div>
+                <div class="col-span-12 md:col-span-5">
+                    <span class="@Ui.Label">Áreas de atuação</span>
+                    <div class="flex flex-wrap gap-x-4 gap-y-2 py-1">
+                        @foreach (var discipline in Disciplines)
+                        {
+                            <label class="@Ui.CheckLabel" for="d-@discipline">
+                                <input class="@Ui.Checkbox" type="checkbox" id="d-@discipline" checked="@_disciplines.Contains(discipline)"
+                                       @onchange="e => Toggle(discipline, (bool)e.Value!)" />
+                                @Labels.Discipline(discipline)
+                            </label>
+                        }
+                        <label class="@Ui.CheckLabel" for="d-admin">
+                            <input class="@Ui.Checkbox" type="checkbox" id="d-admin" @bind="_isAdministrator" />
+                            Administrador
+                        </label>
+                    </div>
+                </div>
+                <div class="col-span-12 md:col-span-3">
+                    <button class="@($"{Ui.Button} w-full")" disabled="@(string.IsNullOrWhiteSpace(_email) || (_disciplines.Count == 0 && !_isAdministrator))"
+                            @onclick="InviteAsync">Convidar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_items is null)
+    {
+        <Loading />
+    }
+    else
+    {
+        <div class="@Ui.TableWrap">
+            <table class="@Ui.Table">
+                <thead class="@Ui.THead"><tr><th class="@Ui.Th">Pessoa</th><th class="@Ui.Th">Áreas</th><th class="@Ui.Th">Situação</th><th class="@Ui.Th">Desde</th><th class="@Ui.Th"></th></tr></thead>
+                <tbody class="@Ui.TBody">
+                    @foreach (var m in _items)
+                    {
+                        <tr>
+                            <td class="@Ui.Td"><span class="font-medium text-slate-900">@(m.FullName ?? "—")</span><div class="text-xs text-slate-500">@m.Email</div></td>
+                            <td class="@Ui.Td">@string.Join(", ", m.Disciplines.Select(Labels.Discipline))@(m.IsAdministrator ? " · administrador" : string.Empty)</td>
+                            <td class="@Ui.Td"><StatusBadge Status="@m.Status" /></td>
+                            <td class="@($"{Ui.Td} whitespace-nowrap")">@((m.JoinedAt ?? m.InvitedAt).ToLocalTime().ToString("dd/MM/yyyy"))</td>
+                            <td class="@($"{Ui.Td} text-right")">
+                                @if (m.Status is "Active" or "Pending")
+                                {
+                                    <button class="@Ui.ButtonDangerOutlineSm" @onclick="() => _revoking = m">@(m.Status == "Pending" ? "Cancelar convite" : "Remover")</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private static readonly string[] Disciplines = ["PersonalTrainer", "Dietitian", "TherapyPractitioner"];
+
+    private List<MembershipItem>? _items;
+    private ApiProblem? _problem;
+    private MembershipItem? _revoking;
+    private string? _email;
+    private bool _isAdministrator;
+    private readonly HashSet<string> _disciplines = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        if (!Workspace.IsTenantAdministrator)
+        {
+            _items = null;
+            return;
+        }
+
+        var result = await Api.GetAsync<List<MembershipItem>>("tenant/memberships");
+        _items = result.Value ?? [];
+        _problem = result.Problem;
+    }
+
+    private void Toggle(string discipline, bool on)
+    {
+        if (on)
+        {
+            _disciplines.Add(discipline);
+        }
+        else
+        {
+            _disciplines.Remove(discipline);
+        }
+    }
+
+    private async Task InviteAsync()
+    {
+        var result = await Api.PostAsync<object>("tenant/memberships/invitations", new { email = _email, disciplines = _disciplines.ToArray(), isAdministrator = _isAdministrator });
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _email = null;
+            _disciplines.Clear();
+            _isAdministrator = false;
+            await LoadAsync();
+        }
+    }
+
+    private async Task RevokeAsync(string? reason)
+    {
+        var result = await Api.PostAsync($"tenant/memberships/{_revoking!.Id}/revoke", new { reason });
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _revoking = null;
+            await LoadAsync();
+        }
+    }
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

@@ -1,0 +1,19 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <OutputType>Exe</OutputType>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    <!-- CA1822: scenario helpers read better as instance methods. -->
+    <NoWarn>$(NoWarn);CA1822</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Shouldly" />
+    <Using Include="Xunit" />
+    <Using Include="Shouldly" />
+  </ItemGroup>
+</Project>

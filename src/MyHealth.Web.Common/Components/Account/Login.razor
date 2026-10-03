@@ -1,0 +1,111 @@
+@page "/login"
+@attribute [ExcludeFromInteractiveRouting]
+@attribute [AllowAnonymous]
+@layout AuthLayout
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@inject SignInService SignIn
+@inject NavigationManager Navigation
+@inject PortalOptions Portal
+
+<PageTitle>Entrar · @Portal.Name</PageTitle>
+
+<div class="@Ui.Card">
+    <div class="p-6 sm:p-8">
+        <h2 class="@($"{Ui.SectionTitle} mb-4")">Entrar</h2>
+
+        @if (_message is not null)
+        {
+            <div class="@($"{(_requiresCode ? Ui.AlertInfo : Ui.AlertDanger)} mb-4")" role="alert">@_message</div>
+        }
+
+        <EditForm Model="Input" method="post" OnValidSubmit="SubmitAsync" FormName="login">
+            <DataAnnotationsValidator />
+
+            <div class="mb-4">
+                <label for="email" class="@Ui.Label">E-mail</label>
+                <InputText id="email" @bind-Value="Input.Email" class="@Ui.Input" autocomplete="username" />
+                <ValidationMessage For="() => Input.Email" />
+            </div>
+
+            <div class="mb-4">
+                <label for="password" class="@Ui.Label">Senha</label>
+                <InputText id="password" type="password" @bind-Value="Input.Password" class="@Ui.Input" autocomplete="current-password" />
+                <ValidationMessage For="() => Input.Password" />
+            </div>
+
+            @if (_requiresCode || !string.IsNullOrEmpty(Input.Code))
+            {
+                <div class="mb-4">
+                    <label for="code" class="@Ui.Label">Código de verificação</label>
+                    <InputText id="code" @bind-Value="Input.Code" class="@Ui.Input" autocomplete="one-time-code" inputmode="numeric" />
+                    <div class="mt-1 text-xs text-slate-500">O código de 6 dígitos do seu aplicativo autenticador.</div>
+                </div>
+            }
+
+            <button type="submit" class="@($"{Ui.Button} w-full")">Entrar</button>
+        </EditForm>
+    </div>
+</div>
+
+<p class="mt-4 text-center text-sm text-slate-500">
+    @Portal.Tagline
+</p>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
+    [SupplyParameterFromForm]
+    private LoginInput Input { get; set; } = default!;
+
+    // The form posts back to the same URL, query string included, so the return URL survives the post.
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? _message;
+    private bool _requiresCode;
+
+    protected override void OnInitialized() => Input ??= new();
+
+    private async Task SubmitAsync()
+    {
+        var result = await SignIn.SignInAsync(Input.Email, Input.Password, Input.Code, HttpContext.RequestAborted);
+        switch (result.Outcome)
+        {
+            case SignInOutcome.Succeeded when Portal.OperatorsOnly && !result.Principal!.IsInRole(SessionClaims.AdministratorRole):
+                _message = "Acesso restrito aos operadores da plataforma.";
+                break;
+            case SignInOutcome.Succeeded:
+                await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, result.Principal!);
+                Navigation.NavigateTo(ReturnUrls.Sanitize(ReturnUrl), forceLoad: true);
+                break;
+            case SignInOutcome.RequiresTwoFactor:
+                _requiresCode = true;
+                _message = string.IsNullOrEmpty(Input.Code)
+                    ? "Sua conta usa verificação em duas etapas. Informe o código do aplicativo autenticador."
+                    : "Código inválido. Tente novamente.";
+                break;
+            case SignInOutcome.LockedOut:
+                _message = "Conta bloqueada temporariamente por excesso de tentativas. Tente mais tarde.";
+                break;
+            default:
+                _message = "E-mail ou senha incorretos.";
+                break;
+        }
+    }
+
+
+    private sealed class LoginInput
+    {
+        [Required(ErrorMessage = "Informe o e-mail.")]
+        [EmailAddress(ErrorMessage = "E-mail inválido.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Informe a senha.")]
+        public string Password { get; set; } = string.Empty;
+
+        public string? Code { get; set; }
+    }
+}

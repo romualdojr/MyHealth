@@ -1,0 +1,22 @@
+<div class="@($"{Ui.Card} h-full {(Warn && Value > 0 ? "border-amber-300 bg-amber-50" : string.Empty)}")">
+    <div class="@Ui.CardBody">
+        <div class="text-sm text-slate-500">@Label</div>
+        <div class="mt-1 text-3xl font-semibold tracking-tight text-slate-900">@(Text ?? Value.ToString(System.Globalization.CultureInfo.CurrentCulture))</div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    [Parameter]
+    public int Value { get; set; }
+
+    /// <summary>Shown instead of <see cref="Value"/> (amounts, for example).</summary>
+    [Parameter]
+    public string? Text { get; set; }
+
+    /// <summary>Highlights the card when the value is above zero.</summary>
+    [Parameter]
+    public bool Warn { get; set; }
+}

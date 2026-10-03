@@ -1,0 +1,47 @@
+@page "/admin/tenants"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+
+<PageTitle>Organizações · Plataforma</PageTitle>
+
+<h1 class="@Ui.PageTitle">Organizações</h1>
+<p class="@($"{Ui.Help} mb-4")">Metadados apenas: operadores da plataforma não acessam dados de dentro das organizações.</p>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_items is null)
+{
+    <Loading />
+}
+else
+{
+    <div class="@Ui.TableWrap">
+        <table class="@Ui.Table">
+            <thead class="@Ui.THead"><tr><th class="@Ui.Th">Nome</th><th class="@Ui.Th">Tipo</th><th class="@Ui.Th">Membros ativos</th><th class="@Ui.Th">Criada em</th><th class="@Ui.Th">Id</th></tr></thead>
+            <tbody class="@Ui.TBody">
+                @foreach (var t in _items)
+                {
+                    <tr>
+                        <td class="@Ui.Td"><a class="@Ui.Link" href="billing/tenants/@t.Id">@t.Name</a></td>
+                        <td class="@Ui.Td">@(t.Kind == "SoloPractice" ? "Consultório individual" : "Organização")</td>
+                        <td class="@Ui.Td">@t.ActiveMembers</td>
+                        <td class="@Ui.Td">@t.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                        <td class="@Ui.Td"><code class="select-all rounded bg-slate-100 px-1 font-mono text-xs">@t.Id</code></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<TenantSummaryItem>? _items;
+    private ApiProblem? _problem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetAsync<List<TenantSummaryItem>>("admin/tenants");
+        _items = result.Value ?? [];
+        _problem = result.Problem;
+    }
+}

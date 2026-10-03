@@ -1,0 +1,17 @@
+<Router AppAssembly="typeof(Program).Assembly" AdditionalAssemblies="new[] { typeof(PortalOptions).Assembly }">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated == true)
+                {
+                    <p class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Você não tem acesso a esta página.</p>
+                }
+                else
+                {
+                    <RedirectToLogin />
+                }
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

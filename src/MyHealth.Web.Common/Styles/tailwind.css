@@ -1,0 +1,31 @@
+/* The only stylesheet of the MyHealth web dashboard and back office. Pages use Tailwind utility classes; recurring
+   combinations live in Ui.cs as C# constants (no custom component CSS). Built into wwwroot/css/app.css by MSBuild. */
+@import "tailwindcss";
+
+/* Class names are read from the markup and the C# class constants of both apps and this library. */
+@source "../../MyHealth.Web";
+@source "../../MyHealth.Backoffice";
+@source "..";
+
+/* Elements rendered by the Blazor framework itself, which cannot take classes in markup. */
+@layer base {
+    h1:focus {
+        @apply outline-none;
+    }
+
+    .blazor-error-boundary {
+        @apply rounded-lg bg-red-700 p-4 text-white;
+    }
+
+    .blazor-error-boundary::after {
+        content: "Ocorreu um erro nesta parte da página.";
+    }
+
+    .validation-message {
+        @apply mt-1 text-sm text-red-700;
+    }
+
+    .invalid {
+        @apply border-red-500;
+    }
+}

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\MyHealth.Application\MyHealth.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The Claude client is tested against a stubbed HTTP handler (no API key needed). -->
+    <InternalsVisibleTo Include="MyHealth.Api.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

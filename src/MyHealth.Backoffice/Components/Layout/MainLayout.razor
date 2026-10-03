@@ -1,0 +1,22 @@
+@inherits LayoutComponentBase
+
+<AppShell Brand="MyHealth · Back office">
+    <Navigation>
+        <NavMenu />
+    </Navigation>
+    <TopBar>
+        <AuthorizeView>
+            <Authorized>
+                <span class="@Ui.BadgeDark">Operador</span>
+                <span class="hidden text-sm text-slate-500 sm:inline">@context.User.Identity?.Name</span>
+                <form action="account/logout" method="post">
+                    <AntiforgeryToken />
+                    <button type="submit" class="@Ui.ButtonSecondarySm">Sair</button>
+                </form>
+            </Authorized>
+        </AuthorizeView>
+    </TopBar>
+    <ChildContent>
+        @Body
+    </ChildContent>
+</AppShell>

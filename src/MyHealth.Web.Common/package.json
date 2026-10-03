@@ -1,0 +1,13 @@
+{
+  "name": "myhealth-web-common",
+  "private": true,
+  "description": "Tailwind CSS for the MyHealth web dashboard and back office (built by MSBuild; see MyHealth.Web.Common.csproj).",
+  "scripts": {
+    "build:css": "tailwindcss -i Styles/tailwind.css -o wwwroot/css/app.css --minify",
+    "watch:css": "tailwindcss -i Styles/tailwind.css -o wwwroot/css/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "tailwindcss": "^4.1.0"
+  }
+}

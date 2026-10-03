@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MyHealth.ServiceDefaults\MyHealth.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\MyHealth.Web.Common\MyHealth.Web.Common.csproj" />
   </ItemGroup>
 
 </Project>

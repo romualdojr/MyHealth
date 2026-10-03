@@ -1,0 +1,559 @@
+@page "/trainer/plans/{PlanId:guid}"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>@(_plan?.Details.Name ?? "Plano") · MyHealth</PageTitle>
+
+<NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="@IsDirty" />
+
+@if (!Workspace.Practices("PersonalTrainer"))
+{
+    <p class="@Ui.AlertInfo">Selecione uma organização em que você atua como personal trainer.</p>
+}
+else if (_plan is null)
+{
+    <ProblemAlert Problem="_problem" />
+    @if (_problem is null)
+    {
+        <Loading />
+    }
+}
+else
+{
+    <nav aria-label="Caminho" class="@Ui.Breadcrumb">
+        <a href="trainer" class="@Ui.Link">Clientes</a> / <a href="trainer/clients/@_plan.ClientId" class="@Ui.Link">@(_clientName ?? "Cliente")</a> / @_plan.Details.Name
+    </nav>
+
+    <div class="sticky top-14 z-10 -mx-4 mb-4 flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur">
+        <div class="min-w-0 grow">
+            <h1 class="@($"{Ui.PageTitle} flex flex-wrap items-center gap-2")">
+                @_plan.Details.Name
+                <span class="@TrainingLabels.PlanBadge(_plan.Status)">@TrainingLabels.PlanStatus(_plan.Status)</span>
+            </h1>
+            <div class="text-sm text-slate-500">
+                @(_plan.CurrentVersionNumber > 0 ? $"O cliente vê a versão {_plan.CurrentVersionNumber}." : "O cliente ainda não vê este plano.")
+                @if (IsDirty)
+                {
+                    <strong class="font-semibold text-amber-700"> Alterações não salvas.</strong>
+                }
+                else if (_plan.HasUnpublishedChanges)
+                {
+                    <span> Rascunho salvo com alterações ainda não publicadas.</span>
+                }
+            </div>
+        </div>
+        @if (!IsEnded)
+        {
+            <button class="@(IsDirty ? Ui.ButtonOutline : Ui.ButtonSecondary)" disabled="@(!IsDirty || _busy)" @onclick="SaveAsync">Salvar rascunho</button>
+            <button class="@Ui.Button" disabled="@(_busy || !(IsDirty || _plan.HasUnpublishedChanges || _plan.CurrentVersionNumber == 0))"
+                    @onclick="StartPublishing">Publicar…</button>
+        }
+    </div>
+
+    <ProblemAlert Problem="_problem" />
+
+    @if (_message is not null)
+    {
+        <p class="@($"{Ui.AlertSuccess} mb-4")" role="status">@_message</p>
+    }
+
+    @if (_pendingNavigation is not null)
+    {
+        <div class="@($"{Ui.AlertWarning} mb-4 flex flex-wrap items-center gap-2")" role="alert">
+            <span class="grow">Há alterações não salvas neste plano.</span>
+            <button class="@Ui.ButtonSm" @onclick="SaveAndLeaveAsync">Salvar e sair</button>
+            <button class="@Ui.ButtonDangerOutlineSm" @onclick="DiscardAndLeave">Descartar alterações</button>
+            <button class="@Ui.ButtonLinkSm" @onclick="() => _pendingNavigation = null">Continuar editando</button>
+        </div>
+    }
+
+    @if (_plan.ReviewRequestedAt is not null && !IsEnded)
+    {
+        <div class="@($"{Ui.AlertInfo} mb-4 flex flex-wrap items-center gap-2")">
+            <span class="grow"><strong class="font-semibold">Revisão sugerida:</strong> @(_plan.ReviewReason ?? "houve uma mudança relevante no histórico do cliente.")</span>
+            <button class="@Ui.ButtonOutlineSm" @onclick="AcknowledgeAsync">O plano continua adequado</button>
+        </div>
+    }
+
+    @if (_publishing)
+    {
+        var issues = _draft.PublishingIssues();
+        <div class="@($"{Ui.CardHighlight} mb-4")">
+            <div class="@Ui.CardBody">
+                <h2 class="@($"{Ui.CardTitle} mb-2")">Publicar versão @(_plan.CurrentVersionNumber + 1)</h2>
+                @if (issues.Count > 0)
+                {
+                    <p class="mb-1 text-sm text-slate-700">Antes de publicar, ajuste:</p>
+                    <ul class="mb-4 list-disc space-y-0.5 pl-5 text-sm text-red-700">
+                        @foreach (var issue in issues)
+                        {
+                            <li>@issue</li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="@($"{Ui.Help} mb-4")">
+                        O cliente passa a fazer esta versão no aplicativo e recebe um aviso. As versões anteriores ficam no histórico.
+                    </p>
+                }
+                <label class="@Ui.Label" for="change-description">O que mudou (o cliente vê este texto)</label>
+                <input id="change-description" class="@($"{Ui.Input} mb-3")" @bind="_changeDescription" @bind:event="oninput" />
+                <div class="flex flex-wrap gap-2">
+                    <button class="@Ui.Button" disabled="@(issues.Count > 0 || string.IsNullOrWhiteSpace(_changeDescription) || _busy)" @onclick="PublishAsync">Publicar agora</button>
+                    <button class="@Ui.ButtonLink" @onclick="() => _publishing = false">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="grid grid-cols-12 gap-6">
+        <div class="col-span-12 min-w-0 lg:col-span-9">
+            <details class="@($"{Ui.Card} mb-4")" open="@(_detailsOpen == true)">
+                <summary class="cursor-pointer px-4 py-3 font-medium text-slate-900">
+                    Dados do plano
+                    <span class="text-sm font-normal text-slate-500">— @TrainingLabels.Level(_details.Level) · @_details.SuggestedSessionsPerWeek por semana · @_details.Goal</span>
+                </summary>
+                <div class="@($"{Ui.CardBody} border-t border-slate-200")">
+                    <fieldset class="min-w-0" disabled="@IsEnded">
+                        <PlanDetailsEditor Form="_details" ShowNotes="true" Prefix="details" />
+                    </fieldset>
+                </div>
+            </details>
+
+            @if (_draft.Sessions.Count == 0)
+            {
+                <div class="@($"{Ui.EmptyState} mb-4")">
+                    <p class="mb-4">Monte os treinos do plano. Ex.: Treino A (superiores), Treino B (inferiores), um aeróbico.</p>
+                    <div class="flex flex-wrap justify-center gap-2">
+                        <button class="@Ui.Button" @onclick='() => AddSession("Strength")'>+ Treino de musculação</button>
+                        <button class="@Ui.ButtonOutline" @onclick='() => AddSession("Aerobic")'>+ Treino aeróbico</button>
+                    </div>
+                </div>
+            }
+
+            <fieldset class="min-w-0" disabled="@IsEnded">
+                @foreach (var session in _draft.Sessions)
+                {
+                    var index = _draft.Sessions.IndexOf(session);
+                    <section class="@($"{Ui.Card} mb-4")" aria-label="@session.Name">
+                        <div class="@Ui.CardHeader">
+                            <label class="sr-only" for="session-name-@index">Nome do treino</label>
+                            <input id="session-name-@index" class="@($"{Ui.InputSm} max-w-xs font-semibold")" @bind="session.Name" @bind:event="oninput" />
+                            <span class="@Ui.BadgeNeutral">@TrainingLabels.SessionKind(session.Kind)</span>
+                            <span class="grow"></span>
+                            <button class="@Ui.IconButton" title="Mover para cima" aria-label="Mover treino para cima" disabled="@(index == 0)"
+                                    @onclick="() => _draft.Sessions.Move(session, -1)">↑</button>
+                            <button class="@Ui.IconButton" title="Mover para baixo" aria-label="Mover treino para baixo" disabled="@(index == _draft.Sessions.Count - 1)"
+                                    @onclick="() => _draft.Sessions.Move(session, 1)">↓</button>
+                            <button class="@Ui.ButtonDangerOutlineSm" @onclick="() => _draft.Sessions.Remove(session)">Remover treino</button>
+                        </div>
+                        <div class="@Ui.CardBody">
+                            @if (session.IsAerobic)
+                            {
+                                var aerobic = session.Aerobic!;
+                                <div class="grid grid-cols-12 gap-3">
+                                    <div class="col-span-12 md:col-span-4">
+                                        <label class="@Ui.Label" for="aer-activity-@index">Atividade</label>
+                                        <input id="aer-activity-@index" class="@Ui.Input" placeholder="Caminhada, bicicleta, corrida…" @bind="aerobic.Activity" @bind:event="oninput" />
+                                    </div>
+                                    <div class="col-span-6 md:col-span-2">
+                                        <label class="@Ui.Label" for="aer-minutes-@index">Minutos</label>
+                                        <input id="aer-minutes-@index" type="number" min="1" class="@Ui.Input" @bind="aerobic.DurationMinutes" />
+                                    </div>
+                                    <div class="col-span-6 md:col-span-2">
+                                        <label class="@Ui.Label" for="aer-km-@index">Distância (km)</label>
+                                        <input id="aer-km-@index" type="number" min="0" step="0.1" class="@Ui.Input" @bind="aerobic.DistanceKm" />
+                                    </div>
+                                    <div class="col-span-12 md:col-span-4">
+                                        <label class="@Ui.Label" for="aer-intensity-@index">Intensidade</label>
+                                        <input id="aer-intensity-@index" class="@Ui.Input" placeholder="Ex.: moderada, consegue conversar" @bind="aerobic.Intensity" />
+                                    </div>
+                                    <div class="col-span-12 md:col-span-6">
+                                        <label class="@Ui.Label" for="aer-warm-@index">Aquecimento</label>
+                                        <input id="aer-warm-@index" class="@Ui.Input" @bind="aerobic.WarmUp" />
+                                    </div>
+                                    <div class="col-span-12 md:col-span-6">
+                                        <label class="@Ui.Label" for="aer-cool-@index">Desaquecimento</label>
+                                        <input id="aer-cool-@index" class="@Ui.Input" @bind="aerobic.CoolDown" />
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                @if (session.Exercises.Count == 0)
+                                {
+                                    <p class="@($"{Ui.Help} mb-3")">Nenhum exercício ainda.</p>
+                                }
+
+                                @foreach (var exercise in session.Exercises)
+                                {
+                                    var position = session.Exercises.IndexOf(exercise);
+                                    var key = $"{index}-{position}";
+                                    <div class="mb-3 rounded-lg border border-slate-200 p-3">
+                                        <div class="mb-2 flex items-center gap-2">
+                                            <span class="grow font-semibold text-slate-900">@(position + 1). @exercise.ExerciseName</span>
+                                            <button class="@Ui.IconButton" aria-label="Mover exercício para cima" disabled="@(position == 0)"
+                                                    @onclick="() => session.Exercises.Move(exercise, -1)">↑</button>
+                                            <button class="@Ui.IconButton" aria-label="Mover exercício para baixo" disabled="@(position == session.Exercises.Count - 1)"
+                                                    @onclick="() => session.Exercises.Move(exercise, 1)">↓</button>
+                                            <button class="@Ui.IconButtonDanger" aria-label="Remover @exercise.ExerciseName" @onclick="() => session.Exercises.Remove(exercise)">✕</button>
+                                        </div>
+
+                                        <div class="mb-1 overflow-x-auto">
+                                            <table class="w-full text-sm">
+                                                <thead><tr><th class="w-14 px-2 py-1 text-left text-xs font-semibold text-slate-500">Série</th><th class="px-2 py-1 text-left text-xs font-semibold text-slate-500">Alvo</th><th class="px-2 py-1 text-left text-xs font-semibold text-slate-500">Repetições / segundos</th><th class="px-2 py-1 text-left text-xs font-semibold text-slate-500">Carga (kg)</th><th class="px-2 py-1"></th></tr></thead>
+                                                <tbody class="@Ui.TBody">
+                                                    @foreach (var set in exercise.Sets)
+                                                    {
+                                                        var setIndex = exercise.Sets.IndexOf(set);
+                                                        var setKey = $"{key}-{setIndex}";
+                                                        <tr>
+                                                            <td class="w-14 px-2 py-1 align-middle text-slate-700">@(setIndex + 1)</td>
+                                                            <td class="px-2 py-1 align-middle">
+                                                                <label class="sr-only" for="mode-@setKey">Tipo de alvo</label>
+                                                                <select id="mode-@setKey" class="@Ui.SelectSm" @bind="set.ByDuration">
+                                                                    <option value="False">Repetições</option>
+                                                                    <option value="True">Tempo</option>
+                                                                </select>
+                                                            </td>
+                                                            <td class="px-2 py-1 align-middle">
+                                                                @if (set.ByDuration)
+                                                                {
+                                                                    <label class="sr-only" for="dur-@setKey">Segundos</label>
+                                                                    <div class="flex">
+                                                                        <input id="dur-@setKey" type="number" min="1" class="@($"{Ui.InputSm} rounded-r-none")" @bind="set.DurationSeconds" />
+                                                                        <span class="@($"{Ui.InputAddon} rounded-r-md border-l-0")">s</span>
+                                                                    </div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div class="flex">
+                                                                        <label class="sr-only" for="min-@setKey">Mínimo de repetições</label>
+                                                                        <input id="min-@setKey" type="number" min="1" class="@($"{Ui.InputSm} rounded-r-none")" @bind="set.MinRepetitions" />
+                                                                        <span class="@($"{Ui.InputAddon} border-x-0")">a</span>
+                                                                        <label class="sr-only" for="max-@setKey">Máximo de repetições</label>
+                                                                        <input id="max-@setKey" type="number" min="1" class="@($"{Ui.InputSm} rounded-l-none")" @bind="set.MaxRepetitions" />
+                                                                    </div>
+                                                                }
+                                                            </td>
+                                                            <td class="px-2 py-1 align-middle">
+                                                                <label class="sr-only" for="load-@setKey">Carga sugerida em kg</label>
+                                                                <input id="load-@setKey" type="number" min="0" step="0.5" class="@Ui.InputSm" @bind="set.SuggestedLoadKg" />
+                                                            </td>
+                                                            <td class="px-2 py-1 text-right align-middle">
+                                                                <button class="cursor-pointer rounded-md px-1.5 py-1 text-xs text-red-600 hover:bg-red-50 hover:text-red-800 disabled:pointer-events-none disabled:opacity-50" aria-label="Remover série @(setIndex + 1)" @onclick="() => exercise.Sets.Remove(set)">✕</button>
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <button class="@($"{Ui.ButtonLinkSm} mb-2")" @onclick="exercise.AddSet">+ Adicionar série</button>
+
+                                        <div class="grid grid-cols-12 gap-3">
+                                            <div class="col-span-12 md:col-span-3">
+                                                <label class="@Ui.Label" for="rest-@key">Descanso entre séries</label>
+                                                <div class="flex">
+                                                    <input id="rest-@key" type="number" min="0" max="3600" step="15" class="@($"{Ui.InputSm} rounded-r-none")" @bind="exercise.RestSeconds" />
+                                                    <span class="@($"{Ui.InputAddon} rounded-r-md border-l-0")">s</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-span-12 md:col-span-9">
+                                                <label class="@Ui.Label" for="instr-@key">Instruções (opcional)</label>
+                                                <input id="instr-@key" class="@Ui.InputSm" placeholder="Ex.: descer em 3 segundos, joelhos alinhados" @bind="exercise.Instructions" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+
+                                @if (_pickerFor == session)
+                                {
+                                    <ExercisePicker Target="@session.Name" OnPick="exercise => AddExercise(session, exercise)" OnClose="() => _pickerFor = null" />
+                                }
+                                else
+                                {
+                                    <button class="@Ui.ButtonOutlineSm" @onclick="() => _pickerFor = session">+ Adicionar exercício</button>
+                                }
+                            }
+
+                            <details class="mt-4">
+                                <summary class="cursor-pointer text-sm text-slate-600 hover:text-slate-900">Observações do treino@(string.IsNullOrWhiteSpace(session.Notes) ? string.Empty : " ✓")</summary>
+                                <label class="sr-only" for="session-notes-@index">Observações do treino</label>
+                                <textarea id="session-notes-@index" class="@($"{Ui.InputSm} mt-2")" rows="2" @bind="session.Notes"></textarea>
+                            </details>
+                        </div>
+                    </section>
+                }
+            </fieldset>
+
+            @if (_draft.Sessions.Count > 0 && !IsEnded)
+            {
+                <div class="mb-6 flex flex-wrap gap-2">
+                    <button class="@Ui.ButtonOutline" @onclick='() => AddSession("Strength")'>+ Treino de musculação</button>
+                    <button class="@Ui.ButtonOutline" @onclick='() => AddSession("Aerobic")'>+ Treino aeróbico</button>
+                </div>
+            }
+        </div>
+
+        <aside class="col-span-12 min-w-0 lg:col-span-3">
+            <CoachPanel PlanId="PlanId" IsDirty="@IsDirty" ReadOnly="@IsEnded" OnDraftChanged="CoachChangedDraftAsync" />
+
+            <h2 class="@($"{Ui.CardTitle} mt-6 mb-2")">Versões publicadas</h2>
+            @if (_plan.Versions.Count == 0)
+            {
+                <p class="@Ui.Help">Nenhuma ainda.</p>
+            }
+            else
+            {
+                <ol class="space-y-2 text-sm text-slate-700" reversed>
+                    @foreach (var version in _plan.Versions)
+                    {
+                        <li>
+                            <strong class="font-semibold text-slate-900">v@(version.VersionNumber)</strong> · @version.PublishedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                            <div class="text-slate-500">@version.ChangeDescription</div>
+                        </li>
+                    }
+                </ol>
+            }
+
+            @if (!IsEnded)
+            {
+                <hr class="@Ui.Divider" />
+                @if (_ending)
+                {
+                    <p class="mb-3 text-sm text-slate-700">Encerrar tira o plano do aplicativo do cliente. O histórico de versões e treinos continua guardado.</p>
+                    <div class="flex flex-wrap gap-2">
+                        <button class="@Ui.ButtonDangerSm" @onclick="EndAsync">Encerrar plano</button>
+                        <button class="@Ui.ButtonLinkSm" @onclick="() => _ending = false">Cancelar</button>
+                    </div>
+                }
+                else
+                {
+                    <button class="@Ui.ButtonDangerOutlineSm" @onclick="() => _ending = true">Encerrar plano…</button>
+                }
+            }
+        </aside>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid PlanId { get; set; }
+
+    private TrainerPlan? _plan;
+    private string? _clientName;
+    private PlanDetailsForm _details = new();
+    private PlanDraft _draft = new();
+    private string _savedDetails = string.Empty;
+    private string _savedDraft = string.Empty;
+    private ApiProblem? _problem;
+    private string? _message;
+    private SessionDraft? _pickerFor;
+    private bool _publishing;
+    private bool _ending;
+    private bool _busy;
+    private string? _changeDescription;
+    private string? _pendingNavigation;
+    private bool? _detailsOpen;
+
+    private bool IsEnded => _plan?.Status == "Ended";
+
+    private bool IsDirty => _plan is not null && !IsEnded && (DetailsSnapshot() != _savedDetails || _draft.Snapshot() != _savedDraft);
+
+    private string DetailsSnapshot() => System.Text.Json.JsonSerializer.Serialize(_details.ToBody(), MyHealthApiClient.Json);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        if (!Workspace.Practices("PersonalTrainer"))
+        {
+            _plan = null;
+            return;
+        }
+
+        var result = await Api.GetAsync<TrainerPlan>($"training-plans/{PlanId}");
+        _problem = result.Problem;
+        _plan = result.Value;
+        if (_plan is null)
+        {
+            return;
+        }
+
+        _details = PlanDetailsForm.From(_plan.Details);
+        _draft = PlanDraft.From(_plan.Draft);
+        _savedDetails = DetailsSnapshot();
+        _savedDraft = _draft.Snapshot();
+        _pickerFor = null;
+        _detailsOpen ??= _plan.Draft.Sessions.Count == 0;
+
+        if (_clientName is null)
+        {
+            var dashboard = await Api.GetAsync<TrainerDashboard>("trainer/dashboard");
+            _clientName = dashboard.Value?.Clients.FirstOrDefault(c => c.ClientId == _plan.ClientId)?.ClientName;
+        }
+    }
+
+    private void AddSession(string kind)
+    {
+        var session = _draft.AddSession(kind);
+        _pickerFor = session.IsAerobic ? null : session;
+        _message = null;
+    }
+
+    private void AddExercise(SessionDraft session, ExerciseItem exercise)
+    {
+        session.Exercises.Add(ExerciseDraft.New(exercise));
+        _message = $"{exercise.Name} adicionado a {session.Name}.";
+    }
+
+    /// <summary>Saves the details and the sessions that changed, then reloads the plan (new items get their ids).</summary>
+    private async Task<bool> SaveChangesAsync()
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            if (DetailsSnapshot() != _savedDetails)
+            {
+                var details = await Api.PutAsync($"training-plans/{PlanId}", _details.ToBody());
+                _problem = details.Problem;
+                if (!details.IsSuccess)
+                {
+                    return false;
+                }
+            }
+
+            if (_draft.Snapshot() != _savedDraft)
+            {
+                var sessions = await Api.PutAsync($"training-plans/{PlanId}/sessions", _draft.ToBody());
+                _problem = sessions.Problem;
+                if (!sessions.IsSuccess)
+                {
+                    return false;
+                }
+            }
+
+            _problem = null;
+            await LoadAsync();
+            return true;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (await SaveChangesAsync())
+        {
+            _message = "Rascunho salvo. O cliente continua vendo a versão publicada até você publicar.";
+        }
+    }
+
+    private void StartPublishing()
+    {
+        _publishing = true;
+        _message = null;
+        _changeDescription ??= _plan!.CurrentVersionNumber == 0 ? "Primeira versão do plano" : null;
+    }
+
+    private async Task PublishAsync()
+    {
+        if (IsDirty && !await SaveChangesAsync())
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var result = await Api.PostAsync<PublishedVersion>($"training-plans/{PlanId}/publish", new { changeDescription = _changeDescription!.Trim() });
+            _problem = result.Problem;
+            if (result.Value is { } published)
+            {
+                _publishing = false;
+                _changeDescription = null;
+                await LoadAsync();
+                _message = $"Versão {published.VersionNumber} publicada. O cliente já recebe o novo plano no aplicativo.";
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CoachChangedDraftAsync()
+    {
+        await LoadAsync();
+        _message = "Sugestão aplicada ao rascunho. Revise e publique quando estiver pronto.";
+    }
+
+    private async Task AcknowledgeAsync()
+    {
+        var result = await Api.PostAsync($"training-plans/{PlanId}/acknowledge-review");
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task EndAsync()
+    {
+        var result = await Api.PostAsync($"training-plans/{PlanId}/end");
+        _problem = result.Problem;
+        _ending = false;
+        if (result.IsSuccess)
+        {
+            await LoadAsync();
+            _message = "Plano encerrado.";
+        }
+    }
+
+    private void OnBeforeNavigation(LocationChangingContext context)
+    {
+        if (IsDirty)
+        {
+            _pendingNavigation = context.TargetLocation;
+            context.PreventNavigation();
+        }
+    }
+
+    private async Task SaveAndLeaveAsync()
+    {
+        var target = _pendingNavigation!;
+        _pendingNavigation = null;
+        if (await SaveChangesAsync())
+        {
+            Navigation.NavigateTo(target);
+        }
+    }
+
+    private void DiscardAndLeave()
+    {
+        var target = _pendingNavigation!;
+        _pendingNavigation = null;
+        _savedDetails = DetailsSnapshot();
+        _savedDraft = _draft.Snapshot();
+        Navigation.NavigateTo(target);
+    }
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

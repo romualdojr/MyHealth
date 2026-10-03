@@ -1,23 +1,61 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject WorkspaceState Workspace
 
-<div class="page">
-    <div class="sidebar">
+<AppShell Brand="MyHealth">
+    <Navigation>
         <NavMenu />
-    </div>
+    </Navigation>
+    <TopBar>
+        <AuthorizeView>
+            <Authorized>
+                <TenantSwitcher />
+                <span class="hidden text-sm text-slate-500 sm:inline">@context.User.Identity?.Name</span>
+                <form action="account/logout" method="post">
+                    <AntiforgeryToken />
+                    <button type="submit" class="@Ui.ButtonSecondarySm">Sair</button>
+                </form>
+            </Authorized>
+        </AuthorizeView>
+    </TopBar>
+    <ChildContent>
+        <AuthorizeView>
+            <Authorized>
+                @if (_loaded)
+                {
+                    <BillingBanner />
+                    @Body
+                }
+                else
+                {
+                    <Loading />
+                }
+            </Authorized>
+            <NotAuthorized>
+                @Body
+            </NotAuthorized>
+        </AuthorizeView>
+    </ChildContent>
+</AppShell>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationState { get; set; } = null!;
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+    private bool _loaded;
 
-<div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
-</div>
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        if ((await AuthenticationState).User.Identity?.IsAuthenticated == true)
+        {
+            await Workspace.EnsureLoadedAsync();
+        }
+
+        _loaded = true;
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

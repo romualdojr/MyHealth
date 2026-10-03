@@ -1,31 +1,34 @@
-﻿<script type="module" src="@Assets["Components/Layout/NavMenu.razor.js"]"></script>
+@implements IDisposable
+@inject WorkspaceState Workspace
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">MyHealth</a>
-    </div>
-</div>
+<NavLink class="@Ui.NavLink" href="" Match="NavLinkMatch.All">Início</NavLink>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+<AuthorizeView>
+    @if (Workspace.Practices("PersonalTrainer"))
+    {
+        <div class="@Ui.NavSection">Treino</div>
+        <NavLink class="@Ui.NavLink" href="trainer" Match="NavLinkMatch.All">Clientes</NavLink>
+        <NavLink class="@Ui.NavLink" href="trainer/exercises">Biblioteca de exercícios</NavLink>
+    }
 
-<div id="nav-scrollable" class="nav-scrollable">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    @if (Workspace.IsTenantAdministrator)
+    {
+        <div class="@Ui.NavSection">Organização</div>
+        <NavLink class="@Ui.NavLink" href="organization/members">Membros</NavLink>
+        <NavLink class="@Ui.NavLink" href="organization/audit">Auditoria</NavLink>
+        <NavLink class="@Ui.NavLink" href="organization/billing">Plano e cobrança</NavLink>
+    }
+</AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+<AuthorizeView>
+    <div class="@Ui.NavSection">Conta</div>
+    <NavLink class="@Ui.NavLink" href="account/security">Segurança</NavLink>
+</AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-    </nav>
-</div>
+@code {
+    protected override void OnInitialized() => Workspace.Changed += OnChanged;
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

@@ -1,0 +1,110 @@
+@page "/"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+
+<PageTitle>Visão geral · Back office</PageTitle>
+
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <h1 class="@Ui.PageTitle">Cobrança</h1>
+    <button class="@Ui.ButtonOutlineSm" disabled="@_running" @onclick="RunCycleAsync">Executar ciclo de cobrança agora</button>
+</div>
+<p class="@($"{Ui.Help} mb-4")">
+    Organizações e consultórios individuais pagam a MyHealth por módulo, mensalmente e de forma antecipada. O ciclo roda sozinho uma vez por dia:
+    emite as faturas do período, marca em atraso após o vencimento e suspende depois da carência.
+</p>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_cycle is { } cycle)
+{
+    <div class="@($"{Ui.AlertInfo} mb-4")">
+        Ciclo executado: @cycle.Subscriptions assinaturas, @cycle.InvoicesIssued faturas emitidas, @cycle.PastDue em atraso, @cycle.Suspended suspensas.
+        @if (cycle.Skipped.Count > 0)
+        {
+            <span class="block text-xs">Ignoradas: @string.Join("; ", cycle.Skipped)</span>
+        }
+    </div>
+}
+
+@if (_summary is null)
+{
+    <Loading />
+}
+else
+{
+    <div class="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div><Metric Label="Receita recorrente mensal" Text="@BillingLabels.Money(_summary.MonthlyRecurringRevenueCents)" /></div>
+        <div><Metric Label="Recebido nos últimos 30 dias" Text="@BillingLabels.Money(_summary.PaidLast30DaysCents)" /></div>
+        <div><Metric Label="Em aberto" Text="@BillingLabels.Money(_summary.OpenAmountCents)" /></div>
+        <div>
+            <Metric Label="Vencido" Text="@BillingLabels.Money(_summary.OverdueAmountCents)" Value="@(_summary.OverdueAmountCents > 0 ? 1 : 0)" Warn="true" />
+        </div>
+    </div>
+
+    <div class="grid grid-cols-12 gap-6">
+        <div class="col-span-12 lg:col-span-4">
+            <h2 class="@($"{Ui.SectionTitle} mb-2")">Assinaturas por situação</h2>
+            <ul class="@($"{Ui.Card} divide-y divide-slate-100")">
+                @foreach (var status in BillingLabels.Statuses)
+                {
+                    <li class="flex items-center justify-between px-4 py-2.5">
+                        <a href="billing/tenants?status=@status"><StatusBadge Status="@status" /></a>
+                        <span class="font-semibold text-slate-900">@_summary.TenantsByStatus.GetValueOrDefault(status)</span>
+                    </li>
+                }
+            </ul>
+        </div>
+        <div class="col-span-12 lg:col-span-8">
+            <h2 class="@($"{Ui.SectionTitle} mb-2")">Pagamentos recentes</h2>
+            @if (_summary.RecentPayments.Count == 0)
+            {
+                <p class="@Ui.Help">Nenhum pagamento ainda.</p>
+            }
+            else
+            {
+                <div class="@Ui.TableWrap">
+                    <table class="@Ui.Table">
+                        <thead class="@Ui.THead"><tr><th class="@Ui.Th">Organização</th><th class="@Ui.Th">Valor</th><th class="@Ui.Th">Pago em</th><th class="@Ui.Th">Referência</th></tr></thead>
+                        <tbody class="@Ui.TBody">
+                            @foreach (var p in _summary.RecentPayments)
+                            {
+                                <tr>
+                                    <td class="@Ui.Td"><a class="@Ui.Link" href="billing/tenants/@p.TenantId">@p.TenantName</a></td>
+                                    <td class="@Ui.Td">@BillingLabels.Money(p.AmountCents)</td>
+                                    <td class="@Ui.Td">@BillingLabels.Date(p.PaidAt)</td>
+                                    <td class="@($"{Ui.Td} text-xs text-slate-500")">@p.Reference</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private RevenueSummary? _summary;
+    private BillingCycleResult? _cycle;
+    private ApiProblem? _problem;
+    private bool _running;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Api.GetAsync<RevenueSummary>("admin/billing/summary");
+        _summary = result.Value;
+        _problem = result.Problem;
+    }
+
+    private async Task RunCycleAsync()
+    {
+        _running = true;
+        var result = await Api.PostAsync<BillingCycleResult>("admin/billing/run-cycle", null);
+        _cycle = result.Value;
+        _problem = result.Problem;
+        _running = false;
+        await LoadAsync();
+    }
+}

@@ -1,0 +1,301 @@
+@page "/trainer/clients/{ClientId:guid}"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>@(_client?.ClientName ?? "Cliente") · MyHealth</PageTitle>
+
+<nav aria-label="Caminho" class="@Ui.Breadcrumb"><a href="trainer" class="@Ui.Link">Clientes</a> / @(_client?.ClientName ?? "Cliente")</nav>
+
+@if (!Workspace.Practices("PersonalTrainer"))
+{
+    <p class="@Ui.AlertInfo">Selecione uma organização em que você atua como personal trainer.</p>
+}
+else
+{
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 class="@Ui.PageTitle">@(_client?.ClientName ?? "Cliente")</h1>
+        <div class="flex flex-wrap gap-2">
+            @if (_whatsApp is { } chat)
+            {
+                <a class="@Ui.ButtonSuccessOutline" href="@chat.ChatUrl" target="_blank" rel="noopener noreferrer"
+                   title="Abre uma conversa no WhatsApp. Não envie dados de saúde por lá; use o app.">Conversar no WhatsApp</a>
+            }
+            <button class="@Ui.Button" @onclick="() => _creating = !_creating">Novo plano</button>
+        </div>
+    </div>
+
+    <ProblemAlert Problem="_problem" />
+
+    @if (_client is { } c)
+    {
+        <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div><Metric Label="Treinos nos últimos 7 dias" Value="@c.CompletedLast7Days" /></div>
+            <div><Metric Label="Adesão" Text="@(c.AdherenceLast7Days is { } a ? a.ToString("P0") : "—")" /></div>
+            <div><Metric Label="Feedbacks sem resposta" Value="@c.PendingFeedbackReplies" /></div>
+            <div><Metric Label="Relatos de desconforto" Value="@c.UnrepliedDiscomfortReports" Warn="true" /></div>
+        </div>
+    }
+
+    @if (_creating)
+    {
+        <div class="@($"{Ui.Card} mb-6")">
+            <div class="@Ui.CardBody">
+                <h2 class="@($"{Ui.CardTitle} mb-1")">Novo plano</h2>
+                <p class="@($"{Ui.Help} mb-4")">Comece pelo essencial; os treinos e exercícios você monta na próxima tela. Nada chega ao cliente antes de você publicar.</p>
+                <PlanDetailsEditor Form="_newPlan" />
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <button class="@Ui.Button" disabled="@(string.IsNullOrWhiteSpace(_newPlan.Name) || string.IsNullOrWhiteSpace(_newPlan.Goal))"
+                            @onclick="CreateAsync">Criar e montar treinos</button>
+                    <button class="@Ui.ButtonLink" @onclick="() => _creating = false">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (_copying is { } source)
+    {
+        <div class="@($"{Ui.CardHighlight} mb-6")">
+            <div class="@Ui.CardBody">
+                <h2 class="@($"{Ui.CardTitle} mb-1")">Copiar “@source.Name” para outro cliente</h2>
+                <p class="@($"{Ui.Help} mb-4")">A cópia é um rascunho novo, que você ajusta e publica para o outro cliente.</p>
+                <div class="grid grid-cols-12 items-end gap-3">
+                    <div class="col-span-12 md:col-span-5">
+                        <label class="@Ui.Label" for="copy-target">Cliente</label>
+                        <select id="copy-target" class="@Ui.Select" @bind="_copyTarget">
+                            <option value="">Escolha…</option>
+                            @foreach (var other in _clients.Where(o => o.ClientId != ClientId))
+                            {
+                                <option value="@other.ClientId">@other.ClientName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-span-12 md:col-span-4">
+                        <label class="@Ui.Label" for="copy-name">Nome do novo plano (opcional)</label>
+                        <input id="copy-name" class="@Ui.Input" @bind="_copyName" />
+                    </div>
+                    <div class="col-span-12 flex gap-2 md:col-span-3">
+                        <button class="@Ui.Button" disabled="@(_copyTarget is null)" @onclick="CopyAsync">Copiar</button>
+                        <button class="@Ui.ButtonLink" @onclick="() => _copying = null">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <h2 class="@($"{Ui.SectionTitle} mb-3")">Planos</h2>
+    @if (_plans is null)
+    {
+        @if (_problem is null)
+        {
+            <Loading />
+        }
+    }
+    else if (_plans.Count == 0)
+    {
+        <div class="@($"{Ui.EmptyState} mb-6")">
+            <p class="mb-3">Este cliente ainda não tem plano.</p>
+            <button class="@Ui.Button" @onclick="() => _creating = true">Criar o primeiro plano</button>
+        </div>
+    }
+    else
+    {
+        <div class="mb-6 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white shadow-sm">
+            @foreach (var plan in _plans)
+            {
+                <div class="flex flex-wrap items-center gap-2 px-4 py-3">
+                    <div class="min-w-0 grow">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <a href="trainer/plans/@plan.Id" class="@($"{Ui.Link} font-semibold")">@plan.Name</a>
+                            <span class="@TrainingLabels.PlanBadge(plan.Status)">@TrainingLabels.PlanStatus(plan.Status)</span>
+                            @if (plan.NeedsReview)
+                            {
+                                <span class="@Ui.BadgeInfo">revisar</span>
+                            }
+                        </div>
+                        <div class="mt-0.5 text-sm text-slate-500">
+                            @(plan.CurrentVersionNumber > 0 ? $"Versão {plan.CurrentVersionNumber} publicada" : "Nunca publicado")
+                            @(plan.HasUnpublishedChanges ? " · alterações não publicadas" : string.Empty)
+                            · atualizado em @plan.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy")
+                        </div>
+                    </div>
+                    <a class="@Ui.ButtonOutlineSm" href="trainer/plans/@plan.Id">Abrir</a>
+                    @if (_clients.Count > 1)
+                    {
+                        <button class="@Ui.ButtonSecondarySm" @onclick="() => StartCopy(plan)">Copiar para…</button>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    <h2 class="@($"{Ui.SectionTitle} mb-3")">Treinos realizados</h2>
+    @if (_sessions is null)
+    {
+        @if (_problem is null)
+        {
+            <Loading />
+        }
+    }
+    else if (_sessions.Count == 0)
+    {
+        <p class="@Ui.Help">Nenhum treino registrado ainda.</p>
+    }
+    else
+    {
+        <div class="@Ui.TableWrap">
+            <table class="@Ui.Table">
+                <thead class="@Ui.THead"><tr><th class="@Ui.Th">Data</th><th class="@Ui.Th">Treino</th><th class="@Ui.Th">Situação</th><th class="@Ui.Th">Esforço</th><th class="@Ui.Th">Feedback</th><th class="@Ui.Th"></th></tr></thead>
+                <tbody class="@Ui.TBody">
+                    @foreach (var s in _sessions)
+                    {
+                        <tr class="@(s.ReportedDiscomfort && !s.HasReply ? Ui.RowWarning : string.Empty)">
+                            <td class="@Ui.Td">@((s.CompletedAt ?? s.StartedAt).ToLocalTime().ToString("dd/MM HH:mm"))</td>
+                            <td class="@Ui.Td">@s.PlannedSessionName <span class="text-xs text-slate-500">v@(s.PlanVersionNumber)</span></td>
+                            <td class="@Ui.Td">@TrainingLabels.WorkoutStatus(s.Status)</td>
+                            <td class="@Ui.Td">@(s.PerceivedExertion is { } rpe ? $"{rpe}/10" : "—")</td>
+                            <td class="@Ui.Td">
+                                <div class="flex flex-wrap gap-1">
+                                    @if (s.ReportedDiscomfort)
+                                    {
+                                        <span class="@Ui.BadgeDanger">desconforto</span>
+                                    }
+                                    @if (s.HasReply)
+                                    {
+                                        <span class="@Ui.BadgeSuccess">respondido</span>
+                                    }
+                                    else if (s.PerceivedExertion is not null)
+                                    {
+                                        <span class="@Ui.BadgeWarning">aguarda resposta</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="@($"{Ui.Td} text-right")"><button class="@Ui.ButtonSecondarySm" @onclick="() => ToggleAsync(s.Id)">@(_open?.Id == s.Id ? "Fechar" : "Ver")</button></td>
+                        </tr>
+                        @if (_open is { } detail && detail.Id == s.Id)
+                        {
+                            <tr>
+                                <td colspan="6" class="bg-slate-50 px-3 py-3">
+                                    <WorkoutDetail Session="detail" OnReplied="ReplyAsync" />
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    public Guid ClientId { get; set; }
+
+    private TrainerClientSummary? _client;
+    private List<TrainerClientSummary> _clients = [];
+    private List<TrainerPlanItem>? _plans;
+    private List<WorkoutSessionItem>? _sessions;
+    private WorkoutSessionDetail? _open;
+    private WhatsAppLink? _whatsApp;
+    private ApiProblem? _problem;
+    private bool _creating;
+    private PlanDetailsForm _newPlan = new();
+    private TrainerPlanItem? _copying;
+    private Guid? _copyTarget;
+    private string? _copyName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        _problem = null;
+        _open = null;
+        if (!Workspace.Practices("PersonalTrainer"))
+        {
+            return;
+        }
+
+        var dashboard = await Api.GetAsync<TrainerDashboard>("trainer/dashboard");
+        _clients = [.. dashboard.Value?.Clients ?? []];
+        _client = _clients.FirstOrDefault(c => c.ClientId == ClientId);
+
+        // Only when the client confirmed a number and allowed professionals to contact them; otherwise no button.
+        _whatsApp = _client is null ? null : (await Api.GetAsync<WhatsAppLink>($"care-relationships/{_client.RelationshipId}/whatsapp")).Value;
+
+        var plans = await Api.GetAsync<List<TrainerPlanItem>>($"training-plans?clientId={ClientId}");
+        _plans = plans.Value ?? [];
+
+        var sessions = await Api.GetAsync<List<WorkoutSessionItem>>($"trainer/clients/{ClientId}/workout-sessions");
+        _sessions = [.. (sessions.Value ?? []).OrderByDescending(s => s.StartedAt)];
+
+        _problem = dashboard.Problem ?? plans.Problem ?? sessions.Problem;
+        _creating = _creating || (_plans.Count == 0 && _problem is null);
+    }
+
+    private async Task CreateAsync()
+    {
+        var result = await Api.PostAsync<IdResponse>("training-plans", new { clientId = ClientId, details = _newPlan.ToBody() });
+        _problem = result.Problem;
+        if (result.Value is { } created)
+        {
+            Navigation.NavigateTo($"trainer/plans/{created.Id}");
+        }
+    }
+
+    private void StartCopy(TrainerPlanItem plan)
+    {
+        _copying = plan;
+        _copyTarget = null;
+        _copyName = null;
+    }
+
+    private async Task CopyAsync()
+    {
+        var result = await Api.PostAsync<IdResponse>(
+            $"training-plans/{_copying!.Id}/copy", new { targetClientId = _copyTarget, newName = string.IsNullOrWhiteSpace(_copyName) ? null : _copyName.Trim() });
+        _problem = result.Problem;
+        if (result.Value is { } created)
+        {
+            Navigation.NavigateTo($"trainer/plans/{created.Id}");
+        }
+    }
+
+    private async Task ToggleAsync(Guid sessionId)
+    {
+        if (_open?.Id == sessionId)
+        {
+            _open = null;
+            return;
+        }
+
+        var result = await Api.GetAsync<WorkoutSessionDetail>($"workout-sessions/{sessionId}");
+        _open = result.Value;
+        _problem = result.Problem;
+    }
+
+    private async Task ReplyAsync(string message)
+    {
+        var sessionId = _open!.Id;
+        var result = await Api.PostAsync($"workout-sessions/{sessionId}/feedback-reply", new { message });
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            await LoadAsync();
+            await ToggleAsync(sessionId);
+        }
+    }
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

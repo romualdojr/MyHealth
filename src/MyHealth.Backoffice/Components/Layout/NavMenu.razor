@@ -1,0 +1,21 @@
+<AuthorizeView Roles="@SessionClaims.AdministratorRole">
+    <div class="@Ui.NavSection">Cobrança</div>
+    <NavLink class="@Ui.NavLink" href="" Match="NavLinkMatch.All">Visão geral</NavLink>
+    <NavLink class="@Ui.NavLink" href="billing/tenants">Assinaturas</NavLink>
+    <NavLink class="@Ui.NavLink" href="billing/prices">Preços dos módulos</NavLink>
+
+    <div class="@Ui.NavSection">Plataforma</div>
+    <NavLink class="@Ui.NavLink" href="admin/tenants">Organizações</NavLink>
+    <NavLink class="@Ui.NavLink" href="admin/professionals">Profissionais</NavLink>
+    <NavLink class="@Ui.NavLink" href="admin/qualifications">Qualificações</NavLink>
+    <NavLink class="@Ui.NavLink" href="admin/modalities">Terapias</NavLink>
+    <NavLink class="@Ui.NavLink" href="admin/privacy-requests">Solicitações LGPD</NavLink>
+    <NavLink class="@Ui.NavLink" href="admin/retention">Retenção</NavLink>
+    <NavLink class="@Ui.NavLink" href="admin/audit">Auditoria</NavLink>
+    <NavLink class="@Ui.NavLink" href="admin/operators">Operadores</NavLink>
+</AuthorizeView>
+
+<AuthorizeView>
+    <div class="@Ui.NavSection">Conta</div>
+    <NavLink class="@Ui.NavLink" href="account/security">Segurança</NavLink>
+</AuthorizeView>

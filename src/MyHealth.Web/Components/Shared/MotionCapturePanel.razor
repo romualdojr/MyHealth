@@ -1,0 +1,260 @@
+@* 3D exercise video: the trainer films the movement, the motion-capture provider turns it into a 3D model, the trainer accepts it. *@
+@implements IAsyncDisposable
+@inject MyHealthApiClient Api
+@inject IJSRuntime JS
+
+<div class="@($"{Ui.CardHighlight} mb-6")">
+    <div class="@Ui.CardBody">
+        <div class="mb-3 flex items-center justify-between gap-2">
+            <h2 class="@Ui.CardTitle">Vídeo 3D — @ExerciseName</h2>
+            <button class="@Ui.CloseButton" aria-label="Fechar" @onclick="OnClose">✕</button>
+        </div>
+
+        <ProblemAlert Problem="_problem" />
+
+        <ol class="mb-4 list-decimal space-y-1 pl-5 text-sm text-slate-500">
+            <li>Grave você fazendo o movimento, corpo inteiro no quadro, câmera parada, de 5 a @MaxSeconds segundos.</li>
+            <li>Envie o vídeo: ele vira um modelo 3D e vídeos de lado, de frente e de costas (leva alguns minutos).</li>
+            <li>Confira o resultado e use no exercício. Seus clientes passam a ver o modelo 3D no app.</li>
+        </ol>
+
+        @if (_terms is not null)
+        {
+            <div class="mb-3 whitespace-pre-line rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">@_terms.Text.Trim()</div>
+            <div class="mb-3">
+                <label class="@Ui.CheckLabel" for="mc-consent">
+                    <input class="@Ui.Checkbox" type="checkbox" id="mc-consent" @bind="_consent" />
+                    Li e concordo em enviar o vídeo para gerar o modelo 3D.
+                </label>
+            </div>
+        }
+
+        <div class="mb-4 grid grid-cols-12 items-end gap-2">
+            <div class="col-span-12 md:col-span-8">
+                <label class="@Ui.Label" for="mc-file">Vídeo (MP4 ou MOV, até @MaxMegabytes MB)</label>
+                <InputFile id="mc-file" class="@($"{Ui.Input} file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:text-slate-700")" accept="video/mp4,video/quicktime,video/webm" OnChange="ChooseAsync" disabled="@(!_consent || _uploading)" />
+                @if (_file is not null)
+                {
+                    <div class="mt-1 text-xs text-slate-500">@_file.Name · @(_file.Size / 1024 / 1024) MB · @(_duration > 0 ? $"{_duration} s" : "duração desconhecida")</div>
+                }
+            </div>
+            <div class="col-span-12 md:col-span-4">
+                <button class="@($"{Ui.Button} w-full")" disabled="@(!_consent || _file is null || _duration is < 1 or > MaxSeconds || _uploading)" @onclick="UploadAsync">
+                    @(_uploading ? "Enviando…" : "Gerar modelo 3D")
+                </button>
+            </div>
+        </div>
+
+        @if (_jobs is { Count: > 0 })
+        {
+            @foreach (var job in _jobs)
+            {
+                <div class="mb-2 rounded-lg border border-slate-200 p-3">
+                    <div class="flex flex-wrap items-center gap-2 text-sm">
+                        <strong class="text-slate-900">@job.SourceFileName</strong>
+                        <span class="text-slate-500">@job.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm") · @job.DurationSeconds s</span>
+                        <span class="@Badge(job)">@Label(job)</span>
+                        @if (job.AcceptedAt is not null)
+                        {
+                            <span class="@Ui.BadgeSuccess">em uso no exercício</span>
+                        }
+                    </div>
+
+                    @if (job.Status is "Queued" or "Processing")
+                    {
+                        <div class="@($"{Ui.ProgressTrack} mt-3")" role="progressbar" aria-label="Progresso da conversão" aria-valuenow="@job.ProgressPercent" aria-valuemin="0" aria-valuemax="100">
+                            <div class="@($"{Ui.ProgressBar} animate-pulse")" style="width: @(Math.Max(5, job.ProgressPercent))%"></div>
+                        </div>
+                    }
+                    else if (job.Status == "Failed")
+                    {
+                        <p class="mt-2 text-sm text-red-700">@job.Error</p>
+                    }
+                    else
+                    {
+                        <div class="mt-2 grid grid-cols-12 gap-2">
+                            @if (job.Outputs.FirstOrDefault(o => o.Format == "glb") is { } model)
+                            {
+                                <div class="col-span-12 md:col-span-6">
+                                    <model-viewer src="@model.Url" camera-controls auto-rotate shadow-intensity="1" class="block h-64 w-full rounded-lg bg-slate-100"
+                                                  alt="@($"Modelo 3D do exercício {ExerciseName}")"></model-viewer>
+                                    <div class="mt-1 text-xs text-slate-500">Modelo 3D — arraste para girar</div>
+                                </div>
+                            }
+                            @foreach (var video in job.Outputs.Where(o => o.Format == "mp4"))
+                            {
+                                <div class="col-span-4 md:col-span-2">
+                                    <video src="@video.Url" class="w-full rounded-lg" muted loop autoplay playsinline aria-label="@($"Vídeo 3D, ângulo {AngleLabel(video.Angle)}")"></video>
+                                    <div class="mt-1 text-xs text-slate-500">@AngleLabel(video.Angle)</div>
+                                </div>
+                            }
+                        </div>
+                        @if (job.AcceptedAt is null)
+                        {
+                            <button class="@($"{Ui.ButtonSuccessSm} mt-3")" disabled="@_busy" @onclick="() => AcceptAsync(job)">Usar no exercício</button>
+                        }
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private const int MaxSeconds = 60;
+    private const int MaxMegabytes = 200;
+
+    [Parameter, EditorRequired]
+    public Guid ExerciseId { get; set; }
+
+    [Parameter]
+    public string ExerciseName { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    /// <summary>The result was put on the exercise; the library reloads.</summary>
+    [Parameter]
+    public EventCallback OnAccepted { get; set; }
+
+    private MotionCaptureTerms? _terms;
+    private List<MotionCaptureJobItem>? _jobs;
+    private ApiProblem? _problem;
+    private bool _consent;
+    private IBrowserFile? _file;
+    private int _duration;
+    private bool _uploading;
+    private bool _busy;
+    private PeriodicTimer? _timer;
+    private readonly CancellationTokenSource _disposed = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var terms = await Api.GetAsync<MotionCaptureTerms>("motion-capture/terms");
+        _terms = terms.Value;
+        _problem = terms.Problem;
+        await LoadAsync();
+        _ = PollAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var jobs = await Api.GetAsync<List<MotionCaptureJobItem>>($"exercises/{ExerciseId}/motion-captures");
+        _jobs = jobs.Value;
+        _problem ??= jobs.Problem;
+    }
+
+    /// <summary>Refreshes every 5 seconds while a conversion is running.</summary>
+    private async Task PollAsync()
+    {
+        _timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        try
+        {
+            while (await _timer.WaitForNextTickAsync(_disposed.Token))
+            {
+                if (_jobs?.Any(j => j.Status is "Queued" or "Processing") == true)
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        await LoadAsync();
+                        StateHasChanged();
+                    });
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The panel was closed.
+        }
+    }
+
+    private async Task ChooseAsync(InputFileChangeEventArgs e)
+    {
+        _file = e.File;
+        _problem = null;
+        var seconds = await JS.InvokeAsync<double>("myhealthMedia.videoDuration", "mc-file");
+        _duration = (int)Math.Ceiling(seconds);
+        if (_duration > MaxSeconds)
+        {
+            _problem = new ApiProblem(400, "MotionCapture.TooLong", $"O vídeo tem {_duration} s; o máximo é {MaxSeconds} s.", null);
+        }
+    }
+
+    private async Task UploadAsync()
+    {
+        _uploading = true;
+        _problem = null;
+        try
+        {
+            await using var content = _file!.OpenReadStream(MaxMegabytes * 1024L * 1024L, _disposed.Token);
+            var path = $"exercises/{ExerciseId}/motion-captures?fileName={Uri.EscapeDataString(_file.Name)}&durationSeconds={_duration}&consentVersion={_terms!.Version}";
+            var type = string.IsNullOrEmpty(_file.ContentType) ? "video/mp4" : _file.ContentType;
+            var result = await Api.PostFileAsync<MotionCaptureJobItem>(path, content, type, _file.Size, _disposed.Token);
+            _problem = result.Problem;
+            if (result.IsSuccess)
+            {
+                _file = null;
+                _duration = 0;
+                await LoadAsync();
+            }
+        }
+        catch (IOException)
+        {
+            _problem = new ApiProblem(400, "MotionCapture.TooLarge", $"O arquivo passa de {MaxMegabytes} MB.", null);
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private async Task AcceptAsync(MotionCaptureJobItem job)
+    {
+        _busy = true;
+        try
+        {
+            var result = await Api.PostAsync<MotionCaptureJobItem>($"motion-captures/{job.Id}/accept", null);
+            _problem = result.Problem;
+            if (result.IsSuccess)
+            {
+                await LoadAsync();
+                await OnAccepted.InvokeAsync();
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string Label(MotionCaptureJobItem job) => job.Status switch
+    {
+        "Queued" => "na fila",
+        "Processing" => $"convertendo {job.ProgressPercent}%",
+        "Succeeded" => "pronto",
+        "Failed" => "não deu certo",
+        _ => job.Status,
+    };
+
+    private static string Badge(MotionCaptureJobItem job) => job.Status switch
+    {
+        "Succeeded" => Ui.BadgeSuccess,
+        "Failed" => Ui.BadgeDanger,
+        _ => Ui.BadgeInfo,
+    };
+
+    private static string AngleLabel(string? angle) => angle switch
+    {
+        "Side" => "lado",
+        "Front" => "frente",
+        "Back" => "costas",
+        _ => "vídeo",
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        await _disposed.CancelAsync();
+        _disposed.Dispose();
+        _timer?.Dispose();
+    }
+}

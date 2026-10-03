@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    @* Tailwind CSS, built from MyHealth.Web.Common/Styles/tailwind.css: the only stylesheet. *@
+    <link rel="stylesheet" href="@Assets["_content/MyHealth.Web.Common/css/app.css"]" />
+    <ImportMap />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet @rendermode="PageRenderMode" />
+</head>
+
+<body class="min-h-full bg-slate-50 text-slate-900 antialiased">
+    <Routes @rendermode="PageRenderMode" />
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+
+</html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = null!;
+
+    // Every page is interactive except those that must set the auth cookie (sign-in), which render statically.
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext.AcceptsInteractiveRouting() ? AppRenderModes.Interactive : null;
+}

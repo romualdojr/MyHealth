@@ -1,0 +1,41 @@
+@* Warns everyone in the selected organization when it is behind on payments; administrators get a link to pay. *@
+@implements IDisposable
+@inject WorkspaceState Workspace
+
+@switch (Workspace.Membership?.SubscriptionStatus)
+{
+    case "PastDue":
+        <div class="@($"{Ui.AlertWarning} mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between")">
+            <span>A organização tem uma fatura vencida com a MyHealth; sem pagamento, ela será suspensa.</span>
+            @PayLink
+        </div>
+        break;
+    case "Suspended":
+        <div class="@($"{Ui.AlertDanger} mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between")">
+            <span>A organização está suspensa: os atendimentos por ela estão bloqueados até a regularização.</span>
+            @PayLink
+        </div>
+        break;
+    case "Cancelled":
+        <div class="@($"{Ui.AlertDanger} mb-4")">A assinatura desta organização foi cancelada.</div>
+        break;
+}
+
+@code {
+    private RenderFragment PayLink => @<text>
+        @if (Workspace.IsTenantAdministrator)
+        {
+            <a href="organization/billing" class="shrink-0 font-semibold underline underline-offset-2 hover:no-underline">Ver faturas</a>
+        }
+        else
+        {
+            <span class="shrink-0">Fale com o administrador da organização.</span>
+        }
+    </text>;
+
+    protected override void OnInitialized() => Workspace.Changed += OnChanged;
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

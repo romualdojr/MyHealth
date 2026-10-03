@@ -1,0 +1,284 @@
+@page "/admin/modalities"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+
+<PageTitle>Terapias · Plataforma</PageTitle>
+
+<h1 class="@Ui.PageTitle">Modalidades de terapia</h1>
+<p class="@($"{Ui.Help} mb-4")">
+    Tudo o que depende da revisão jurídica é configurado aqui (§9): quem pode atuar (conselhos aceitos), o que é obrigatório registrar e
+    o termo de consentimento. Uma modalidade só é habilitada com a referência da revisão que a aprovou; alterar a configuração de uma
+    modalidade habilitada a desabilita até nova revisão.
+</p>
+
+<ProblemAlert Problem="_problem" />
+@if (_notice is not null)
+{
+    <div class="@($"{Ui.AlertSuccess} mb-4")">@_notice</div>
+}
+
+@if (_editing is { } form)
+{
+    <div class="@($"{Ui.CardHighlight} mb-6")">
+        <div class="@($"{Ui.CardBody} space-y-3")">
+            <h2 class="@Ui.SectionTitle">@(form.IsNew ? "Nova modalidade" : $"Configurar {form.Code}")</h2>
+            @if (form.IsNew)
+            {
+                <div>
+                    <label class="@Ui.Label" for="m-code">Código</label>
+                    <input id="m-code" class="@Ui.Input" @bind="form.Code" placeholder="ex.: massoterapia" />
+                </div>
+            }
+            <div>
+                <label class="@Ui.Label" for="m-name">Nome</label>
+                <input id="m-name" class="@Ui.Input" @bind="form.Name" />
+            </div>
+            <div>
+                <label class="@Ui.Label" for="m-description">Descrição</label>
+                <textarea id="m-description" class="@Ui.Textarea" rows="2" @bind="form.Description"></textarea>
+            </div>
+            <div>
+                <label class="@Ui.Label" for="m-councils">Conselhos aceitos (separados por vírgula)</label>
+                <input id="m-councils" class="@Ui.Input" @bind="form.Councils" placeholder="ex.: CFM, COFFITO" />
+            </div>
+            <fieldset>
+                <legend class="@Ui.Label">Campos obrigatórios do registro</legend>
+                <div class="flex flex-wrap gap-x-4 gap-y-2">
+                    @foreach (var (field, label) in RecordFields)
+                    {
+                        <label class="@Ui.CheckLabel" for="f-@field">
+                            <input class="@Ui.Checkbox" type="checkbox" id="f-@field" checked="@form.Fields.Contains(field)"
+                                   @onchange="e => Toggle(form.Fields, field, (bool)e.Value!)" />
+                            @label
+                        </label>
+                    }
+                </div>
+            </fieldset>
+            <div>
+                <label class="@Ui.CheckLabel" for="m-consent">
+                    <input class="@Ui.Checkbox" type="checkbox" id="m-consent" @bind="form.RequiresConsent" />
+                    Exige consentimento do cliente antes de concluir a sessão
+                </label>
+            </div>
+            <div class="flex flex-wrap gap-2 pt-1">
+                <button class="@Ui.Button" @onclick="SaveAsync">Salvar</button>
+                <button class="@Ui.ButtonLink" @onclick="() => _editing = null">Cancelar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_enabling is { } enabling)
+{
+    <ReasonForm Title="@($"Habilitar {enabling.Name}")" Label="Referência da revisão jurídica e clínica (ex.: nº do parecer)" ConfirmText="Habilitar"
+                Tone="success" Description="@($"Conselhos aceitos: {string.Join(", ", enabling.AcceptedCouncils)}.")"
+                OnConfirm="EnableAsync" OnCancel="() => _enabling = null" />
+}
+
+@if (_consent is { } consent)
+{
+    <div class="@($"{Ui.CardHighlight} mb-6")">
+        <div class="@($"{Ui.CardBody} space-y-3")">
+            <div>
+                <h2 class="@Ui.SectionTitle">Publicar termo de consentimento — @consent.Modality.Name</h2>
+                <p class="@Ui.Help">
+                    Versão @((consent.Modality.CurrentConsentVersion ?? 0) + 1). Versões publicadas não mudam; os clientes precisarão consentir novamente.
+                </p>
+            </div>
+            <div>
+                <label class="@Ui.Label" for="c-title">Título</label>
+                <input id="c-title" class="@Ui.Input" @bind="consent.Title" />
+            </div>
+            <div>
+                <label class="@Ui.Label" for="c-body">Texto</label>
+                <textarea id="c-body" class="@Ui.Textarea" rows="6" @bind="consent.Body"></textarea>
+            </div>
+            <div>
+                <label class="@Ui.Label" for="c-risks">Riscos informados (um por linha)</label>
+                <textarea id="c-risks" class="@Ui.Textarea" rows="4" @bind="consent.Risks"></textarea>
+            </div>
+            <div class="flex flex-wrap gap-2 pt-1">
+                <button class="@Ui.Button" @onclick="PublishConsentAsync">Publicar</button>
+                <button class="@Ui.ButtonLink" @onclick="() => _consent = null">Cancelar</button>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="mb-4">
+    <button class="@Ui.ButtonOutlineSm" @onclick="New">Nova modalidade</button>
+</div>
+
+@if (_items is null)
+{
+    <Loading />
+}
+else
+{
+    <div class="@Ui.TableWrap">
+        <table class="@Ui.Table">
+            <thead class="@Ui.THead">
+                <tr><th class="@Ui.Th">Modalidade</th><th class="@Ui.Th">Conselhos aceitos</th><th class="@Ui.Th">Campos obrigatórios</th><th class="@Ui.Th">Consentimento</th><th class="@Ui.Th">Situação</th><th class="@Ui.Th"></th></tr>
+            </thead>
+            <tbody class="@Ui.TBody">
+                @foreach (var m in _items)
+                {
+                    <tr>
+                        <td class="@Ui.Td">@m.Name<div class="text-xs text-slate-500"><code class="rounded bg-slate-100 px-1 font-mono text-xs">@m.Code</code></div></td>
+                        <td class="@Ui.Td">@(m.AcceptedCouncils.Count == 0 ? "—" : string.Join(", ", m.AcceptedCouncils))</td>
+                        <td class="@($"{Ui.Td} text-xs")">@string.Join(", ", m.RequiredRecordFields.Select(FieldLabel))</td>
+                        <td class="@Ui.Td">@(m.RequiresConsent ? m.CurrentConsentVersion is { } v ? $"Exigido · versão {v}" : "Exigido · sem termo publicado" : "Não exigido")</td>
+                        <td class="@Ui.Td">
+                            <StatusBadge Status="@m.Status" />
+                            @if (m.LegalReviewReference is not null && m.Status == "Enabled")
+                            {
+                                <div class="text-xs text-slate-500">@m.LegalReviewReference</div>
+                            }
+                        </td>
+                        <td class="@($"{Ui.Td} text-right whitespace-nowrap")">
+                            <button class="@Ui.ButtonSecondarySm" @onclick="() => Edit(m)">Configurar</button>
+                            <button class="@($"{Ui.ButtonSecondarySm} ml-1")" @onclick="() => StartConsent(m)">Termo</button>
+                            @if (m.Status == "Enabled")
+                            {
+                                <button class="@($"{Ui.ButtonDangerOutlineSm} ml-1")" @onclick="() => DisableAsync(m)">Desabilitar</button>
+                            }
+                            else
+                            {
+                                <button class="@($"{Ui.ButtonSuccessSm} ml-1")" @onclick="() => _enabling = m">Habilitar</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private static readonly (string Field, string Label)[] RecordFields =
+    [
+        ("ReportedConcern", "Queixa/objetivo"), ("ProfessionalAssessment", "Avaliação"), ("ContraindicationsAndPrecautions", "Contraindicações"),
+        ("Technique", "Técnica"), ("PointsOrRegions", "Pontos/regiões"), ("DurationMinutes", "Duração"), ("AdverseEvents", "Eventos adversos"),
+        ("PostSessionGuidance", "Orientações"),
+    ];
+
+    private sealed class ModalityForm
+    {
+        public bool IsNew { get; init; }
+
+        public string Code { get; set; } = string.Empty;
+
+        public string Name { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
+
+        public string Councils { get; set; } = string.Empty;
+
+        public HashSet<string> Fields { get; init; } = [];
+
+        public bool RequiresConsent { get; set; } = true;
+    }
+
+    private sealed class ConsentForm(ModalityItem modality)
+    {
+        public ModalityItem Modality { get; } = modality;
+
+        public string Title { get; set; } = $"Termo de consentimento — {modality.Name}";
+
+        public string Body { get; set; } = string.Empty;
+
+        public string Risks { get; set; } = string.Empty;
+    }
+
+    private List<ModalityItem>? _items;
+    private ApiProblem? _problem;
+    private string? _notice;
+    private ModalityForm? _editing;
+    private ModalityItem? _enabling;
+    private ConsentForm? _consent;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Api.GetAsync<List<ModalityItem>>("admin/therapy-modalities");
+        _items = result.Value ?? [];
+        _problem = result.Problem;
+    }
+
+    private static string FieldLabel(string field) => RecordFields.FirstOrDefault(f => f.Field == field).Label ?? field;
+
+    private static void Toggle(HashSet<string> fields, string field, bool on)
+    {
+        if (on)
+        {
+            fields.Add(field);
+        }
+        else
+        {
+            fields.Remove(field);
+        }
+    }
+
+    private void New() => _editing = new ModalityForm { IsNew = true };
+
+    private void Edit(ModalityItem m) =>
+        _editing = new ModalityForm
+        {
+            Code = m.Code, Name = m.Name, Description = m.Description, Councils = string.Join(", ", m.AcceptedCouncils), Fields = [.. m.RequiredRecordFields],
+            RequiresConsent = m.RequiresConsent,
+        };
+
+    private void StartConsent(ModalityItem m) => _consent = new ConsentForm(m);
+
+    private async Task SaveAsync()
+    {
+        var form = _editing!;
+        var modality = new
+        {
+            name = form.Name, description = form.Description,
+            acceptedCouncils = form.Councils.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            requiredRecordFields = form.Fields.ToArray(), requiresConsent = form.RequiresConsent,
+        };
+        var result = form.IsNew
+            ? await Api.PostAsync("admin/therapy-modalities", new { code = form.Code, modality })
+            : await Api.PutAsync($"admin/therapy-modalities/{form.Code}", modality);
+        await AfterAsync(result, form.IsNew ? "Modalidade criada (desabilitada até a revisão)." : "Configuração salva.", () => _editing = null);
+    }
+
+    private async Task EnableAsync(string? reference)
+    {
+        var result = await Api.PostAsync($"admin/therapy-modalities/{_enabling!.Code}/enable", new { legalReviewReference = reference });
+        await AfterAsync(result, "Modalidade habilitada.", () => _enabling = null);
+    }
+
+    private async Task DisableAsync(ModalityItem m) =>
+        await AfterAsync(await Api.PostAsync($"admin/therapy-modalities/{m.Code}/disable"), "Modalidade desabilitada.", () => { });
+
+    private async Task PublishConsentAsync()
+    {
+        var form = _consent!;
+        var result = await Api.PostAsync<object>($"admin/therapy-modalities/{form.Modality.Code}/consent-templates", new
+        {
+            title = form.Title, body = form.Body, disclosedRisks = form.Risks.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+        });
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _consent = null;
+            _notice = "Termo publicado.";
+            await LoadAsync();
+        }
+    }
+
+    private async Task AfterAsync(ApiResult<NoContent> result, string notice, Action close)
+    {
+        _problem = result.Problem;
+        _notice = result.IsSuccess ? notice : null;
+        if (result.IsSuccess)
+        {
+            close();
+            await LoadAsync();
+        }
+    }
+}

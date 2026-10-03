@@ -1,0 +1,162 @@
+@page "/organization/billing"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+
+<PageTitle>Plano e cobrança · Organização</PageTitle>
+
+<h1 class="@($"{Ui.PageTitle} mb-4")">Plano e cobrança — @(Workspace.Membership?.TenantName ?? "organização")</h1>
+
+@if (!Workspace.IsTenantAdministrator)
+{
+    <p class="@Ui.AlertInfo">Selecione uma organização que você administra.</p>
+}
+else
+{
+    <ProblemAlert Problem="_problem" />
+
+    @if (_detail is null)
+    {
+        @if (_problem is null)
+        {
+            <Loading />
+        }
+    }
+    else
+    {
+        var s = _detail.Summary;
+
+        <div class="@($"{Ui.Card} mb-6")">
+            <div class="@Ui.CardBody">
+                <div class="mb-3 flex flex-wrap items-center gap-2">
+                    <span class="@Ui.SectionTitle">Assinatura</span>
+                    <StatusBadge Status="@s.Status" />
+                </div>
+                <p class="mb-1 text-sm text-slate-700"><strong>Módulos:</strong> @string.Join(", ", s.Modules.Select(BillingLabels.Module)) · <strong>@BillingLabels.Money(s.MonthlyAmountCents)</strong> por mês</p>
+                @switch (s.Status)
+                {
+                    case "Trial":
+                        <p class="@Ui.Help">
+                            Período de teste até @BillingLabels.Date(s.TrialEndsAt), com todos os módulos liberados. Depois disso, a cobrança é mensal e antecipada
+                            pelos módulos acima; os demais deixam de estar disponíveis.
+                        </p>
+                        break;
+                    case "PastDue":
+                        <p class="text-sm text-amber-700">Há uma fatura vencida. Pague para evitar a suspensão da organização.</p>
+                        break;
+                    case "Suspended":
+                        <p class="text-sm text-red-700">
+                            Organização suspensa: os profissionais não conseguem atender por ela até a regularização. Os clientes mantêm acesso aos próprios dados.
+                        </p>
+                        break;
+                    case "Cancelled":
+                        <p class="text-sm text-red-700">Assinatura cancelada.</p>
+                        break;
+                    default:
+                        <p class="@Ui.Help">Próxima fatura em @BillingLabels.Date(s.NextInvoiceAt).</p>
+                        break;
+                }
+                <p class="mt-3 text-xs text-slate-500">Para mudar os módulos contratados, fale com o suporte da MyHealth.</p>
+            </div>
+        </div>
+
+        <h2 class="@($"{Ui.SectionTitle} mb-3")">Faturas</h2>
+        @if (_detail.Invoices.Count == 0)
+        {
+            <p class="@Ui.EmptyState">Nenhuma fatura ainda.</p>
+        }
+        else
+        {
+            <div class="@Ui.TableWrap">
+                <table class="@Ui.Table">
+                    <thead class="@Ui.THead"><tr><th class="@Ui.Th">Período</th><th class="@Ui.Th">Itens</th><th class="@($"{Ui.Th} text-right")">Total</th><th class="@Ui.Th">Vencimento</th><th class="@Ui.Th">Situação</th><th class="@Ui.Th"></th></tr></thead>
+                    <tbody class="@Ui.TBody">
+                        @foreach (var i in _detail.Invoices)
+                        {
+                            <tr>
+                                <td class="@($"{Ui.Td} whitespace-nowrap")">@BillingLabels.Date(i.PeriodStart) – @BillingLabels.Date(i.PeriodEnd)</td>
+                                <td class="@($"{Ui.Td} text-xs")">@string.Join(", ", i.Lines.Select(l => $"{BillingLabels.Module(l.Module)} {BillingLabels.Money(l.AmountCents)}"))</td>
+                                <td class="@($"{Ui.Td} text-right whitespace-nowrap")">@BillingLabels.Money(i.TotalCents)</td>
+                                <td class="@($"{Ui.Td} whitespace-nowrap {(i.IsOverdue ? "font-semibold text-red-700" : string.Empty)}")">@BillingLabels.Date(i.DueAt)</td>
+                                <td class="@Ui.Td"><StatusBadge Status="@i.Status" /></td>
+                                <td class="@($"{Ui.Td} text-right")">
+                                    @if (i.Status == "Open")
+                                    {
+                                        <button class="@Ui.ButtonSm" disabled="@(_paying == i.Id)" @onclick="() => PayAsync(i)">Pagar com Pix</button>
+                                    }
+                                    else if (i.PaidAt is { } paid)
+                                    {
+                                        <span class="whitespace-nowrap text-xs text-slate-500">pago em @BillingLabels.Date(paid)</span>
+                                    }
+                                </td>
+                            </tr>
+                            @if (_charges.TryGetValue(i.Id, out var charge) && i.Status == "Open")
+                            {
+                                <tr>
+                                    <td colspan="6" class="@($"{Ui.Td} bg-slate-50")">
+                                        <label class="@Ui.Label" for="pix-@i.Id">Pix copia e cola (válido até @charge.ExpiresAt.ToLocalTime().ToString("dd/MM HH:mm"))</label>
+                                        <textarea id="pix-@i.Id" class="@($"{Ui.InputSm} mb-2 font-mono")" rows="2" readonly>@charge.PixCopyPaste</textarea>
+                                        @if (charge.CheckoutUrl is not null)
+                                        {
+                                            <a href="@charge.CheckoutUrl" target="_blank" rel="noopener noreferrer" class="@($"{Ui.Link} text-sm")">Abrir página de pagamento</a>
+                                        }
+                                        <span class="mt-1 block text-xs text-slate-500">A fatura é baixada automaticamente quando o pagamento é confirmado.</span>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+}
+
+@code {
+    private TenantBillingDetail? _detail;
+    private ApiProblem? _problem;
+    private Guid? _paying;
+    private readonly Dictionary<Guid, ChargeResponse> _charges = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _detail = null;
+        _problem = null;
+        _charges.Clear();
+        if (!Workspace.IsTenantAdministrator)
+        {
+            return;
+        }
+
+        var result = await Api.GetAsync<TenantBillingDetail>("tenant/billing");
+        _detail = result.Value;
+        _problem = result.Problem;
+    }
+
+    private async Task PayAsync(InvoiceResponse invoice)
+    {
+        _paying = invoice.Id;
+        var result = await Api.PostAsync<ChargeResponse>($"tenant/billing/invoices/{invoice.Id}/charge", null);
+        _paying = null;
+        _problem = result.Problem;
+        if (result.Value is { } charge)
+        {
+            _charges[invoice.Id] = charge;
+        }
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

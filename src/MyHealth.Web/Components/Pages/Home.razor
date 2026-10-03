@@ -1,7 +1,94 @@
-﻿@page "/"
+@page "/"
+@attribute [Authorize]
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Início · MyHealth</PageTitle>
 
-<h1>Hello, world!</h1>
+<AuthorizeView>
+    <h1 class="@($"{Ui.PageTitle} mb-4")">Olá, @(Workspace.Me?.FullName.Split(' ')[0] ?? context.User.Identity?.Name)</h1>
+</AuthorizeView>
 
-Welcome to your new app.
+<ProblemAlert Problem="_problem" />
+
+@if (_twoFactor is { IsTwoFactorEnabled: false })
+{
+    <div class="@($"{Ui.AlertWarning} mb-4")">
+        Profissionais e operadores precisam da verificação em duas etapas para acessar dados de organizações e a administração.
+        <a href="account/security" class="font-semibold underline underline-offset-2 hover:no-underline">Ativar agora</a>.
+    </div>
+}
+
+@if (Workspace.Me is null)
+{
+    <AuthorizeView Roles="@SessionClaims.AdministratorRole">
+        <Authorized>
+            <p class="@Ui.Help">Conta de operador da plataforma: a administração da plataforma fica no back office.</p>
+        </Authorized>
+        <NotAuthorized>
+            <p class="@Ui.Help">
+                Esta conta ainda não tem perfil. Conclua o cadastro no aplicativo MyHealth; profissionais criam depois o perfil profissional e
+                entram (ou criam) uma organização.
+            </p>
+        </NotAuthorized>
+    </AuthorizeView>
+}
+else
+{
+    <div class="mt-2 grid gap-4 md:grid-cols-2">
+        <div class="@($"{Ui.Card} h-full")">
+            <div class="@Ui.CardBody">
+                <h2 class="@($"{Ui.CardTitle} mb-3")">Perfis profissionais</h2>
+                @if (Workspace.Me.ProfessionalProfiles.Count == 0)
+                {
+                    <p class="@Ui.Help">Nenhum perfil profissional.</p>
+                }
+                <ul class="divide-y divide-slate-100">
+                    @foreach (var profile in Workspace.Me.ProfessionalProfiles)
+                    {
+                        <li class="flex items-center justify-between gap-2 py-2 text-sm text-slate-700">
+                            <span>@Labels.Discipline(profile.Discipline) — @profile.DisplayName</span>
+                            <StatusBadge Status="@profile.VerificationStatus" />
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+        <div class="@($"{Ui.Card} h-full")">
+            <div class="@Ui.CardBody">
+                <h2 class="@($"{Ui.CardTitle} mb-3")">Organizações</h2>
+                @if (Workspace.Me.Memberships.Count == 0)
+                {
+                    <p class="@Ui.Help">Você ainda não participa de nenhuma organização.</p>
+                }
+                <ul class="divide-y divide-slate-100">
+                    @foreach (var membership in Workspace.Me.Memberships)
+                    {
+                        <li class="py-2">
+                            <button class="cursor-pointer text-sm text-teal-700 hover:text-teal-900 hover:underline @(membership.TenantId == Workspace.Membership?.TenantId ? "font-bold" : "font-medium")"
+                                    @onclick="() => Workspace.SelectTenantAsync(membership.TenantId)">
+                                @membership.TenantName
+                            </button>
+                            <span class="text-sm text-slate-500">
+                                @string.Join(", ", membership.Disciplines.Select(Labels.Discipline))@(membership.IsAdministrator ? " · administrador" : string.Empty)
+                            </span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private TwoFactorStatus? _twoFactor;
+    private ApiProblem? _problem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Posting an empty change returns the current two-factor status without altering it.
+        var status = await Api.PostAsync<TwoFactorStatus>("auth/manage/2fa", new { });
+        _twoFactor = status.Value;
+        _problem = status.Problem ?? (Workspace.Problem is { Status: not 404 } p ? p : null);
+    }
+}

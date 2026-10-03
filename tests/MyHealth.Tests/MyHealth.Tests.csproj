@@ -1,24 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
-    <IsTestProject>true</IsTestProject>
-    <OutputType>Exe</OutputType>
-    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
-  </PropertyGroup>
-
+  <!-- End-to-end smoke test of the Aspire AppHost (requires Docker). Common test settings: tests/Directory.Build.props. -->
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.Testing" Version="13.6.0" />
-    <PackageReference Include="xunit.v3" Version="4.0.0" />
+    <PackageReference Include="Aspire.Hosting.Testing" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MyHealth.AppHost\MyHealth.AppHost.csproj" />
+    <ProjectReference Include="..\..\src\MyHealth.AppHost\MyHealth.AppHost.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -26,7 +15,6 @@
     <Using Include="Microsoft.Extensions.DependencyInjection" />
     <Using Include="Aspire.Hosting.ApplicationModel" />
     <Using Include="Aspire.Hosting.Testing" />
-    <Using Include="Xunit" />
   </ItemGroup>
 
 </Project>

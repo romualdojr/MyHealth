@@ -1,0 +1,176 @@
+@page "/trainer"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+
+<PageTitle>Clientes · MyHealth</PageTitle>
+
+<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+    <h1 class="@Ui.PageTitle">Clientes</h1>
+    @if (Workspace.Practices("PersonalTrainer"))
+    {
+        <div class="flex flex-wrap gap-2">
+            <a class="@Ui.ButtonSecondary" href="trainer/exercises">Biblioteca de exercícios</a>
+            <button class="@Ui.Button" @onclick="() => _inviting = !_inviting">Convidar cliente</button>
+        </div>
+    }
+</div>
+
+@if (!Workspace.Practices("PersonalTrainer"))
+{
+    <p class="@Ui.AlertInfo">Selecione uma organização em que você atua como personal trainer.</p>
+}
+else
+{
+    <p class="@($"{Ui.Help} mb-4")">
+        Abra um cliente para montar e publicar o plano de treino dele. Adesão dos últimos 7 dias em relação à frequência sugerida,
+        feedbacks sem resposta, relatos de desconforto e planos que pedem revisão.
+    </p>
+
+    <ProblemAlert Problem="_problem" />
+
+    @if (_inviting)
+    {
+        <div class="@($"{Ui.Card} mb-6")">
+            <div class="@Ui.CardBody">
+                <h2 class="@($"{Ui.CardTitle} mb-1")">Convidar cliente</h2>
+                <p class="@($"{Ui.Help} mb-3")">
+                    O cliente recebe o convite no aplicativo ao entrar com este e-mail e decide o que compartilhar com você.
+                </p>
+                <div class="grid grid-cols-12 items-end gap-3">
+                    <div class="col-span-12 md:col-span-6">
+                        <label class="@Ui.Label" for="client-email">E-mail do cliente</label>
+                        <input id="client-email" type="email" class="@Ui.Input" @bind="_inviteEmail" @bind:event="oninput" />
+                    </div>
+                    <div class="col-span-12 md:col-span-3">
+                        <button class="@($"{Ui.Button} w-full")" disabled="@string.IsNullOrWhiteSpace(_inviteEmail)" @onclick="InviteAsync">Enviar convite</button>
+                    </div>
+                </div>
+                @if (_invited is not null)
+                {
+                    <p class="mt-2 text-sm text-emerald-700" role="status">Convite enviado para @_invited.</p>
+                }
+            </div>
+        </div>
+    }
+
+    @if (_dashboard is null)
+    {
+        @if (_problem is null)
+        {
+            <Loading />
+        }
+    }
+    else
+    {
+        <div class="mb-6 grid gap-4 sm:grid-cols-3">
+            <div><Metric Label="Feedbacks sem resposta" Value="@_dashboard.TotalPendingFeedback" /></div>
+            <div><Metric Label="Relatos de desconforto" Value="@_dashboard.TotalDiscomfortReports" Warn="true" /></div>
+            <div><Metric Label="Planos para revisar" Value="@_dashboard.TotalPlansNeedingReview" Warn="true" /></div>
+        </div>
+
+        @if (_dashboard.Clients.Count == 0)
+        {
+            <div class="@Ui.EmptyState">
+                <p class="mb-3">Nenhum cliente com vínculo ativo ainda.</p>
+                <button class="@Ui.Button" @onclick="() => _inviting = true">Convidar o primeiro cliente</button>
+            </div>
+        }
+        else
+        {
+            <div class="@Ui.TableWrap">
+                <table class="@Ui.Table">
+                    <thead class="@Ui.THead">
+                        <tr><th class="@Ui.Th">Cliente</th><th class="@Ui.Th">Plano ativo</th><th class="@Ui.Th">Últimos 7 dias</th><th class="@Ui.Th">Adesão</th><th class="@Ui.Th">Pendências</th><th class="@Ui.Th">Último treino</th></tr>
+                    </thead>
+                    <tbody class="@Ui.TBody">
+                        @foreach (var c in _dashboard.Clients)
+                        {
+                            <tr class="@(c.UnrepliedDiscomfortReports > 0 ? Ui.RowWarning : string.Empty)">
+                                <td class="@Ui.Td"><a href="trainer/clients/@c.ClientId" class="@($"{Ui.Link} font-semibold")">@c.ClientName</a></td>
+                                <td class="@Ui.Td">
+                                    @if (c.ActivePlanName is { } plan)
+                                    {
+                                        @plan
+                                    }
+                                    else
+                                    {
+                                        <a href="trainer/clients/@c.ClientId" class="@($"{Ui.Link} text-sm")">Criar plano</a>
+                                    }
+                                </td>
+                                <td class="@Ui.Td">@c.CompletedLast7Days@(c.SuggestedSessionsPerWeek is { } s ? $" de {s}" : string.Empty)</td>
+                                <td class="@Ui.Td">@(c.AdherenceLast7Days is { } a ? a.ToString("P0") : "—")</td>
+                                <td class="@Ui.Td">
+                                    <div class="flex flex-wrap gap-1">
+                                        @if (c.UnrepliedDiscomfortReports > 0)
+                                        {
+                                            <span class="@Ui.BadgeDanger">@c.UnrepliedDiscomfortReports desconforto</span>
+                                        }
+                                        @if (c.PendingFeedbackReplies > 0)
+                                        {
+                                            <span class="@Ui.BadgeWarning">@c.PendingFeedbackReplies feedback</span>
+                                        }
+                                        @if (c.PlansNeedingReview > 0)
+                                        {
+                                            <span class="@Ui.BadgeInfo">revisar plano</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="@Ui.Td">@(c.LastCompletedAt?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+}
+
+@code {
+    private TrainerDashboard? _dashboard;
+    private ApiProblem? _problem;
+    private bool _inviting;
+    private string? _inviteEmail;
+    private string? _invited;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        _dashboard = null;
+        _problem = null;
+        if (!Workspace.Practices("PersonalTrainer"))
+        {
+            return;
+        }
+
+        var result = await Api.GetAsync<TrainerDashboard>("trainer/dashboard");
+        _dashboard = result.Value;
+        _problem = result.Problem;
+    }
+
+    private async Task InviteAsync()
+    {
+        var email = _inviteEmail!.Trim();
+        var result = await Api.PostAsync<IdResponse>("care-relationships/invitations", new { discipline = "PersonalTrainer", clientEmail = email });
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _invited = email;
+            _inviteEmail = null;
+        }
+    }
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

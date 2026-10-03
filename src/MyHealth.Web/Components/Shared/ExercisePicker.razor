@@ -1,0 +1,146 @@
+@* Search the exercise library (curated + the organization's own) and pick one to add to a session. *@
+@implements IDisposable
+@inject MyHealthApiClient Api
+
+<div class="@Ui.CardHighlight">
+    <div class="@Ui.CardBody">
+        <div class="mb-3 flex items-center justify-between gap-2">
+            <h3 class="@Ui.CardTitle">Adicionar exercício@(Target is null ? string.Empty : $" em {Target}")</h3>
+            <button class="@Ui.CloseButton" aria-label="Fechar" @onclick="OnClose">✕</button>
+        </div>
+        <div class="mb-3 grid grid-cols-12 gap-2">
+            <div class="col-span-12 md:col-span-6">
+                <label class="sr-only" for="picker-search">Buscar exercício</label>
+                <input id="picker-search" class="@Ui.Input" placeholder="Buscar por nome (ex.: agachamento)" autofocus
+                       @bind="_search" @bind:event="oninput" @bind:after="SearchSoonAsync" />
+            </div>
+            <div class="col-span-12 sm:col-span-6 md:col-span-3">
+                <label class="sr-only" for="picker-muscle">Grupo muscular</label>
+                <select id="picker-muscle" class="@Ui.Select" @bind="_muscle" @bind:after="SearchSoonAsync">
+                    <option value="">Todos os grupos musculares</option>
+                    @foreach (var muscle in _muscles)
+                    {
+                        <option value="@muscle">@muscle</option>
+                    }
+                </select>
+            </div>
+            <div class="col-span-12 sm:col-span-6 md:col-span-3">
+                <label class="sr-only" for="picker-equipment">Equipamento</label>
+                <select id="picker-equipment" class="@Ui.Select" @bind="_equipment" @bind:after="SearchSoonAsync">
+                    <option value="">Qualquer equipamento</option>
+                    @foreach (var equipment in _equipments)
+                    {
+                        <option value="@equipment">@equipment</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <ProblemAlert Problem="_problem" />
+
+        @if (_results is null)
+        {
+            <Loading />
+        }
+        else if (_results.Items.Count == 0)
+        {
+            <p class="@Ui.Help">
+                Nenhum exercício encontrado. Você pode cadastrar o seu na <a href="trainer/exercises" target="_blank" class="@Ui.Link">biblioteca</a>.
+            </p>
+        }
+        else
+        {
+            <div class="max-h-80 divide-y divide-slate-200 overflow-y-auto">
+                @foreach (var exercise in _results.Items)
+                {
+                    <div class="flex items-center gap-2 py-2">
+                        <div class="min-w-0 flex-grow">
+                            <div class="font-semibold text-slate-900">
+                                @exercise.Name
+                                @if (exercise.IsCustom)
+                                {
+                                    <span class="@($"{Ui.BadgeNeutral} ml-1")">da organização</span>
+                                }
+                                @if (exercise.Media.Count > 0)
+                                {
+                                    <span class="@($"{Ui.BadgeNeutral} ml-1")" title="Tem vídeo ou imagem">▶ mídia</span>
+                                }
+                            </div>
+                            <div class="text-sm text-slate-500">@string.Join(", ", exercise.MuscleGroups.Concat(exercise.Equipment))</div>
+                        </div>
+                        <button class="@Ui.ButtonOutlineSm" @onclick="() => OnPick.InvokeAsync(exercise)">Adicionar</button>
+                    </div>
+                }
+            </div>
+            @if (_results.TotalCount > _results.Items.Count)
+            {
+                <p class="@($"{Ui.Help} mt-2")">Mostrando @_results.Items.Count de @_results.TotalCount — refine a busca.</p>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? Target { get; set; }
+
+    [Parameter]
+    public EventCallback<ExerciseItem> OnPick { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private string? _search;
+    private string? _muscle;
+    private string? _equipment;
+    private PagedResponse<ExerciseItem>? _results;
+    private ApiProblem? _problem;
+    private CancellationTokenSource? _typing;
+
+    private IReadOnlyList<string> _muscles = [];
+    private IReadOnlyList<string> _equipments = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        // The filters match whole values, so offer the values the library actually uses.
+        var all = await Api.GetAsync<PagedResponse<ExerciseItem>>("exercises?pageSize=100");
+        var items = all.Value?.Items ?? [];
+        _muscles = [.. items.SelectMany(e => e.MuscleGroups).Distinct().Order()];
+        _equipments = [.. items.SelectMany(e => e.Equipment).Distinct().Order()];
+        await SearchAsync(CancellationToken.None);
+    }
+
+    /// <summary>Waits for a short pause in typing before searching.</summary>
+    private async Task SearchSoonAsync()
+    {
+        _typing?.Cancel();
+        _typing?.Dispose();
+        _typing = new CancellationTokenSource();
+        var ct = _typing.Token;
+        try
+        {
+            await Task.Delay(250, ct);
+            await SearchAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer keystroke started another search.
+        }
+    }
+
+    private async Task SearchAsync(CancellationToken ct)
+    {
+        var query = $"exercises?pageSize=20&search={Uri.EscapeDataString(_search ?? string.Empty)}"
+                    + $"&muscleGroup={Uri.EscapeDataString(_muscle ?? string.Empty)}&equipment={Uri.EscapeDataString(_equipment ?? string.Empty)}";
+        var result = await Api.GetAsync<PagedResponse<ExerciseItem>>(query, ct);
+        ct.ThrowIfCancellationRequested();
+        _results = result.Value ?? new PagedResponse<ExerciseItem>([], 1, 20, 0);
+        _problem = result.Problem;
+    }
+
+    public void Dispose()
+    {
+        _typing?.Cancel();
+        _typing?.Dispose();
+    }
+}
