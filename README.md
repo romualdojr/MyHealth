@@ -12,7 +12,8 @@ Backend API for a training-first health app for clients, personal trainers, diet
 
 ```bash
 dotnet run --project src/MyHealth.AppHost   # needs Docker for PostgreSQL
-dotnet test                                 # unit, architecture and integration tests
+dotnet test                                 # unit, architecture, integration and browser end-to-end tests (Docker + Edge)
+dotnet test tests/MyHealth.E2ETests         # only the browser tests of the web dashboard and back office (E2E_HEADED=1 to watch)
 npm ci --prefix src/MyHealth.Web.Common      # once, to rebuild the Tailwind CSS of the web apps when markup changes
 ```
 

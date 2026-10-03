@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Browser end-to-end tests of the web dashboard and the back office: the whole AppHost (PostgreSQL in Docker, API with
+       the Development seed, both web apps) driven by Playwright in the installed Microsoft Edge. Common test settings:
+       tests/Directory.Build.props. -->
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Testing" />
+    <PackageReference Include="Microsoft.Playwright" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MyHealth.AppHost\MyHealth.AppHost.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Aspire.Hosting.ApplicationModel" />
+    <Using Include="Aspire.Hosting.Testing" />
+    <Using Include="Microsoft.Playwright" />
+  </ItemGroup>
+
+</Project>

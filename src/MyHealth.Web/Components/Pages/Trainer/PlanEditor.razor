@@ -119,7 +119,7 @@ else
                 </summary>
                 <div class="@($"{Ui.CardBody} border-t border-slate-200")">
                     <fieldset class="min-w-0" disabled="@IsEnded">
-                        <PlanDetailsEditor Form="_details" ShowNotes="true" Prefix="details" />
+                        <PlanDetailsEditor Form="_details" ShowNotes="true" Prefix="details" OnChanged="StateHasChanged" />
                     </fieldset>
                 </div>
             </details>

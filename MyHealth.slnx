@@ -31,5 +31,6 @@
     <Project Path="tests/MyHealth.ArchitectureTests/MyHealth.ArchitectureTests.csproj" />
     <Project Path="tests/MyHealth.Domain.UnitTests/MyHealth.Domain.UnitTests.csproj" />
     <Project Path="tests/MyHealth.Tests/MyHealth.Tests.csproj" />
+    <Project Path="tests/MyHealth.E2ETests/MyHealth.E2ETests.csproj" />
   </Folder>
 </Solution>

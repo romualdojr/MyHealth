@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
+    <!-- NavigateTo during static rendering (sign-in, redirects) sends the redirect without throwing NavigationException,
+         which otherwise surfaces in the debugger as an error. -->
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

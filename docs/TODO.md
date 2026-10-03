@@ -77,7 +77,8 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] Web: trainer heart-rate views; plan templates without a client; drag and drop in the editor.
 - [ ] Web: dietitian workflow (assessments, meal plan editor, food diary with comments) and therapist workflow (services, schedule, session record, consent status, care plans).
 - [ ] Web: invitation flows (clients and organizations), professional profile and onboarding, QR code for 2FA setup.
-- [ ] Web: accessibility review (WCAG 2.2 AA), end-to-end browser tests (e.g. Playwright).
+- [x] Web: end-to-end browser tests (Playwright + Edge, `tests/MyHealth.E2ETests`): sign-in, every page of both apps, plan editor, AI coach, feedback reply, exercise library.
+- [ ] Web: accessibility review (WCAG 2.2 AA); e2e for the 3D upload with a real video and for the organization billing (Pix) flow.
 - [ ] iOS app integrating `docs/initial_requirements/ios` (needs a Mac with Xcode); Android app.
 - [ ] Accessibility (RNF-07), performance targets (RNF-06), on-device acceptance tests 10 and 12.
 

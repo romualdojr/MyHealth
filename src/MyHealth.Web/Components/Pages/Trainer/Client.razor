@@ -45,7 +45,7 @@ else
             <div class="@Ui.CardBody">
                 <h2 class="@($"{Ui.CardTitle} mb-1")">Novo plano</h2>
                 <p class="@($"{Ui.Help} mb-4")">Comece pelo essencial; os treinos e exercícios você monta na próxima tela. Nada chega ao cliente antes de você publicar.</p>
-                <PlanDetailsEditor Form="_newPlan" />
+                <PlanDetailsEditor Form="_newPlan" OnChanged="StateHasChanged" />
                 <div class="mt-4 flex flex-wrap gap-2">
                     <button class="@Ui.Button" disabled="@(string.IsNullOrWhiteSpace(_newPlan.Name) || string.IsNullOrWhiteSpace(_newPlan.Goal))"
                             @onclick="CreateAsync">Criar e montar treinos</button>

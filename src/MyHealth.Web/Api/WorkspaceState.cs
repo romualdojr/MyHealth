@@ -26,8 +26,17 @@ public sealed class WorkspaceState(MyHealthApiClient api, ApiSession session, Pr
 
     public bool Practices(string discipline) => Membership?.Disciplines.Contains(discipline) == true;
 
-    /// <summary>Loads the profile and the remembered organization once per circuit.</summary>
-    public Task EnsureLoadedAsync() => _loading ??= LoadAsync();
+    /// <summary>
+    /// Loads the profile and the remembered organization once per circuit, then tells the components that rendered
+    /// before it finished (navigation, organization switcher) to render again.
+    /// </summary>
+    public Task EnsureLoadedAsync() => _loading ??= LoadAndNotifyAsync();
+
+    private async Task LoadAndNotifyAsync()
+    {
+        await LoadAsync();
+        Changed?.Invoke();
+    }
 
     public async Task SelectTenantAsync(Guid? tenantId)
     {

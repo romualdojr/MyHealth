@@ -1,4 +1,5 @@
 @* Selects the organization the user acts for (MT-02). The API honours it only for an active membership. *@
+@implements IDisposable
 @inject WorkspaceState Workspace
 
 @if (Workspace.Me is { Memberships.Count: > 0 } me)
@@ -16,6 +17,12 @@
 }
 
 @code {
+    protected override void OnInitialized() => Workspace.Changed += OnChanged;
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
     private Task OnSelected(ChangeEventArgs e) =>
         Workspace.SelectTenantAsync(Guid.TryParse(e.Value?.ToString(), out var id) ? id : null);
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
 }
