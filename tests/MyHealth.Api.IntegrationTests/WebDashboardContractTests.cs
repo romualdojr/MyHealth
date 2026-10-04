@@ -514,6 +514,16 @@ public sealed class WebDashboardContractTests(ApiFactory factory) : IntegrationT
     }
 
     [Fact]
+    public void The_authenticator_qr_code_carries_the_standard_key_uri_for_the_shared_key()
+    {
+        AuthenticatorQrCode.Uri("ana@test.local", "abcd efgh ijkl").ShouldBe(
+            "otpauth://totp/MyHealth%3Aana%40test.local?secret=ABCDEFGHIJKL&issuer=MyHealth&digits=6&period=30");
+        var svg = AuthenticatorQrCode.Svg("ana@test.local", "abcd efgh ijkl");
+        svg.ShouldStartWith("<svg");
+        svg.ShouldContain("viewBox");
+    }
+
+    [Fact]
     public async Task An_expired_access_token_is_refreshed_transparently()
     {
         var (email, user) = await AccountAsync("refresh", administrator: false);

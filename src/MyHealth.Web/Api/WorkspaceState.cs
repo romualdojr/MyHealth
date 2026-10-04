@@ -24,7 +24,12 @@ public sealed class WorkspaceState(MyHealthApiClient api, ApiSession session, Pr
 
     public bool IsTenantAdministrator => Membership?.IsAdministrator == true;
 
-    public bool Practices(string discipline) => Membership?.Disciplines.Contains(discipline) == true;
+    /// <summary>
+    /// Whether the person works in <paramref name="discipline"/> in the selected organization: the membership includes it
+    /// (an organization's founder gets all of its disciplines) and they hold a professional profile for it.
+    /// </summary>
+    public bool Practices(string discipline) =>
+        Membership?.Disciplines.Contains(discipline) == true && Me!.ProfessionalProfiles.Any(p => p.Discipline == discipline);
 
     /// <summary>
     /// Loads the profile and the remembered organization once per circuit, then tells the components that rendered

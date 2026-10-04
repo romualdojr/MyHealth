@@ -37,6 +37,8 @@ public sealed class WebDashboardTests(AppFixture app) : BrowserTest(app)
 
         await Assertions.Expect(Page.Locator("header select")).ToHaveValueAsync(new System.Text.RegularExpressions.Regex("^[0-9a-f-]{36}$"));
         await Assertions.Expect(Page.Locator("header select option:checked")).ToHaveTextAsync("Estúdio Movimento");
+        // The organization also offers nutrition, but Tina has no dietitian profile: no nutrition menu for her.
+        await Assertions.Expect(Page.Locator("nav").GetByRole(AriaRole.Link, new() { Name = "Pacientes", Exact = true })).ToHaveCountAsync(0);
         foreach (var item in new[] { "Clientes", "Biblioteca de exercícios", "Membros", "Auditoria", "Plano e cobrança", "Segurança" })
         {
             await Assertions.Expect(Page.Locator("nav").GetByRole(AriaRole.Link, new() { Name = item, Exact = true })).ToBeVisibleAsync();

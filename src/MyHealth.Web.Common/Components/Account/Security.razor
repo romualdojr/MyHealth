@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject PortalOptions Portal
 @inject MyHealthApiClient Api
+@inject AuthenticationStateProvider Authentication
 
 <PageTitle>Segurança · @Portal.Name</PageTitle>
 
@@ -40,7 +41,14 @@ else
 {
     <ol class="list-decimal space-y-4 pl-5 text-slate-700">
         <li>
-            No aplicativo autenticador, adicione uma conta com a chave:
+            No aplicativo autenticador (Google Authenticator, Microsoft Authenticator, 1Password…), leia o código QR:
+            @if (_email is not null)
+            {
+                <div class="my-3 size-48 rounded-lg border border-slate-200 bg-white p-2" role="img" aria-label="Código QR para o aplicativo autenticador">
+                    @((MarkupString)AuthenticatorQrCode.Svg(_email, _status.SharedKey))
+                </div>
+            }
+            Ou digite a chave:
             <code class="my-2 block select-all rounded-lg bg-slate-100 px-3 py-2 font-mono text-lg text-slate-900">@FormatKey(_status.SharedKey)</code>
         </li>
         <li>
@@ -57,8 +65,13 @@ else
     private TwoFactorStatus? _status;
     private ApiProblem? _problem;
     private string? _code;
+    private string? _email;
 
-    protected override Task OnInitializedAsync() => ChangeAsync(new { });
+    protected override async Task OnInitializedAsync()
+    {
+        _email = (await Authentication.GetAuthenticationStateAsync()).User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        await ChangeAsync(new { });
+    }
 
     private Task EnableAsync() => ChangeAsync(new { enable = true, twoFactorCode = _code?.Trim().Replace(" ", string.Empty, StringComparison.Ordinal) });
 
