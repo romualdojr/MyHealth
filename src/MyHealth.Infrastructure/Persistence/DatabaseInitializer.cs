@@ -13,7 +13,7 @@ namespace MyHealth.Infrastructure.Persistence;
 
 /// <summary>
 /// Applies migrations and seeds reference data: roles, the curated exercise library, an optional bootstrap admin and, in
-/// Development, sample accounts and records (<see cref="DevelopmentSeeder"/>).
+/// Development and Staging (the demo), sample accounts and records (<see cref="DevelopmentSeeder"/>).
 /// </summary>
 public static class DatabaseInitializer
 {
@@ -37,9 +37,11 @@ public static class DatabaseInitializer
         await SeedModulePricesAsync(db, provider.GetRequiredService<TimeProvider>(), cancellationToken);
         await SeedAdministratorAsync(provider, logger);
 
-        // Sample accounts and records for local work: Development only, and only when Seed:Development:Enabled is true.
+        // Sample accounts and records for local work and the demo environment: Development or Staging only, and only when
+        // Seed:Development:Enabled is true. Never in Production.
         var configuration = provider.GetRequiredService<IConfiguration>();
-        if (provider.GetService<IHostEnvironment>()?.IsDevelopment() == true && configuration.GetValue("Seed:Development:Enabled", false))
+        var environment = provider.GetService<IHostEnvironment>();
+        if ((environment?.IsDevelopment() == true || environment?.IsStaging() == true) && configuration.GetValue("Seed:Development:Enabled", false))
         {
             await new DevelopmentSeeder(services, configuration, provider.GetRequiredService<TimeProvider>(), logger).SeedAsync(cancellationToken);
         }

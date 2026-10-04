@@ -1,0 +1,85 @@
+# Build and test every push and pull request; deploy master to the Railway demo (project MyHealth) when the tests pass.
+#
+# Deploying needs the repository secret RAILWAY_TOKEN: a project token for MyHealth's "production" environment
+# (Railway > MyHealth > Settings > Tokens). Without it the deploy job fails and nothing is deployed.
+#
+# Not run here: tests/MyHealth.E2ETests (Playwright in an installed Microsoft Edge) and tests/MyHealth.Tests (the whole
+# Aspire AppHost); run them locally before larger changes.
+name: CI/CD
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Tailwind: the build regenerates the stylesheet when the Node packages are present.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/MyHealth.Web.Common/package-lock.json
+
+      - name: Install Tailwind
+        run: npm ci --no-audit --no-fund
+        working-directory: src/MyHealth.Web.Common
+
+      - name: Restore
+        run: dotnet restore MyHealth.slnx
+
+      - name: Build
+        run: dotnet build MyHealth.slnx --no-restore -c Release
+
+      - name: Unit and architecture tests
+        run: |
+          dotnet test --project tests/MyHealth.Domain.UnitTests --no-build -c Release
+          dotnet test --project tests/MyHealth.Application.UnitTests --no-build -c Release
+          dotnet test --project tests/MyHealth.ArchitectureTests --no-build -c Release
+
+      # PostgreSQL in Docker through Testcontainers (Docker is preinstalled on the runner).
+      - name: API integration tests
+        run: dotnet test --project tests/MyHealth.Api.IntegrationTests --no-build -c Release
+
+  deploy:
+    name: Deploy to Railway
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: railway-demo
+      url: https://web-production-1abea.up.railway.app
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the Railway CLI
+        run: npm install --global @railway/cli
+
+      # Each service builds its own Dockerfile (RAILWAY_DOCKERFILE_PATH is set on the service). The API first: it migrates
+      # the database on startup.
+      - name: Deploy
+        run: |
+          railway up --service apiservice --ci
+          railway up --service web --detach
+          railway up --service backoffice --detach
