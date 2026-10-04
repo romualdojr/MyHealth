@@ -99,7 +99,6 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] 3D for the curated library (operators' back office) and a notification to the trainer when a conversion finishes.
 - [x] Trainer chat ("Assistente IA"): all students with summaries, chat over the students who allow AI analysis (pseudonymised), suggestions to evolve exercises applied to each draft.
 - [ ] AI coach and chat as a paid module, per-tenant daily limit for chat messages and cost reporting; first-draft plan generation from goal/level/equipment.
-- [ ] API: times sent with an offset other than UTC (e.g. `-03:00` from a phone) fail with a 500 when saved (Npgsql writes only UTC to `timestamptz`); convert every `DateTimeOffset` to UTC in an EF convention or at the API edge.
 - [ ] Sign-in rate limit: the API limits logins per IP, and every dashboard sign-in comes from the web app's address — forward the user's IP (trusted proxy) or limit per account before production.
 
 ## Phase 5 — P1 features

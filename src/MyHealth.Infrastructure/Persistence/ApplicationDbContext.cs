@@ -122,5 +122,13 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     {
         // Enums as readable strings: safer for reporting and for reordering enum members.
         configurationBuilder.Properties<Enum>().HaveConversion<string>().HaveMaxLength(64);
+
+        // PostgreSQL's timestamptz stores an instant and Npgsql writes only UTC offsets; phones send local times
+        // (e.g. -03:00). Every DateTimeOffset is converted to UTC on the way in, including query parameters.
+        configurationBuilder.Properties<DateTimeOffset>().HaveConversion<UtcDateTimeOffsetConverter>();
+        configurationBuilder.Properties<DateTimeOffset?>().HaveConversion<UtcDateTimeOffsetConverter>();
     }
+
+    private sealed class UtcDateTimeOffsetConverter() : Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTimeOffset, DateTimeOffset>(
+        value => value.ToUniversalTime(), value => value);
 }

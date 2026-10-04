@@ -320,8 +320,7 @@ public sealed class DevelopmentSeeder(IServiceProvider services, IConfiguration 
 
         async Task<Guid> LogAsync(int daysAgo, string meal, int hour, MealAdherence adherence, string? description = null, string? notes = null)
         {
-            // São Paulo is UTC-3; the API stores UTC.
-            var eatenAt = new DateTimeOffset(today.AddDays(-daysAgo).ToDateTime(new TimeOnly(hour, 0)), TimeSpan.Zero).AddHours(3);
+            var eatenAt = new DateTimeOffset(today.AddDays(-daysAgo).ToDateTime(new TimeOnly(hour, 0)), TimeSpan.FromHours(-3));
             var entryId = Guid.CreateVersion7(eatenAt);
             await RunAsync(client, null, new SaveFoodDiaryEntryCommand(
                 entryId, planId, meals[meal], null, null, eatenAt, TimeZone, description, null, adherence, notes));

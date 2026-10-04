@@ -211,6 +211,24 @@ public sealed class NutritionTests(ApiFactory factory) : IntegrationTest(factory
     }
 
     [Fact]
+    public async Task A_time_sent_with_a_local_offset_is_saved_as_the_same_instant()
+    {
+        var (client, dietitian, relationshipId) = await LinkedDietitianAsync();
+        var now = DateTimeOffset.UtcNow;
+        var local = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, TimeSpan.Zero).AddHours(-2).ToOffset(TimeSpan.FromHours(-3));
+        var entryId = Guid.CreateVersion7();
+
+        await Scenario.EnsureSuccess(await client.Http.PutAsJsonAsync($"/api/v1/me/food-diary/{entryId}", new { relationshipId, eatenAt = local, description = "Almoço" }, Ct));
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var diary = await Scenario.Read<DietitianFoodDiaryResponse>(await dietitian.Http.GetAsync(
+            $"/api/v1/dietitian/clients/{client.Id}/food-diary?from={today.AddDays(-2):yyyy-MM-dd}&to={today.AddDays(1):yyyy-MM-dd}", Ct));
+        var entry = diary.Entries.ShouldHaveSingleItem();
+        entry.EatenAt.UtcDateTime.ShouldBe(local.UtcDateTime);
+        entry.EatenAt.Offset.ShouldBe(TimeSpan.Zero);
+    }
+
+    [Fact]
     public async Task The_dietitian_dashboard_lists_active_clients_with_plan_diary_counts_uncommented_entries_and_follow_ups()
     {
         var (ana, dietitian, relationshipId) = await LinkedDietitianAsync();
