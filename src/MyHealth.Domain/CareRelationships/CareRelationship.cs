@@ -189,7 +189,7 @@ public sealed class CareRelationship : AggregateRoot<Guid>
         EndReason = reason;
         if (ClientId is { } clientId)
         {
-            Raise(new CareRelationshipEnded(Id, TenantId, clientId, ProfessionalProfileId, now));
+            Raise(new CareRelationshipEnded(Id, TenantId, clientId, ProfessionalProfileId, actorUserId, now));
         }
 
         return Result.Success();
@@ -210,7 +210,8 @@ public sealed record CareRelationshipActivated(Guid RelationshipId, Guid TenantI
     : DomainEvent(OccurredAt);
 
 /// <summary>Raised when an accepted relationship ends, for whatever reason, so open work tied to it can be closed.</summary>
-public sealed record CareRelationshipEnded(Guid RelationshipId, Guid TenantId, Guid ClientId, Guid ProfessionalProfileId, DateTimeOffset OccurredAt)
+public sealed record CareRelationshipEnded(
+    Guid RelationshipId, Guid TenantId, Guid ClientId, Guid ProfessionalProfileId, Guid EndedByUserId, DateTimeOffset OccurredAt)
     : DomainEvent(OccurredAt);
 
 public static class CareRelationshipErrors

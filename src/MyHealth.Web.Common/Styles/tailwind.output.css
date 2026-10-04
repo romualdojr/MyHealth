@@ -784,6 +784,9 @@
     border-top-width: calc(1px * var(--tw-divide-y-reverse));
     border-bottom-width: calc(1px * calc(1 - var(--tw-divide-y-reverse)));
   }
+  :where(.divide-amber-200 > :not(:last-child)) {
+    border-color: var(--color-amber-200);
+  }
   :where(.divide-slate-100 > :not(:last-child)) {
     border-color: var(--color-slate-100);
   }

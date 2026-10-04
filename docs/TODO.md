@@ -41,7 +41,6 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] Apply approved correction/deletion requests through tooling instead of by hand.
 - [ ] Real push (APNs/FCM) and e-mail senders behind `IPushSender` / `INotificationEmailSender`; drop invalid device tokens.
 - [ ] RF-07 configurable reminders.
-- [ ] Notify trainers when a client ends a relationship so their plans can be ended (open plans stay "published" today).
 
 ## Platform and multi-tenancy
 

@@ -71,6 +71,7 @@ internal static class NotificationTexts
             NotificationType.TherapyCarePlanReviewed => ("Plano de cuidado revisado", "Seu plano de cuidado foi revisado."),
             NotificationType.InvoiceIssued => ("Nova fatura", "Há uma nova fatura do MyHealth para a sua organização."),
             NotificationType.SubscriptionStatusChanged => ("Assinatura", "A situação da assinatura da sua organização mudou."),
+            NotificationType.CareRelationshipEndedByClient => ("Vínculo encerrado", "Um cliente encerrou o vínculo com você. Encerre os planos que ficaram abertos."),
             _ => ("MyHealth", "Você tem uma nova atualização."),
         };
 

@@ -25,6 +25,9 @@ public enum NotificationType
     TherapyCarePlanReviewed = 19,
     InvoiceIssued = 20,
     SubscriptionStatusChanged = 21,
+
+    /// <summary>The client ended the relationship; the professional ends the plans still open for them.</summary>
+    CareRelationshipEndedByClient = 22,
 }
 
 /// <summary>Push/e-mail delivery state (the notification row is its own outbox entry).</summary>

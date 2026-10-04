@@ -1,0 +1,54 @@
+@* Plans still open for clients who ended the relationship (they are notified to the professional). The client keeps
+   seeing them until the professional ends them, so they are listed apart with one button each. *@
+@inject MyHealthApiClient Api
+
+@if (_plans.Count > 0)
+{
+    <section class="@($"{Ui.AlertWarning} mb-6")" aria-labelledby="former-clients-title">
+        <h2 id="former-clients-title" class="mb-1 font-semibold">Planos abertos de quem encerrou o vínculo</h2>
+        <p class="mb-3">O cliente encerrou o vínculo com você, mas o plano continua aparecendo para ele até ser encerrado.</p>
+        <ProblemAlert Problem="_problem" />
+        <ul class="divide-y divide-amber-200">
+            @foreach (var plan in _plans)
+            {
+                <li class="flex flex-wrap items-center gap-2 py-2">
+                    <span class="min-w-0 grow break-words font-medium">@plan.Name</span>
+                    <span class="text-xs">atualizado em @plan.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                    <button class="@($"{Ui.ButtonDangerOutlineSm} w-full sm:w-auto")" @onclick="() => EndAsync(plan)">Encerrar plano</button>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@code {
+    public sealed record OpenPlan(Guid Id, Guid ClientId, string Name, string Status, DateTimeOffset UpdatedAt);
+
+    /// <summary>The professional's plans (training or meal plans) in the active organization.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<OpenPlan> Plans { get; set; } = [];
+
+    /// <summary>The clients with an active relationship; plans of anyone else are listed.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyCollection<Guid> ActiveClientIds { get; set; } = [];
+
+    /// <summary><c>training-plans</c> or <c>meal-plans</c>.</summary>
+    [Parameter, EditorRequired]
+    public string Resource { get; set; } = string.Empty;
+
+    private List<OpenPlan> _plans = [];
+    private ApiProblem? _problem;
+
+    protected override void OnParametersSet() =>
+        _plans = [.. Plans.Where(p => p.Status != "Ended" && !ActiveClientIds.Contains(p.ClientId)).OrderByDescending(p => p.UpdatedAt)];
+
+    private async Task EndAsync(OpenPlan plan)
+    {
+        var result = await Api.PostAsync($"{Resource}/{plan.Id}/end");
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _plans.Remove(plan);
+        }
+    }
+}

@@ -90,11 +90,12 @@ internal sealed class MarkNotificationReadHandler(IUserContext user, INotificati
 /// resource it points to. Each row is also an outbox entry: the notification dispatcher delivers it by push and e-mail
 /// after the transaction commits, so a rolled-back change never notifies anyone.
 /// </summary>
-internal sealed class NotificationEventHandlers(INotificationRepository notifications) :
+internal sealed class NotificationEventHandlers(INotificationRepository notifications, IReadDbContext db) :
     IDomainEventHandler<TrainingPlanPublished>,
     IDomainEventHandler<FeedbackReplied>,
     IDomainEventHandler<DiscomfortReported>,
     IDomainEventHandler<CareRelationshipActivated>,
+    IDomainEventHandler<CareRelationshipEnded>,
     IDomainEventHandler<ProfessionalVerified>,
     IDomainEventHandler<TrainingPlanReviewRequested>,
     IDomainEventHandler<PhysicalAssessmentRecorded>,
@@ -135,6 +136,19 @@ internal sealed class NotificationEventHandlers(INotificationRepository notifica
     public Task Handle(CareRelationshipActivated e, CancellationToken cancellationToken) =>
         Add(Notification.ForProfessional(
             e.ProfessionalUserId, e.TenantId, NotificationType.CareRelationshipActivated, nameof(CareRelationship), e.RelationshipId, e.OccurredAt));
+
+    /// <summary>Only when the client ended it: the professional ended it themselves and already knows.</summary>
+    public async Task Handle(CareRelationshipEnded e, CancellationToken cancellationToken)
+    {
+        if (e.EndedByUserId != e.ClientId)
+        {
+            return;
+        }
+
+        var professionalUserId = await db.ProfessionalProfiles.Where(p => p.Id == e.ProfessionalProfileId).Select(p => p.UserId).FirstAsync(cancellationToken);
+        await Add(Notification.ForProfessional(
+            professionalUserId, e.TenantId, NotificationType.CareRelationshipEndedByClient, nameof(CareRelationship), e.RelationshipId, e.OccurredAt));
+    }
 
     public Task Handle(ProfessionalVerified e, CancellationToken cancellationToken) =>
         Add(Notification.ForAccount(e.UserId, NotificationType.ProfessionalVerified, nameof(ProfessionalProfile), e.ProfessionalProfileId, e.OccurredAt));

@@ -16,6 +16,33 @@ namespace MyHealth.Api.IntegrationTests;
 public sealed class LifecycleTests(ApiFactory factory) : IntegrationTest(factory)
 {
     [Fact]
+    public async Task When_a_client_ends_the_relationship_the_trainer_is_notified_and_can_still_end_the_open_plan()
+    {
+        var client = await Scenario.ClientAsync();
+        var (trainer, _) = await Scenario.ProfessionalAsync();
+        var relationshipId = await Scenario.LinkAsync(trainer, client);
+        var planId = await Scenario.DraftPlanAsync(trainer, client.Id);
+        await Scenario.PublishAsync(trainer, planId);
+
+        await Scenario.EnsureSuccess(await client.Http.PostAsJsonAsync($"/api/v1/care-relationships/{relationshipId}/end", new { reason = "Mudei de academia" }, Ct));
+
+        var notifications = await Scenario.Read<List<MyHealth.Application.Notifications.NotificationResponse>>(await trainer.Http.GetAsync("/api/v1/me/notifications", Ct));
+        notifications.ShouldContain(n => n.Type == MyHealth.Domain.Notifications.NotificationType.CareRelationshipEndedByClient && n.ResourceId == relationshipId);
+
+        // The plan is still listed (and published) for the trainer, who ends it.
+        var plans = await Scenario.Read<List<TrainerPlanListItem>>(await trainer.Http.GetAsync("/api/v1/training-plans", Ct));
+        plans.ShouldContain(p => p.Id == planId && p.Status == PlanStatus.Published);
+        await Scenario.EnsureSuccess(await trainer.Http.PostAsync($"/api/v1/training-plans/{planId}/end", null, Ct));
+
+        // A professional ending a relationship themselves gets no notification about it.
+        var other = await Scenario.ClientAsync("other");
+        var second = await Scenario.LinkAsync(trainer, other);
+        await Scenario.EnsureSuccess(await trainer.Http.PostAsJsonAsync($"/api/v1/care-relationships/{second}/end", new { reason = "Fim do contrato" }, Ct));
+        (await Scenario.Read<List<MyHealth.Application.Notifications.NotificationResponse>>(await trainer.Http.GetAsync("/api/v1/me/notifications", Ct)))
+            .ShouldNotContain(n => n.ResourceId == second && n.Type == MyHealth.Domain.Notifications.NotificationType.CareRelationshipEndedByClient);
+    }
+
+    [Fact]
     public async Task An_ended_plan_cannot_change_but_stays_visible_to_the_client_and_only_its_trainer_can_end_it()
     {
         var client = await Scenario.ClientAsync();

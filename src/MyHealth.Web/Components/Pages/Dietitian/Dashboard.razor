@@ -27,6 +27,11 @@ else
 
     <ProblemAlert Problem="_problem" />
 
+    @if (_dashboard is not null)
+    {
+        <OpenPlansOfFormerClients Plans="_plans" ActiveClientIds="@(_dashboard.Clients.Select(c => c.ClientId).ToList())" Resource="meal-plans" />
+    }
+
     @if (_inviting)
     {
         <div class="@($"{Ui.Card} mb-6")">
@@ -137,6 +142,7 @@ else
 
 @code {
     private DietitianDashboard? _dashboard;
+    private List<OpenPlansOfFormerClients.OpenPlan> _plans = [];
     private ApiProblem? _problem;
     private bool _inviting;
     private string? _inviteEmail;
@@ -171,6 +177,10 @@ else
         var result = await Api.GetAsync<DietitianDashboard>("dietitian/dashboard");
         _dashboard = result.Value;
         _problem = result.Problem;
+
+        // Plans of patients who ended the relationship (listed apart so they can be ended).
+        var plans = await Api.GetAsync<List<MealPlanItem>>("meal-plans");
+        _plans = [.. (plans.Value ?? []).Select(p => new OpenPlansOfFormerClients.OpenPlan(p.Id, p.ClientId, p.Name, p.Status, p.UpdatedAt))];
     }
 
     private async Task InviteAsync()
