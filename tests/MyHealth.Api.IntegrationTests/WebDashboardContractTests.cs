@@ -460,6 +460,9 @@ public sealed class WebDashboardContractTests(ApiFactory factory) : IntegrationT
         draft.Meals[1].Items[0].Quantity = 100m;
         draft.Meals[2].Items[0].Food = "Sopa de legumes";
         draft.Meals[2].Items[0].HouseholdMeasure = "1 prato fundo";
+        draft.Duplicate(draft.Meals[2]).Name.ShouldBe("Jantar (cópia)");
+        draft.Meals[3].Items[0].Food.ShouldBe("Sopa de legumes");
+        draft.Meals.RemoveAt(3);
         draft.Meals.Add(new MealDraft { Name = "Ceia", Items = [new MealItemDraft()] });
         draft.PublishingIssues().ShouldBe(["Ceia: adicione alimentos."]);
         draft.Meals.RemoveAt(3);
@@ -508,6 +511,14 @@ public sealed class WebDashboardContractTests(ApiFactory factory) : IntegrationT
         diary.Entries[0].Comments.ShouldHaveSingleItem().AuthorName.ShouldBe("Nina");
         var summary = (await Ok(api.GetAsync<DietitianDashboard>("dietitian/dashboard", ct: Ct))).Clients[0];
         (summary.UncommentedEntries, summary.ActivePlanId, summary.ActivePlanName, summary.EntriesLast7Days).ShouldBe((0, planId, "Reeducação alimentar", 1));
+
+        // Copy to another patient from the plans tab.
+        var caio = await Scenario.ClientAsync("caio");
+        var caioInvitation = await Ok(api.PostAsync<Web.IdResponse>("care-relationships/invitations", new { discipline = "Dietitian", clientEmail = caio.Email }, ct: Ct));
+        await Scenario.EnsureSuccess(await caio.Http.PostAsync($"/api/v1/care-relationships/{caioInvitation.Id}/accept", null, Ct));
+        var copyId = (await Ok(api.PostAsync<Web.IdResponse>($"meal-plans/{planId}/copy", new { targetClientId = caio.Id, newName = (string?)null }, ct: Ct))).Id;
+        var copied = await Ok(api.GetAsync<DietitianMealPlan>($"meal-plans/{copyId}", ct: Ct));
+        (copied.ClientId, copied.Status, copied.Details.Name).ShouldBe((caio.Id, "Draft", "Reeducação alimentar"));
 
         (await api.PostAsync($"meal-plans/{planId}/end", ct: Ct)).Problem.ShouldBeNull();
         (await Ok(api.GetAsync<DietitianMealPlan>($"meal-plans/{planId}", ct: Ct))).Status.ShouldBe("Ended");

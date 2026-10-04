@@ -74,6 +74,7 @@ internal static class NotificationTexts
             NotificationType.CareRelationshipEndedByClient => ("Vínculo encerrado", "Um cliente encerrou o vínculo com você. Encerre os planos que ficaram abertos."),
             NotificationType.MotionCaptureReady => ("Vídeo 3D pronto", "O vídeo 3D do seu exercício está pronto para revisar na biblioteca."),
             NotificationType.MotionCaptureFailed => ("Vídeo 3D não gerado", "Não foi possível gerar o vídeo 3D do seu exercício. Tente gravar de novo."),
+            NotificationType.FoodDiaryNoteShared => ("Diário alimentar", "Um paciente deixou uma observação no diário alimentar."),
             _ => ("MyHealth", "Você tem uma nova atualização."),
         };
 

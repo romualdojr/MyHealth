@@ -165,7 +165,10 @@ else
                                 <input id="meal-time-@index" type="time" class="@($"{Ui.InputSm} min-w-0")" @bind="meal.Time" />
                             </div>
                             <span class="hidden grow sm:block"></span>
-                            <button class="@($"{Ui.ButtonDangerOutlineSm} col-span-2")" @onclick="() => RemoveMeal(meal)">Remover refeição</button>
+                            <div class="col-span-2 grid grid-cols-2 gap-2 sm:flex">
+                                <button class="@Ui.ButtonSecondarySm" @onclick="() => DuplicateMeal(meal)">Duplicar</button>
+                                <button class="@Ui.ButtonDangerOutlineSm" @onclick="() => RemoveMeal(meal)">Remover refeição</button>
+                            </div>
                         </div>
                         <div class="p-3 sm:p-5">
                             @if (meal.Items.Count == 0)
@@ -388,6 +391,12 @@ else
     }
 
     private void RemoveMeal(MealDraft meal) => _draft.Meals.Remove(meal);
+
+    private void DuplicateMeal(MealDraft meal)
+    {
+        var copy = _draft.Duplicate(meal);
+        _message = $"{copy.Name} adicionada. Ajuste o nome e o horário.";
+    }
 
     /// <summary>Saves the details and the meals that changed, then reloads the plan (new items get their ids, meals are sorted by time).</summary>
     private async Task<bool> SaveChangesAsync()

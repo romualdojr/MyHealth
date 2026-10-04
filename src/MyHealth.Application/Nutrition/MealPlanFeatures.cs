@@ -496,3 +496,46 @@ internal static class DietitianPlanLoader
         return (dietitian.Value, plan);
     }
 }
+
+/// <summary>Copies a plan's draft into a new draft for another client the dietitian follows in the same organization.</summary>
+public sealed record CopyMealPlanCommand(Guid PlanId, Guid TargetClientId, string? NewName) : ICommand<Guid>;
+
+internal sealed class CopyMealPlanValidator : AbstractValidator<CopyMealPlanCommand>
+{
+    public CopyMealPlanValidator()
+    {
+        RuleFor(c => c.TargetClientId).NotEmpty();
+        RuleFor(c => c.NewName).MaximumLength(200);
+    }
+}
+
+internal sealed class CopyMealPlanHandler(ICareAccess access, IMealPlanRepository plans, IAuditLog audit, IUnitOfWork unitOfWork, TimeProvider clock)
+    : ICommandHandler<CopyMealPlanCommand, Guid>
+{
+    public async Task<Result<Guid>> Handle(CopyMealPlanCommand command, CancellationToken cancellationToken)
+    {
+        var loaded = await DietitianPlanLoader.LoadOwnedAsync(access, plans, audit, command.PlanId, cancellationToken);
+        if (loaded.IsFailure)
+        {
+            return loaded.Error;
+        }
+
+        var (dietitian, plan) = loaded.Value;
+        var relationship = await access.GetActiveRelationshipAsync(dietitian, command.TargetClientId, cancellationToken);
+        if (relationship.IsFailure)
+        {
+            return relationship.Error;
+        }
+
+        var name = string.IsNullOrWhiteSpace(command.NewName) ? null : command.NewName.Trim();
+        var copy = plan.CopyAsDraft(dietitian.Profile, command.TargetClientId, name, clock.GetUtcNow());
+        if (copy.IsFailure)
+        {
+            return copy.Error;
+        }
+
+        plans.Add(copy.Value);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return copy.Value.Id;
+    }
+}

@@ -120,6 +120,11 @@ public sealed class FoodDiaryEntry : AggregateRoot<Guid>
         };
 
         var applied = entry.Apply(details, now);
+        if (applied.IsSuccess && addressee is not null && !string.IsNullOrWhiteSpace(entry.ClientNotes))
+        {
+            entry.Raise(new FoodDiaryNoteShared(entry.Id, addressee.TenantId, clientId, addressee.DietitianProfileId, now));
+        }
+
         return applied.IsFailure ? applied.Error : entry;
     }
 
@@ -189,6 +194,9 @@ public sealed class FoodDiaryEntry : AggregateRoot<Guid>
 }
 
 public sealed record FoodDiaryCommented(Guid EntryId, Guid TenantId, Guid ClientId, Guid CommentId, DateTimeOffset OccurredAt) : DomainEvent(OccurredAt);
+
+/// <summary>A new entry shared with a dietitian carries a note from the client: the dietitian is told, like workout feedback.</summary>
+public sealed record FoodDiaryNoteShared(Guid EntryId, Guid TenantId, Guid ClientId, Guid DietitianProfileId, DateTimeOffset OccurredAt) : DomainEvent(OccurredAt);
 
 public interface IFoodDiaryRepository : IRepository<FoodDiaryEntry, Guid>;
 

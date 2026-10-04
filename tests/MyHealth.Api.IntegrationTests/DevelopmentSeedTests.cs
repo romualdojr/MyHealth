@@ -56,7 +56,7 @@ public sealed class DevelopmentSeedTests(ApiFactory factory) : IntegrationTest(f
         var anaPlan = plans.Single(p => p.Details.Name == "Força — fase 1");
         db.WorkoutSessions.Count(w => w.TrainingPlanId == anaPlan.Id && w.Status == MyHealth.Domain.Training.Workouts.WorkoutStatus.Completed).ShouldBe(5);
         db.WorkoutSessions.Single(w => w.TenantId == tenant.TenantId && w.Feedback!.ReportedDiscomfort).Reply.ShouldBeNull();
-        db.CareRelationships.Count(r => r.TenantId == tenant.TenantId).ShouldBe(4);
+        db.CareRelationships.Count(r => r.TenantId == tenant.TenantId).ShouldBe(5);
 
         // Ana shares the heart rate of her last two workouts (measured, with a gap and one value she typed in).
         var heartRates = db.WorkoutHeartRates.Where(h => h.TenantId == tenant.TenantId).ToList();

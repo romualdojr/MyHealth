@@ -110,4 +110,41 @@ public sealed class NutritionWorkspaceTests(AppFixture app) : BrowserTest(app)
         await ExpectTextAsync("Peso: 67,9 kg");
         await AssertHealthyAsync();
     }
+
+    [Fact]
+    public async Task The_diary_shows_the_week_of_the_plan_against_what_was_logged()
+    {
+        await OpenAnaAsync();
+        await Tab("Diário").ClickAsync();
+
+        var grid = Page.Locator("table").Filter(new() { HasText = "Refeição" }).First;
+        await ExpectTextAsync("Plano × registros da semana — Reeducação alimentar");
+        await Assertions.Expect(grid.GetByRole(AriaRole.Rowheader, new() { Name = "Café da manhã" })).ToBeVisibleAsync();
+        await Assertions.Expect(grid).ToContainTextAsync("como planejado");
+        await Assertions.Expect(grid).ToContainTextAsync("em parte");
+        await AssertHealthyAsync();
+    }
+
+    [Fact]
+    public async Task The_dietitian_copies_a_plan_to_another_patient_and_duplicates_a_meal()
+    {
+        await OpenAnaAsync();
+        await Page.Locator("div").Filter(new() { HasText = "Reeducação alimentar" }).GetByRole(AriaRole.Button, new() { Name = "Copiar para…" }).First.ClickAsync();
+        await Page.Locator("#copy-target").SelectOptionAsync(new SelectOptionValue { Label = "Bruno Lima" });
+        await Page.Locator("#copy-name").FillAsync("Reeducação — Bruno");
+        await Button("Copiar").ClickAsync();
+
+        await WaitForPageAsync("Reeducação — Bruno");
+        await Assertions.Expect(Page.GetByRole(AriaRole.Navigation, new() { Name = "Caminho" })).ToContainTextAsync("Bruno Lima");
+        await ExpectTextAsync("O paciente ainda não vê este plano.");
+
+        await Button("Duplicar").First.ClickAsync();
+        await Assertions.Expect(Page.Locator("#meal-name-1")).ToHaveValueAsync("Café da manhã (cópia)");
+        await Assertions.Expect(Page.Locator("#food-1-0")).ToHaveValueAsync("Pão integral");
+        await Page.Locator("#meal-name-1").FillAsync("Café da manhã de domingo");
+        await Page.Locator("#meal-time-1").FillAsync("09:00");
+        await Button("Salvar rascunho").ClickAsync();
+        await ExpectTextAsync("Rascunho salvo.");
+        await AssertHealthyAsync();
+    }
 }

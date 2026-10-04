@@ -74,7 +74,7 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [x] Web: trainer workflow — clients (invite), plan editor (sessions, exercises, sets, aerobic), publishing with change description, version history, copy, end, review acknowledgement, exercise library, workouts with feedback replies ([TRAINER_WORKSPACE_PHASES.md](TRAINER_WORKSPACE_PHASES.md) phase 1).
 - [ ] Web: plan templates without a client; drag and drop in the editor (trainer heart-rate views are done).
 - [x] Web: dietitian workflow, phase 1 (patients, assessments, meal plan editor, food diary with comments; [NUTRITION_WORKSPACE_PHASES.md](NUTRITION_WORKSPACE_PHASES.md)).
-- [ ] Web: dietitian phases 2–4 (templates and copy, adherence view, RF-31/32, photos) and therapist workflow (services, schedule, session record, consent status, care plans).
+- [ ] Web: dietitian templates, phases 3–4 (RF-31/32, photos) and therapist workflow (services, schedule, session record, consent status, care plans).
 - [ ] Web: invitation flows (clients and organizations), professional profile and onboarding (the 2FA setup QR code is done).
 - [x] Web: end-to-end browser tests (Playwright + Edge, `tests/MyHealth.E2ETests`): sign-in, every page of both apps, plan editor, AI coach, feedback reply, exercise library.
 - [x] Web: mobile first for iPhone and Android (tab bar, touch sizes, card lists, bottom sheets, PWA install, reconnection), with phone e2e tests.

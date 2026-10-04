@@ -155,6 +155,26 @@ public sealed class MealPlan : AggregateRoot<Guid>
         return version;
     }
 
+    /// <summary>
+    /// Starts a new draft for another client from this plan's current draft, in the same tenant (the dietitian adjusts it,
+    /// e.g. for allergies, before publishing). The source plan and its history are untouched.
+    /// </summary>
+    public Result<MealPlan> CopyAsDraft(ProfessionalProfile dietitian, Guid clientId, string? newName, DateTimeOffset now)
+    {
+        if (!IsOwnedBy(dietitian.Id))
+        {
+            return MealPlanErrors.NotOwner;
+        }
+
+        var copy = Create(TenantId, dietitian, clientId, Details with { Name = newName ?? Details.Name }, now);
+        if (copy.IsSuccess)
+        {
+            copy.Value.Draft = Draft;
+        }
+
+        return copy;
+    }
+
     public Result End(DateTimeOffset now)
     {
         if (Status == MealPlanStatus.Ended)

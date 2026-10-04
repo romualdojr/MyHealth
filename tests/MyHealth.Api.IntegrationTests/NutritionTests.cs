@@ -211,6 +211,52 @@ public sealed class NutritionTests(ApiFactory factory) : IntegrationTest(factory
     }
 
     [Fact]
+    public async Task A_plan_is_copied_as_a_draft_for_another_patient_of_the_same_dietitian_only()
+    {
+        var (ana, dietitian, _) = await LinkedDietitianAsync();
+        var bia = await Scenario.ClientAsync("bia");
+        await Scenario.LinkAsync(dietitian, bia, Discipline.Dietitian);
+        var planId = await Scenario.DraftMealPlanAsync(dietitian, ana.Id, "Reeducação");
+        await Scenario.PublishMealPlanAsync(dietitian, planId);
+
+        var created = await dietitian.Http.PostAsJsonAsync($"/api/v1/meal-plans/{planId}/copy", new { targetClientId = bia.Id, newName = "Reeducação — Bia" }, Ct);
+        created.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var copyId = (await Scenario.Read<Scenario.IdResponse>(created)).Id;
+        var copy = await Scenario.Read<DietitianMealPlanResponse>(await dietitian.Http.GetAsync($"/api/v1/meal-plans/{copyId}", Ct));
+        (copy.ClientId, copy.Status, copy.Details.Name, copy.CurrentVersionNumber, copy.Draft.Meals.Count).ShouldBe((bia.Id, MealPlanStatus.Draft, "Reeducação — Bia", 0, 2));
+        (await bia.Http.GetAsync($"/api/v1/me/meal-plans/{copyId}", Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound); // A draft until published.
+
+        // Not to someone who is not the dietitian's patient, and not someone else's plan.
+        var stranger = await Scenario.ClientAsync("stranger");
+        (await dietitian.Http.PostAsJsonAsync($"/api/v1/meal-plans/{planId}/copy", new { targetClientId = stranger.Id }, Ct)).IsSuccessStatusCode.ShouldBeFalse();
+        var (other, _) = await Scenario.ProfessionalAsync("other-dietitian", Discipline.Dietitian);
+        (await other.Http.PostAsJsonAsync($"/api/v1/meal-plans/{planId}/copy", new { targetClientId = bia.Id }, Ct)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task The_dietitian_is_notified_when_a_patient_shares_an_entry_with_a_note()
+    {
+        var (client, dietitian, relationshipId) = await LinkedDietitianAsync();
+        var withNote = Guid.CreateVersion7();
+        var withoutNote = Guid.CreateVersion7();
+        await Scenario.EnsureSuccess(await client.Http.PutAsJsonAsync($"/api/v1/me/food-diary/{withoutNote}", new
+        {
+            relationshipId, eatenAt = DateTimeOffset.UtcNow.AddHours(-2), description = "Salada",
+        }, Ct));
+        await Scenario.EnsureSuccess(await client.Http.PutAsJsonAsync($"/api/v1/me/food-diary/{withNote}", new
+        {
+            relationshipId, eatenAt = DateTimeOffset.UtcNow.AddHours(-1), description = "Lanche", clientNotes = "Senti muita fome à tarde",
+        }, Ct));
+        await Scenario.EnsureSuccess(await client.Http.PutAsJsonAsync($"/api/v1/me/food-diary/{withNote}", new
+        {
+            relationshipId, eatenAt = DateTimeOffset.UtcNow.AddHours(-1), description = "Lanche", clientNotes = "Senti muita fome à tarde!",
+        }, Ct));
+
+        var notifications = await Scenario.Read<List<NotificationResponse>>(await dietitian.Http.GetAsync("/api/v1/me/notifications", Ct));
+        notifications.Where(n => n.Type == NotificationType.FoodDiaryNoteShared).Select(n => n.ResourceId).ShouldBe([withNote]); // Once, not per edit.
+    }
+
+    [Fact]
     public async Task A_time_sent_with_a_local_offset_is_saved_as_the_same_instant()
     {
         var (client, dietitian, relationshipId) = await LinkedDietitianAsync();

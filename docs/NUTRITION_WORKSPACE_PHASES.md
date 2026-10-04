@@ -44,12 +44,13 @@ The meal plan editor offers the usual day (five meals) for an empty plan, says w
 Tests: `NutritionTests` (dashboard), `WebDashboardContractTests` (every call and body of the pages), `NutritionWorkspaceTests` (browser) and
 `PhoneTests` (the pages on iPhone and Android). The Development seed gives the dietitian Ana with an assessment, a meal plan and a diary.
 
-## Phase 2 — Comfort features
+## Phase 2 — Comfort features (mostly ✅)
 
-- Copy a plan to another client, and plan templates without a client.
-- Duplicate a meal or a day; reorder meals and foods.
-- Adherence view: planned vs logged per meal over the week.
-- Notify the dietitian of new diary entries (outbox, same as trainer feedback).
+- ✅ Copy a plan to another patient (`POST /meal-plans/{id}/copy`, a new draft; "Copiar para…" on the patient page).
+- ✅ Duplicate a meal in the editor (meals are ordered by time, so no manual reordering).
+- ✅ Week grid in the diary: the active plan's meals by day, with what was logged (symbols plus words, never colour alone).
+- ✅ The dietitian is notified when a patient shares an entry **with a note** (like workout feedback); plain entries only count on the dashboard, so a full day of meals does not send a notification each.
+- Plan templates without a patient (needs a decision on where templates live and who can use them).
 
 ## Phase 3 — P1 nutrition (RF-31, RF-32)
 

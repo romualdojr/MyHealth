@@ -99,6 +99,7 @@ internal sealed class NotificationEventHandlers(INotificationRepository notifica
     IDomainEventHandler<CareRelationshipActivated>,
     IDomainEventHandler<CareRelationshipEnded>,
     IDomainEventHandler<MotionCaptureFinished>,
+    IDomainEventHandler<FoodDiaryNoteShared>,
     IDomainEventHandler<ProfessionalVerified>,
     IDomainEventHandler<TrainingPlanReviewRequested>,
     IDomainEventHandler<PhysicalAssessmentRecorded>,
@@ -157,6 +158,12 @@ internal sealed class NotificationEventHandlers(INotificationRepository notifica
         Add(Notification.ForProfessional(
             e.RequestedByUserId, e.TenantId, e.Succeeded ? NotificationType.MotionCaptureReady : NotificationType.MotionCaptureFailed, nameof(Exercise),
             e.ExerciseId, e.OccurredAt));
+
+    public async Task Handle(FoodDiaryNoteShared e, CancellationToken cancellationToken)
+    {
+        var dietitianUserId = await db.ProfessionalProfiles.Where(p => p.Id == e.DietitianProfileId).Select(p => p.UserId).FirstAsync(cancellationToken);
+        await Add(Notification.ForProfessional(dietitianUserId, e.TenantId, NotificationType.FoodDiaryNoteShared, nameof(FoodDiaryEntry), e.EntryId, e.OccurredAt));
+    }
 
     public Task Handle(ProfessionalVerified e, CancellationToken cancellationToken) =>
         Add(Notification.ForAccount(e.UserId, NotificationType.ProfessionalVerified, nameof(ProfessionalProfile), e.ProfessionalProfileId, e.OccurredAt));

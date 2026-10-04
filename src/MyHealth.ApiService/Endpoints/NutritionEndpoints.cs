@@ -16,6 +16,8 @@ internal static class NutritionEndpoints
 
     public sealed record CommentRequest(string Message);
 
+    public sealed record CopyMealPlanRequest(Guid TargetClientId, string? NewName);
+
     public static void MapNutritionEndpoints(this IEndpointRouteBuilder routes)
     {
         var assessments = routes.MapGroup("/nutrition-assessments").WithTags("Nutrition");
@@ -58,6 +60,9 @@ internal static class NutritionEndpoints
         plans.MapPost("/{planId:guid}/publish", async (
                 Guid planId, PublishMealPlanRequest request, ICommandHandler<PublishMealPlanCommand, PublishedMealPlanVersionResponse> handler, CancellationToken ct) =>
             (await handler.Handle(new PublishMealPlanCommand(planId, request.ChangeDescription), ct)).ToHttp());
+
+        plans.MapPost("/{planId:guid}/copy", async (Guid planId, CopyMealPlanRequest request, ICommandHandler<CopyMealPlanCommand, Guid> handler, CancellationToken ct) =>
+            (await handler.Handle(new CopyMealPlanCommand(planId, request.TargetClientId, request.NewName), ct)).ToHttp(id => TypedResults.Created($"/api/v1/meal-plans/{id}", new { id })));
 
         plans.MapPost("/{planId:guid}/end", async (Guid planId, ICommandHandler<EndMealPlanCommand> handler, CancellationToken ct) =>
             (await handler.Handle(new EndMealPlanCommand(planId), ct)).ToHttp());

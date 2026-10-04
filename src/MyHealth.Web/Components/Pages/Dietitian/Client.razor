@@ -71,6 +71,7 @@ else
     private string Tab => Tabs.Any(t => t.Key == TabParameter) ? TabParameter! : "plans";
 
     private DietitianClientSummary? _client;
+    private List<DietitianClientSummary> _clients = [];
     private ApiProblem? _problem;
     private string? _message;
 
@@ -95,7 +96,8 @@ else
         }
 
         var dashboard = await Api.GetAsync<DietitianDashboard>("dietitian/dashboard");
-        _client = dashboard.Value?.Clients.FirstOrDefault(c => c.ClientId == ClientId);
+        _clients = [.. dashboard.Value?.Clients ?? []];
+        _client = _clients.FirstOrDefault(c => c.ClientId == ClientId);
         _problem = dashboard.Problem;
 
         var plans = await Api.GetAsync<List<MealPlanItem>>($"meal-plans?clientId={ClientId}");
@@ -130,6 +132,9 @@ else
     private List<MealPlanItem>? _plans;
     private bool _creating;
     private MealPlanDetailsForm _newPlan = new() { Name = "Plano alimentar" };
+    private MealPlanItem? _copying;
+    private Guid? _copyTarget;
+    private string? _copyName;
 
     private RenderFragment Plans => __builder =>
     {
@@ -159,6 +164,36 @@ else
             </div>
         }
 
+        @if (_copying is { } source)
+        {
+            <div class="@($"{Ui.CardHighlight} mb-6")">
+                <div class="@Ui.CardBody">
+                    <h3 class="@($"{Ui.CardTitle} mb-1 break-words")">Copiar “@source.Name” para outro paciente</h3>
+                    <p class="@($"{Ui.Help} mb-4")">A cópia é um rascunho novo: revise as alergias e restrições do outro paciente antes de publicar.</p>
+                    <div class="grid grid-cols-12 items-end gap-3">
+                        <div class="col-span-12 md:col-span-5">
+                            <label class="@Ui.Label" for="copy-target">Paciente</label>
+                            <select id="copy-target" class="@Ui.Select" @bind="_copyTarget">
+                                <option value="">Escolha…</option>
+                                @foreach (var other in _clients.Where(o => o.ClientId != ClientId))
+                                {
+                                    <option value="@other.ClientId">@other.ClientName</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-span-12 md:col-span-4">
+                            <label class="@Ui.Label" for="copy-name">Nome do novo plano (opcional)</label>
+                            <input id="copy-name" class="@Ui.Input" @bind="_copyName" />
+                        </div>
+                        <div class="col-span-12 flex gap-2 md:col-span-3">
+                            <button class="@($"{Ui.Button} flex-1 md:flex-none")" disabled="@(_copyTarget is null)" @onclick="CopyPlanAsync">Copiar</button>
+                            <button class="@Ui.ButtonLink" @onclick="() => _copying = null">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
         @if (_plans is null)
         {
             @if (_problem is null)
@@ -183,12 +218,36 @@ else
                                 · atualizado em @plan.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy")
                             </div>
                         </div>
-                        <a class="@($"{Ui.ButtonOutlineSm} w-full sm:w-auto")" href="dietitian/plans/@plan.Id">Abrir</a>
+                        <div class="flex w-full gap-2 sm:w-auto">
+                            <a class="@($"{Ui.ButtonOutlineSm} flex-1 sm:flex-none")" href="dietitian/plans/@plan.Id">Abrir</a>
+                            @if (_clients.Count > 1)
+                            {
+                                <button class="@($"{Ui.ButtonSecondarySm} flex-1 sm:flex-none")" @onclick="() => StartCopy(plan)">Copiar para…</button>
+                            }
+                        </div>
                     </div>
                 }
             </div>
         }
     };
+
+    private void StartCopy(MealPlanItem plan)
+    {
+        _copying = plan;
+        _copyTarget = null;
+        _copyName = null;
+    }
+
+    private async Task CopyPlanAsync()
+    {
+        var result = await Api.PostAsync<IdResponse>(
+            $"meal-plans/{_copying!.Id}/copy", new { targetClientId = _copyTarget, newName = string.IsNullOrWhiteSpace(_copyName) ? null : _copyName.Trim() });
+        _problem = result.Problem;
+        if (result.Value is { } created)
+        {
+            Navigation.NavigateTo($"dietitian/plans/{created.Id}");
+        }
+    }
 
     private async Task CreatePlanAsync()
     {
@@ -371,6 +430,7 @@ else
     private DietitianFoodDiary? _diary;
     private readonly Dictionary<(Guid PlanId, int Version), MealPlanVersionDetail?> _versions = [];
     private Guid? _commentingOn;
+    private MealPlanVersionDetail? _activePlan;
     private string? _comment;
 
     private DateOnly WeekStart => _weekEnd.AddDays(-6);
@@ -408,6 +468,52 @@ else
                     <span class="@Ui.BadgeNeutral">@((s.WaterMl / 1000m).ToString("0.#")) L de água</span>
                 }
             </div>
+
+            @if (_activePlan is { } active && active.Content.Meals.Count > 0)
+            {
+                var days = Enumerable.Range(0, 7).Select(i => WeekStart.AddDays(i)).ToList();
+                <h3 class="mb-2 text-sm font-semibold text-slate-700">Plano × registros da semana — @active.Details.Name</h3>
+                @* Meals of the plan (rows) by day (columns). Sideways scroll on phones; the symbols always come with words for
+                   screen readers and in the key, never colour alone. *@
+                <div class="mb-2 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <table class="min-w-full text-sm">
+                        <thead class="@Ui.THead">
+                            <tr>
+                                <th class="@Ui.Th" scope="col">Refeição</th>
+                                @foreach (var day in days)
+                                {
+                                    <th class="@($"{Ui.Th} text-center")" scope="col">@day.ToString("ddd dd", Brazil)</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody class="@Ui.TBody">
+                            @foreach (var meal in active.Content.Meals.OrderBy(m => m.Order))
+                            {
+                                <tr>
+                                    <th class="@($"{Ui.Td} whitespace-nowrap text-left font-medium")" scope="row">@meal.Name</th>
+                                    @foreach (var day in days)
+                                    {
+                                        var logged = _diary.Entries.FirstOrDefault(e => e.PlannedMealId == meal.Id && e.LocalDate == day);
+                                        <td class="@($"{Ui.Td} text-center")">
+                                            @if (logged is null)
+                                            {
+                                                <span class="text-slate-300" aria-hidden="true">·</span><span class="sr-only">sem registro</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="@NutritionLabels.AdherenceBadge(logged.Adherence)" title="@NutritionLabels.Adherence(logged.Adherence)">
+                                                    <span aria-hidden="true">@AdherenceSymbol(logged.Adherence)</span><span class="sr-only">@NutritionLabels.Adherence(logged.Adherence)</span>
+                                                </span>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="@($"{Ui.Help} mb-4")">✓ como planejado · ½ em parte · ≠ diferente do plano · ? não informado · · sem registro</p>
+            }
 
             @if (_diary.Entries.Count == 0)
             {
@@ -478,6 +584,14 @@ else
 
     private static readonly System.Globalization.CultureInfo Brazil = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
 
+    private static string AdherenceSymbol(string? adherence) => adherence switch
+    {
+        "AsPlanned" => "✓",
+        "Partly" => "½",
+        "Different" or "Unplanned" => "≠",
+        _ => "?",
+    };
+
     /// <summary>The meal's own name, or the planned meal's name in the version the entry was logged against.</summary>
     private string MealName(FoodDiaryEntryItem entry)
     {
@@ -513,6 +627,23 @@ else
                      .Where(k => !_versions.ContainsKey(k)))
         {
             _versions[key] = (await Api.GetAsync<MealPlanVersionDetail>($"meal-plans/{key.Item1}/versions/{key.Item2}")).Value;
+        }
+
+        // The plan the patient follows now, for the week grid (meal ids stay the same across versions).
+        _activePlan = null;
+        if (_client?.ActivePlanId is { } activeId)
+        {
+            var plan = (await Api.GetAsync<DietitianMealPlan>($"meal-plans/{activeId}")).Value;
+            if (plan is { CurrentVersionNumber: > 0 })
+            {
+                var key = (activeId, plan.CurrentVersionNumber);
+                if (!_versions.ContainsKey(key))
+                {
+                    _versions[key] = (await Api.GetAsync<MealPlanVersionDetail>($"meal-plans/{activeId}/versions/{plan.CurrentVersionNumber}")).Value;
+                }
+
+                _activePlan = _versions[key];
+            }
         }
     }
 

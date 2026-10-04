@@ -133,6 +133,28 @@ public sealed class MealPlanDraft
         return meal;
     }
 
+    /// <summary>
+    /// Adds a copy of <paramref name="meal"/> right after it, without ids (the API assigns new ones) and without a time,
+    /// e.g. to turn one snack into an afternoon and an evening snack.
+    /// </summary>
+    public MealDraft Duplicate(MealDraft meal)
+    {
+        var copy = new MealDraft
+        {
+            Name = $"{meal.Name.Trim()} (cópia)",
+            Notes = meal.Notes,
+            Items =
+            [
+                .. meal.Items.Select(i => new MealItemDraft
+                {
+                    Food = i.Food, Quantity = i.Quantity, Unit = i.Unit, HouseholdMeasure = i.HouseholdMeasure, Notes = i.Notes, Substitutions = i.Substitutions,
+                }),
+            ],
+        };
+        Meals.Insert(Meals.IndexOf(meal) + 1, copy);
+        return copy;
+    }
+
     /// <summary>Fills an empty plan with the usual day's meals, each with one empty food line.</summary>
     public void AddUsualDay()
     {

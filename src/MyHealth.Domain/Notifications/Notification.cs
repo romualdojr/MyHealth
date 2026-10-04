@@ -32,6 +32,9 @@ public enum NotificationType
     /// <summary>A 3D exercise video the professional filmed is ready to review, or could not be made.</summary>
     MotionCaptureReady = 23,
     MotionCaptureFailed = 24,
+
+    /// <summary>A client shared a food diary entry with a note for the dietitian.</summary>
+    FoodDiaryNoteShared = 25,
 }
 
 /// <summary>Push/e-mail delivery state (the notification row is its own outbox entry).</summary>

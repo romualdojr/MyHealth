@@ -149,6 +149,10 @@ public sealed class DevelopmentSeeder(IServiceProvider services, IConfiguration 
         // Nutrition: Ana also sees the dietitian, who assessed her, published a meal plan and follows her diary.
         await NutritionAsync(dietitian, tenant, ana, today, cancellationToken);
 
+        // Bruno started with the dietitian too: no assessment or plan yet (Ana's plan can be copied for him).
+        var brunoNutrition = await RunAsync(dietitian, tenant, new InviteClientCommand(Discipline.Dietitian, bruno.Email));
+        await RunAsync(bruno, null, new RespondToInvitationCommand(brunoNutrition, InvitationResponse.Accept));
+
         logger.LogInformation(
             "Development data seeded: operator {Operator}, trainer {Trainer} (organization Estúdio Movimento), clients {Ana}, {Bruno}; password in Seed:Development:Password.",
             @operator.Email, trainer.Email, ana.Email, bruno.Email);
