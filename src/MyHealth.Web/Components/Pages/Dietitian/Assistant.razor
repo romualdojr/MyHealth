@@ -1,0 +1,24 @@
+@page "/dietitian/assistant"
+@attribute [Authorize]
+
+<PageTitle>Assistente IA · MyHealth</PageTitle>
+
+<div class="mb-4">
+    <h1 class="@Ui.PageTitle">Assistente IA</h1>
+    <p class="@($"{Ui.Help} mt-1")">
+        Resumos do diário e da adesão dos seus pacientes, e propostas de plano alimentar a partir da avaliação. Você decide: a proposta vira um
+        rascunho que você revisa e publica.
+    </p>
+</div>
+
+<ProfessionalAssistantChat Discipline="Dietitian" ApiPath="dietitian/assistant" ClientId="ClientId"
+                           NotPracticingMessage="Selecione uma organização em que você atua como nutricionista."
+                           Placeholder="Ex.: Monte um plano alimentar para a Daniela"
+                           QuickPrompts="@(["Resumo da semana de todos", "Quem precisa de atenção?", "Monte planos para quem ainda não tem"])"
+                           FocusedPrompts="@(name => [$"Resumo de {name}", $"Monte um plano alimentar para {name}"])"
+                           PatientHref="@(p => $"dietitian/clients/{p.ClientId}")" />
+
+@code {
+    [SupplyParameterFromQuery]
+    public Guid? ClientId { get; set; }
+}

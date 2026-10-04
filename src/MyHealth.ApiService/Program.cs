@@ -100,6 +100,7 @@ authenticated.MapWorkoutEndpoints();
 authenticated.MapTrainerEndpoints();
 authenticated.MapCoachEndpoints();
 authenticated.MapTrainerAssistantEndpoints();
+authenticated.MapProfessionalAssistantEndpoints();
 authenticated.MapWhatsAppEndpoints(api);
 authenticated.MapMotionCaptureEndpoints();
 authenticated.MapMyRecordsEndpoints();

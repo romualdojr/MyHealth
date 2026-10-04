@@ -19,8 +19,10 @@ public enum DataCategory
     Wellbeing = 7,
 
     /// <summary>
-    /// The trainer may send the client's training records (plan, logged sets, feedback, body checks; wellbeing only
-    /// when also shared) to an AI provider to get suggestions for the plan. Pseudonymised; the trainer decides.
+    /// The professional may send the client's records of this care to an AI provider to get summaries and plan
+    /// suggestions: a trainer the training (plan, logged sets, feedback, body checks; wellbeing only when also shared), a
+    /// dietitian the nutrition assessment, meal plan and food diary, a therapy practitioner the care plans and session
+    /// records. Pseudonymised; the professional decides.
     /// </summary>
     AiCoaching = 8,
 }

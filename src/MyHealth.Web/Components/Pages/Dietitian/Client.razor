@@ -15,7 +15,10 @@
 }
 else
 {
-    <h1 class="@($"{Ui.PageTitle} mb-4 min-w-0 break-words")">@(_client?.ClientName ?? "Paciente")</h1>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 class="@($"{Ui.PageTitle} min-w-0 break-words")">@(_client?.ClientName ?? "Paciente")</h1>
+        <a class="@Ui.ButtonSecondarySm" href="dietitian/assistant?clientId=@ClientId">Perguntar ao assistente</a>
+    </div>
 
     <ProblemAlert Problem="_problem" />
 

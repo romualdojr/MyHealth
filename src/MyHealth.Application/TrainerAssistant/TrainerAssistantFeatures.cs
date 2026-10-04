@@ -406,16 +406,21 @@ public static class TrainerAssistantPrompt
         """;
 }
 
-/// <summary>Messages a tenant's trainers sent to the assistant in the last 24 hours, counted from the audit log.</summary>
+/// <summary>
+/// Messages a tenant's professionals sent to the assistants (the trainers' chat and the dietitians' and therapy
+/// practitioners' chat share one limit) in the last 24 hours, counted from the audit log.
+/// </summary>
 internal static class TrainerChatUsage
 {
     public const string Action = "message";
     public const string ResourceType = "TrainerAssistant.Message";
+    public const string ProfessionalResourceType = "ProfessionalAssistant.Message";
 
     public static Task<int> CountAsync(IReadDbContext db, Guid tenantId, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var since = now.AddDays(-1);
         return db.AuditEntries.CountAsync(
-            e => e.TenantId == tenantId && e.ResourceType == ResourceType && e.Action == Action && e.OccurredAt >= since, cancellationToken);
+            e => e.TenantId == tenantId && (e.ResourceType == ResourceType || e.ResourceType == ProfessionalResourceType) && e.Action == Action && e.OccurredAt >= since,
+            cancellationToken);
     }
 }

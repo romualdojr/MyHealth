@@ -31,6 +31,14 @@
                 @if (Workspace.Practices("Dietitian"))
                 {
                     <NavLink class="@Ui.TabLink" href="dietitian">@Icon(Apple)<span>Pacientes</span></NavLink>
+                    @if (!Workspace.Practices("PersonalTrainer"))
+                    {
+                        <NavLink class="@Ui.TabLink" href="dietitian/assistant">@Icon(Sparkles)<span>Assistente</span></NavLink>
+                    }
+                }
+                @if (Workspace.Practices("TherapyPractitioner") && !Workspace.Practices("PersonalTrainer") && !Workspace.Practices("Dietitian"))
+                {
+                    <NavLink class="@Ui.TabLink" href="therapist/assistant">@Icon(Sparkles)<span>Assistente</span></NavLink>
                 }
                 @if (!Workspace.Practices("PersonalTrainer") && !Workspace.Practices("Dietitian") && Workspace.IsTenantAdministrator)
                 {

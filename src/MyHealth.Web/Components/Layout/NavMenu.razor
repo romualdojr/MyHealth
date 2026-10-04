@@ -16,6 +16,13 @@
     {
         <div class="@Ui.NavSection">Nutrição</div>
         <NavLink class="@Ui.NavLink" href="dietitian" Match="NavLinkMatch.All">Pacientes</NavLink>
+        <NavLink class="@Ui.NavLink" href="dietitian/assistant">Assistente IA</NavLink>
+    }
+
+    @if (Workspace.Practices("TherapyPractitioner"))
+    {
+        <div class="@Ui.NavSection">Terapias</div>
+        <NavLink class="@Ui.NavLink" href="therapist/assistant">Assistente IA</NavLink>
     }
 
     @if (Workspace.IsTenantAdministrator)

@@ -65,6 +65,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Identity:RequireConfirmedEmail", "false");
         builder.UseSetting("Security:RequireTwoFactorForProfessionals", "true");
 
+        // The development seed runs at startup; its therapist works in a modality of its own, so acupuncture stays disabled
+        // as seeded (TherapyTests).
+        builder.UseSetting("Seed:Development:TherapyModalityCode", "acupuntura_seed");
+
         // Tests run the notification dispatcher themselves, so delivery is deterministic.
         builder.UseSetting("Notifications:DispatcherEnabled", "false");
         builder.UseSetting("Billing:CycleEnabled", "false");

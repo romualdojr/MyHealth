@@ -34,6 +34,8 @@ public static class DependencyInjection
         services.AddScoped<Coaching.CoachContextBuilder>();
         services.AddScoped<MotionCapture.MotionCaptureProcessor>();
         services.AddScoped<TrainerAssistant.TrainerRoster>();
+        services.AddScoped<ProfessionalAssistant.AssistantWorkspace, ProfessionalAssistant.NutritionAssistantWorkspace>();
+        services.AddScoped<ProfessionalAssistant.AssistantWorkspace, ProfessionalAssistant.TherapyAssistantWorkspace>();
 
         return services;
     }

@@ -1,0 +1,464 @@
+@* The dietitian's and the therapy practitioner's assistant: patients at a glance, the chat, and plan proposals they turn
+   into a meal plan draft or a care plan. Nothing is created until they click. *@
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+@inject NavigationManager Navigation
+
+@if (!Workspace.Practices(Discipline))
+{
+    <p class="@Ui.AlertInfo">@NotPracticingMessage</p>
+}
+else
+{
+    <ProblemAlert Problem="_problem" />
+
+    <div class="grid grid-cols-12 gap-3 lg:gap-6">
+        @* Every patient at a glance (from lg up): computed from the records, no AI. *@
+        <aside class="col-span-12 hidden lg:col-span-4 lg:block" aria-label="Pacientes">
+            <div class="mb-2 flex items-center justify-between">
+                <h2 class="@Ui.SectionTitle">Pacientes</h2>
+                @if (_overview is not null)
+                {
+                    <span class="text-xs text-slate-500">@_overview.Patients.Count(p => p.AiConsent) de @_overview.Patients.Count com IA autorizada</span>
+                }
+            </div>
+
+            @if (_overview is null)
+            {
+                <Loading />
+            }
+            else if (_overview.Patients.Count == 0)
+            {
+                <div class="@Ui.EmptyState">Nenhum paciente com vínculo ativo ainda.</div>
+            }
+            else
+            {
+                <div class="flex flex-col gap-2">
+                    <button class="@($"{Card(_focus is null)} px-4 py-3 text-left")" @onclick="() => Focus(null)" aria-pressed="@(_focus is null ? "true" : "false")">
+                        <span class="font-semibold text-slate-900">Todos os pacientes</span>
+                        <span class="block text-xs text-slate-500">Visão geral e prioridades</span>
+                    </button>
+
+                    @foreach (var p in _overview.Patients)
+                    {
+                        <button class="@($"{Card(_focus?.ClientId == p.ClientId)} px-4 py-3 text-left disabled:cursor-not-allowed disabled:opacity-60")"
+                                disabled="@(!p.AiConsent)" @onclick="() => Focus(p)" aria-pressed="@(_focus?.ClientId == p.ClientId ? "true" : "false")">
+                            <span class="flex items-center justify-between gap-2">
+                                <span class="font-semibold text-slate-900">@p.Name</span>
+                                @Badge(p)
+                            </span>
+                            <span class="mt-1 block text-xs text-slate-500">@(p.PlanName ?? "Sem plano ativo")</span>
+                            <span class="mt-1 block text-xs text-slate-500">@p.Detail</span>
+                        </button>
+                    }
+                </div>
+            }
+        </aside>
+
+        @* Phones and tablets: the patients as a row of chips that scrolls sideways, so the chat stays in view. *@
+        <div class="col-span-12 min-w-0 lg:hidden" role="group" aria-label="Escolher paciente">
+            @if (_overview is null)
+            {
+                <Loading />
+            }
+            else if (_overview.Patients.Count == 0)
+            {
+                <p class="@Ui.Help">Nenhum paciente com vínculo ativo ainda.</p>
+            }
+            else
+            {
+                <div class="@Ui.ChipRow">
+                    <button class="@Ui.Chip" aria-pressed="@(_focus is null ? "true" : "false")" @onclick="() => Focus(null)">Todos os pacientes</button>
+                    @foreach (var p in _overview.Patients)
+                    {
+                        <button class="@($"{Ui.Chip} gap-2 disabled:cursor-not-allowed")" disabled="@(!p.AiConsent)" @onclick="() => Focus(p)"
+                                aria-pressed="@(_focus?.ClientId == p.ClientId ? "true" : "false")">
+                            @p.Name
+                            @if (!p.AiConsent)
+                            {
+                                <span class="@Ui.BadgeNeutral">sem IA</span>
+                            }
+                            else if (p.Attention is not null)
+                            {
+                                <span class="size-2 rounded-full bg-amber-500" aria-hidden="true"></span><span class="sr-only">@p.Attention</span>
+                            }
+                        </button>
+                    }
+                </div>
+                <p class="mt-1 text-xs text-slate-500">@_overview.Patients.Count(p => p.AiConsent) de @_overview.Patients.Count com IA autorizada</p>
+
+                @if (_focus is { } focused)
+                {
+                    <div class="@($"{Ui.Card} mt-2 px-4 py-3 text-sm")">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="min-w-0 truncate text-slate-700">@(focused.PlanName ?? "Sem plano ativo")</span>
+                            @Badge(focused)
+                        </div>
+                        <span class="mt-1 block text-xs text-slate-500">@focused.Detail</span>
+                    </div>
+                }
+            }
+        </div>
+
+        @* The chat. *@
+        <section class="@($"{Ui.Card} col-span-12 flex min-h-[calc(100dvh-16rem)] flex-col lg:col-span-8 lg:min-h-[32rem]")" aria-label="Conversa com o assistente">
+            <div class="@Ui.CardHeader">
+                <span class="text-sm text-slate-500">Conversando sobre</span>
+                <span class="font-semibold text-slate-900">@(_focus?.Name ?? "todos os pacientes")</span>
+                @if (_focus is { } f && PatientHref?.Invoke(f) is { } href)
+                {
+                    <a class="@($"{Ui.TapLink} ml-auto text-sm")" href="@href">Abrir paciente</a>
+                }
+            </div>
+
+            <div class="flex-1 space-y-4 overflow-y-auto p-3 sm:p-4" aria-live="polite">
+                @if (_messages.Count == 0)
+                {
+                    <div class="py-8 text-center text-sm text-slate-500">
+                        <p class="mb-3">Pergunte sobre seus pacientes ou comece por uma sugestão:</p>
+                    </div>
+                }
+
+                @foreach (var m in _messages)
+                {
+                    @if (m.FromProfessional)
+                    {
+                        <div class="flex justify-end">
+                            <div class="max-w-[88%] break-words rounded-2xl rounded-br-sm bg-teal-700 px-4 py-2 text-sm whitespace-pre-line text-white">@m.Text</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="flex justify-start">
+                            <div class="max-w-[88%] min-w-0 space-y-3">
+                                <div class="break-words rounded-2xl rounded-bl-sm border border-slate-200 bg-slate-50 px-4 py-3 text-sm whitespace-pre-line text-slate-800">@m.Text</div>
+                                @foreach (var proposal in m.Proposals)
+                                {
+                                    @ProposalCard(proposal)
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+
+                @if (_busy)
+                {
+                    <div class="flex items-center gap-2 text-sm text-slate-500" role="status">
+                        <span class="size-4 animate-spin rounded-full border-2 border-slate-300 border-t-teal-600" aria-hidden="true"></span>
+                        Pensando…
+                    </div>
+                }
+            </div>
+
+            @* On phones the composer sticks above the bottom tab bar while the conversation scrolls. *@
+            <div class="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-10 border-t border-slate-200 bg-white/95 p-4 backdrop-blur lg:static lg:bg-white lg:backdrop-blur-none">
+                <div class="@($"{Ui.ChipRow} mb-3")">
+                    @foreach (var prompt in _focus is null ? QuickPrompts : FocusedPrompts(_focus.Name))
+                    {
+                        <button class="@Ui.Chip" disabled="@_busy" @onclick="() => SendAsync(prompt)">@prompt</button>
+                    }
+                </div>
+                <form class="flex items-end gap-2" @onsubmit="() => SendAsync(_draft)" @onsubmit:preventDefault>
+                    <label class="sr-only" for="assistant-message">Mensagem para o assistente</label>
+                    <textarea id="assistant-message" class="@($"{Ui.Textarea} min-w-0 flex-1 resize-none sm:resize-y")" rows="2" maxlength="2000"
+                              placeholder="@Placeholder" @bind="_draft" @bind:event="oninput"></textarea>
+                    <button type="submit" class="@($"{Ui.Button} shrink-0")" disabled="@(_busy || string.IsNullOrWhiteSpace(_draft))">Enviar</button>
+                </form>
+            </div>
+            <div class="px-4 pb-4">
+                <p class="text-xs text-slate-400">
+                    Só pacientes que autorizaram a análise por IA são enviados ao assistente, sem nome nem dados de contato.
+                    @if (_overview is not null)
+                    {
+                        <span>Modelo: @_overview.Model. @_overview.UsedToday de @_overview.DailyLimit mensagens da organização nas últimas 24 horas.</span>
+                    }
+                </p>
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    /// <summary>"Dietitian" or "TherapyPractitioner".</summary>
+    [Parameter, EditorRequired] public string Discipline { get; set; } = null!;
+
+    /// <summary>The API base, e.g. "dietitian/assistant".</summary>
+    [Parameter, EditorRequired] public string ApiPath { get; set; } = null!;
+
+    [Parameter, EditorRequired] public string NotPracticingMessage { get; set; } = null!;
+
+    [Parameter] public string Placeholder { get; set; } = "Ex.: Quem precisa de atenção esta semana?";
+
+    [Parameter] public IReadOnlyList<string> QuickPrompts { get; set; } = [];
+
+    [Parameter] public Func<string, IReadOnlyList<string>> FocusedPrompts { get; set; } = _ => [];
+
+    /// <summary>Where the patient's page is, if the discipline has one.</summary>
+    [Parameter] public Func<PatientSummaryItem, string?>? PatientHref { get; set; }
+
+    [Parameter] public Guid? ClientId { get; set; }
+
+    /// <summary>A plan the assistant proposed, as the professional sees and edits it before creating it.</summary>
+    private sealed class Proposal
+    {
+        public MealPlanProposalItem? MealPlan { get; init; }
+        public CarePlanProposalItem? CarePlan { get; init; }
+        public string Goals { get; set; } = string.Empty;
+        public int? PlannedSessions { get; set; }
+        public string? Frequency { get; set; }
+        public DateOnly? NextReviewOn { get; set; }
+        public string Status { get; set; } = "Pending";
+        public Guid? CreatedId { get; set; }
+    }
+
+    private sealed record Message(bool FromProfessional, string Text, List<Proposal> Proposals);
+
+    private ProfessionalAssistantOverviewItem? _overview;
+    private PatientSummaryItem? _focus;
+    private readonly List<Message> _messages = [];
+    private ApiProblem? _problem;
+    private string? _draft;
+    private bool _busy;
+
+    private static string Card(bool selected) =>
+        selected
+            ? "rounded-xl border border-teal-500 bg-teal-50 ring-1 ring-teal-200"
+            : "rounded-xl border border-slate-200 bg-white shadow-sm hover:border-teal-300";
+
+    private static RenderFragment Badge(PatientSummaryItem p) => __builder =>
+    {
+        if (!p.AiConsent)
+        {
+            <span class="@Ui.BadgeNeutral" title="O paciente pode autorizar em Compartilhamento › Análise por IA no aplicativo">sem IA</span>
+        }
+        else if (p.Attention is { } attention)
+        {
+            <span class="@Ui.BadgeWarning">@attention</span>
+        }
+    };
+
+    private RenderFragment ProposalCard(Proposal proposal) => __builder =>
+    {
+        var done = proposal.Status != "Pending";
+        <div class="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm @(done ? "opacity-75" : string.Empty)">
+            @if (proposal.MealPlan is { } plan)
+            {
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="@Ui.BadgePrimary">@plan.ClientName</span>
+                    <span class="font-semibold text-slate-900">@plan.Details.Name</span>
+                </div>
+                @if (plan.Details.Goal is { } goal)
+                {
+                    <div class="mt-1 text-slate-600">Objetivo: @goal</div>
+                }
+                <div class="mt-2 space-y-2">
+                    @foreach (var meal in plan.Meals)
+                    {
+                        <div>
+                            <div class="font-medium text-slate-800">@meal.Name@(meal.Time is { } time ? $" · {time:HH\\:mm}" : string.Empty)</div>
+                            <ul class="ml-4 list-disc text-slate-600">
+                                @foreach (var item in meal.Items)
+                                {
+                                    <li>@MealItemText(item)</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                </div>
+                @if (plan.Details.Notes is { } notes)
+                {
+                    <div class="mt-2 text-slate-600">@notes</div>
+                }
+                @if (plan.Reason is { } reason)
+                {
+                    <div class="mt-2 text-slate-500">@reason</div>
+                }
+                <p class="mt-2 text-xs text-slate-500">Revise alergias e restrições antes de publicar. O rascunho não é enviado ao paciente.</p>
+            }
+            else if (proposal.CarePlan is { } care)
+            {
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="@Ui.BadgePrimary">@care.ClientName</span>
+                    <span class="font-semibold text-slate-900">Plano de cuidado · @care.ModalityName</span>
+                </div>
+                @if (care.Reason is { } reason)
+                {
+                    <div class="mt-1 text-slate-500">@reason</div>
+                }
+                <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                    <div class="sm:col-span-3">
+                        <label class="@Ui.Label" for="@($"goals-{proposal.GetHashCode()}")">Objetivos</label>
+                        <textarea id="@($"goals-{proposal.GetHashCode()}")" class="@Ui.Textarea" rows="3" maxlength="4000" disabled="@done" @bind="proposal.Goals"></textarea>
+                    </div>
+                    <div>
+                        <label class="@Ui.Label" for="@($"sessions-{proposal.GetHashCode()}")">Sessões previstas</label>
+                        <input id="@($"sessions-{proposal.GetHashCode()}")" type="number" min="1" max="200" class="@Ui.Input" disabled="@done" @bind="proposal.PlannedSessions" />
+                    </div>
+                    <div>
+                        <label class="@Ui.Label" for="@($"frequency-{proposal.GetHashCode()}")">Frequência</label>
+                        <input id="@($"frequency-{proposal.GetHashCode()}")" class="@Ui.Input" maxlength="200" disabled="@done" @bind="proposal.Frequency" />
+                    </div>
+                    <div>
+                        <label class="@Ui.Label" for="@($"review-{proposal.GetHashCode()}")">Revisão</label>
+                        <input id="@($"review-{proposal.GetHashCode()}")" type="date" class="@Ui.Input" disabled="@done" @bind="proposal.NextReviewOn" />
+                    </div>
+                </div>
+            }
+
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+                @switch (proposal.Status)
+                {
+                    case "Pending":
+                        <button class="@Ui.ButtonOutlineSm" disabled="@(_busy || (proposal.CarePlan is not null && string.IsNullOrWhiteSpace(proposal.Goals)))"
+                                @onclick="() => CreateAsync(proposal)">
+                            @(proposal.MealPlan is not null ? "Criar rascunho" : "Iniciar plano de cuidado")
+                        </button>
+                        <button class="@Ui.ButtonLinkSm" disabled="@_busy" @onclick="() => Dismiss(proposal)">Dispensar</button>
+                        break;
+                    case "Created" when proposal.MealPlan is not null:
+                        <span class="@Ui.BadgeSuccess">rascunho criado</span>
+                        <a class="@($"{Ui.TapLink} ml-auto text-xs")" href="dietitian/plans/@proposal.CreatedId">Abrir no editor</a>
+                        break;
+                    case "Created":
+                        <span class="@Ui.BadgeSuccess">plano iniciado</span>
+                        break;
+                    default:
+                        <span class="@Ui.BadgeNeutral">dispensada</span>
+                        break;
+                }
+            </div>
+        </div>
+    };
+
+    /// <summary>"Arroz integral — 100 g (4 colheres de sopa) · trocas: Quinoa (100 g)".</summary>
+    private static string MealItemText(MealItemBody item)
+    {
+        var portion = item.Quantity is { } q ? $"{q:0.##} {item.Unit}".Trim() : null;
+        if (item.HouseholdMeasure is { } household)
+        {
+            portion = portion is null ? household : $"{portion} ({household})";
+        }
+
+        var text = portion is null ? item.Food : $"{item.Food} — {portion}";
+        return item.Substitutions.Count > 0 ? $"{text} · trocas: {string.Join(", ", item.Substitutions)}" : text;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        _messages.Clear();
+        _focus = null;
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        if (!Workspace.Practices(Discipline))
+        {
+            return;
+        }
+
+        var result = await Api.GetAsync<ProfessionalAssistantOverviewItem>(ApiPath);
+        _overview = result.Value;
+        _problem = result.Problem;
+        _focus ??= _overview?.Patients.FirstOrDefault(p => p.ClientId == ClientId && p.AiConsent);
+    }
+
+    private void Focus(PatientSummaryItem? patient)
+    {
+        _focus = patient;
+        _messages.Clear();
+        _problem = null;
+    }
+
+    private async Task SendAsync(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || _busy)
+        {
+            return;
+        }
+
+        var history = _messages.TakeLast(10).Select(m => new ChatTurn(m.FromProfessional ? "user" : "assistant", m.Text)).ToList();
+        _messages.Add(new Message(true, text.Trim(), []));
+        _draft = null;
+        _busy = true;
+        _problem = null;
+        try
+        {
+            var result = await Api.PostAsync<ProfessionalAssistantReply>($"{ApiPath}/messages", new { message = text.Trim(), history, clientId = _focus?.ClientId });
+            _problem = result.Problem;
+            if (result.Value is { } reply)
+            {
+                var proposals = reply.MealPlans.Select(p => new Proposal { MealPlan = p })
+                    .Concat(reply.CarePlans.Select(c => new Proposal
+                    {
+                        CarePlan = c, Goals = c.Goals, PlannedSessions = c.PlannedSessions, Frequency = c.Frequency, NextReviewOn = c.NextReviewOn,
+                    }))
+                    .ToList();
+                _messages.Add(new Message(false, reply.Reply, proposals));
+                _overview = _overview is null ? null : _overview with { UsedToday = _overview.UsedToday + 1 };
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>A meal plan becomes a draft (created, then its meals saved); a care plan is started as edited.</summary>
+    private async Task CreateAsync(Proposal proposal)
+    {
+        _busy = true;
+        _problem = null;
+        try
+        {
+            if (proposal.MealPlan is { } plan)
+            {
+                var created = await Api.PostAsync<IdResponse>("meal-plans", new { clientId = plan.ClientId, details = plan.Details });
+                _problem = created.Problem;
+                if (created.Value is not { } id)
+                {
+                    return;
+                }
+
+                proposal.Status = "Created";
+                proposal.CreatedId = id.Id;
+                var meals = await Api.PutAsync($"meal-plans/{id.Id}/meals", plan.Meals);
+                if (meals.Problem is not null)
+                {
+                    // The draft exists; the meals can still be fixed in the editor.
+                    Navigation.NavigateTo($"dietitian/plans/{id.Id}");
+                }
+            }
+            else if (proposal.CarePlan is { } care)
+            {
+                var started = await Api.PostAsync<IdResponse>("therapy/care-plans", new
+                {
+                    clientId = care.ClientId, modalityCode = care.ModalityCode, goals = proposal.Goals.Trim(), plannedSessions = proposal.PlannedSessions,
+                    frequency = string.IsNullOrWhiteSpace(proposal.Frequency) ? null : proposal.Frequency.Trim(), nextReviewOn = proposal.NextReviewOn,
+                });
+                _problem = started.Problem;
+                if (started.Value is { } id)
+                {
+                    proposal.Status = "Created";
+                    proposal.CreatedId = id.Id;
+                }
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static void Dismiss(Proposal proposal) => proposal.Status = "Dismissed";
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

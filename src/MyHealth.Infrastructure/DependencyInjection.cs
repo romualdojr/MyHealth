@@ -12,6 +12,7 @@ using MyHealth.Application.Abstractions.Data;
 using MyHealth.Application.Abstractions.Media;
 using MyHealth.Application.Abstractions.MotionCapture;
 using MyHealth.Application.Abstractions.Payments;
+using MyHealth.Application.Abstractions.ProfessionalAssistant;
 using MyHealth.Application.Abstractions.TrainerAssistant;
 using MyHealth.Application.Abstractions.WhatsApp;
 using MyHealth.Domain.Abstractions;
@@ -166,6 +167,29 @@ public static class DependencyInjection
         else
         {
             services.AddSingleton<ITrainerAssistantModel, RuleBasedTrainerAssistantModel>();
+        }
+
+        // Dietitians' and therapy practitioners' chat: follows the trainers' chat unless ProfessionalAssistant:Provider is set.
+        var professionalProvider = builder.Configuration["ProfessionalAssistant:Provider"] ?? builder.Configuration["TrainerAssistant:Provider"];
+        if (string.Equals(professionalProvider, "Anthropic", StringComparison.OrdinalIgnoreCase))
+        {
+            var apiKey = builder.Configuration["ProfessionalAssistant:Anthropic:ApiKey"] ?? builder.Configuration["TrainerAssistant:Anthropic:ApiKey"]
+                         ?? builder.Configuration["Coach:Anthropic:ApiKey"] ?? builder.Configuration["Assistant:Anthropic:ApiKey"]
+                         ?? throw new InvalidOperationException("ProfessionalAssistant:Provider is Anthropic but no Anthropic API key is set.");
+            services.AddHttpClient<AnthropicProfessionalAssistantModel>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.anthropic.com/");
+                client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+                client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+
+                // A full meal plan is a long answer.
+                client.Timeout = TimeSpan.FromSeconds(120);
+            });
+            services.AddScoped<IProfessionalAssistantModel>(sp => sp.GetRequiredService<AnthropicProfessionalAssistantModel>());
+        }
+        else
+        {
+            services.AddSingleton<IProfessionalAssistantModel, RuleBasedProfessionalAssistantModel>();
         }
 
         // Media storage (RF-27): local disk for development; production swaps in a bucket behind the CDN.

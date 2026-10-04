@@ -162,6 +162,21 @@ public sealed record TrainerAssistantReply(string Reply, IReadOnlyList<TrainerCh
 /// <summary>One turn sent back to the assistant as history (role "user" or "assistant").</summary>
 public sealed record ChatTurn(string Role, string Text);
 
+/// <summary>A patient on the dietitian's or the therapy practitioner's assistant page; <see cref="Detail"/> is a ready-made status line.</summary>
+public sealed record PatientSummaryItem(Guid ClientId, string Name, Guid RelationshipId, bool AiConsent, Guid? PlanId, string? PlanName, string Detail, string? Attention);
+
+public sealed record ProfessionalAssistantOverviewItem(string Model, string Discipline, IReadOnlyList<PatientSummaryItem> Patients, int DailyLimit, int UsedToday);
+
+public sealed record MealPlanProposalItem(
+    Guid ClientId, string ClientName, Nutrition.MealPlanDetailsBody Details, IReadOnlyList<Nutrition.PlannedMealBody> Meals, string? Reason);
+
+public sealed record CarePlanProposalItem(
+    Guid ClientId, string ClientName, string ModalityCode, string ModalityName, string Goals, int? PlannedSessions, string? Frequency, DateOnly? NextReviewOn,
+    string? Reason);
+
+public sealed record ProfessionalAssistantReply(
+    string Reply, IReadOnlyList<MealPlanProposalItem> MealPlans, IReadOnlyList<CarePlanProposalItem> CarePlans, int PatientsIncluded, int PatientsWithoutConsent);
+
 public sealed record WhatsAppLink(string PhoneNumber, string ChatUrl);
 
 public sealed record MotionCaptureTerms(int Version, string Text);

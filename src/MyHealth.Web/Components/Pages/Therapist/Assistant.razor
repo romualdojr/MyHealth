@@ -1,0 +1,23 @@
+@page "/therapist/assistant"
+@attribute [Authorize]
+
+<PageTitle>Assistente IA · MyHealth</PageTitle>
+
+<div class="mb-4">
+    <h1 class="@Ui.PageTitle">Assistente IA</h1>
+    <p class="@($"{Ui.Help} mt-1")">
+        Resumos das sessões e dos planos de cuidado dos seus pacientes, e propostas de plano de cuidado nas modalidades em que você é qualificado.
+        Você decide: nada é criado até você iniciar o plano.
+    </p>
+</div>
+
+<ProfessionalAssistantChat Discipline="TherapyPractitioner" ApiPath="therapy/assistant" ClientId="ClientId"
+                           NotPracticingMessage="Selecione uma organização em que você atua como terapeuta."
+                           Placeholder="Ex.: Proponha um plano de cuidado para a Carla"
+                           QuickPrompts="@(["Resumo de todos", "Quem precisa de atenção?", "Proponha planos para quem ainda não tem"])"
+                           FocusedPrompts="@(name => [$"Resumo de {name}", $"Proponha um plano de cuidado para {name}"])" />
+
+@code {
+    [SupplyParameterFromQuery]
+    public Guid? ClientId { get; set; }
+}

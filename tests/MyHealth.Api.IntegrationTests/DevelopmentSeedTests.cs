@@ -30,6 +30,12 @@ public sealed class DevelopmentSeedTests(ApiFactory factory) : IntegrationTest(f
             ["Seed:Development:ClientAnaEmail"] = Email("ana"),
             ["Seed:Development:ClientBrunoEmail"] = Email("bruno"),
             ["Seed:Development:ClientCarlaEmail"] = Email("carla"),
+            ["Seed:Development:ClientDanielaEmail"] = Email("daniela"),
+            ["Seed:Development:ClientEduardoEmail"] = Email("eduardo"),
+            ["Seed:Development:ClientFernandaEmail"] = Email("fernanda"),
+            ["Seed:Development:ClientGabrielEmail"] = Email("gabriel"),
+            ["Seed:Development:TherapistEmail"] = Email("terapeuta"),
+            ["Seed:Development:TherapyModalityCode"] = $"acupuntura_{new string(suffix.Select(c => (char)('a' + c % 26)).ToArray())}",
         }).Build();
         var seeder = new DevelopmentSeeder(Scenario.Factory.Services, configuration, TimeProvider.System, NullLogger.Instance);
 
@@ -56,20 +62,36 @@ public sealed class DevelopmentSeedTests(ApiFactory factory) : IntegrationTest(f
         var anaPlan = plans.Single(p => p.Details.Name == "Força — fase 1");
         db.WorkoutSessions.Count(w => w.TrainingPlanId == anaPlan.Id && w.Status == MyHealth.Domain.Training.Workouts.WorkoutStatus.Completed).ShouldBe(5);
         db.WorkoutSessions.Single(w => w.TenantId == tenant.TenantId && w.Feedback!.ReportedDiscomfort).Reply.ShouldBeNull();
-        db.CareRelationships.Count(r => r.TenantId == tenant.TenantId).ShouldBe(5);
+        db.CareRelationships.Count(r => r.TenantId == tenant.TenantId).ShouldBe(12);
 
         // Ana shares the heart rate of her last two workouts (measured, with a gap and one value she typed in).
         var heartRates = db.WorkoutHeartRates.Where(h => h.TenantId == tenant.TenantId).ToList();
         heartRates.Count.ShouldBe(2);
         heartRates.ShouldAllBe(h => h.Summary != null && h.Summary.SampleCount > 40 && h.Summary.SelfReportedSampleCount == 1);
 
-        // The dietitian's screens: Ana's assessment, published meal plan and diary (one entry commented).
-        var mealPlan = db.MealPlans.Single(p => p.TenantId == tenant.TenantId);
-        (mealPlan.Details.Name, mealPlan.CurrentVersionNumber).ShouldBe(("Reeducação alimentar", 1));
-        db.NutritionAssessments.Count(a => a.TenantId == tenant.TenantId).ShouldBe(1);
+        // The dietitian's screens: Ana's assessment, published meal plan and diary (one entry commented), and the other
+        // patients: Daniela's week of diary, Eduardo's draft plan, Fernanda's ended and current plans.
+        var mealPlans = db.MealPlans.Where(p => p.TenantId == tenant.TenantId).ToList();
+        mealPlans.Select(p => (p.Details.Name, p.Status, p.CurrentVersionNumber)).OrderBy(p => p.Name).ShouldBe(
+        [
+            ("Controle glicêmico", MyHealth.Domain.Nutrition.MealPlanStatus.Draft, 0),
+            ("Fase 1 — adaptação", MyHealth.Domain.Nutrition.MealPlanStatus.Ended, 1),
+            ("Fase 2 — déficit leve", MyHealth.Domain.Nutrition.MealPlanStatus.Published, 1),
+            ("Reeducação alimentar", MyHealth.Domain.Nutrition.MealPlanStatus.Published, 1),
+            ("Vegetariano — hipertrofia", MyHealth.Domain.Nutrition.MealPlanStatus.Published, 1),
+        ]);
+        db.NutritionAssessments.Count(a => a.TenantId == tenant.TenantId).ShouldBe(5);
         var diary = db.FoodDiaryEntries.Where(e => e.TenantId == tenant.TenantId).ToList();
-        diary.Count.ShouldBe(8);
-        diary.Count(e => e.Comments.Count > 0).ShouldBe(1);
+        diary.Count.ShouldBe(8 + 29 + 5);
+        diary.Count(e => e.Comments.Count > 0).ShouldBe(3);
+
+        // The assistants: three of the dietitian's patients allow AI analysis; the therapist follows Ana (care plan, two documented
+        // sessions and one scheduled), Carla and Bruno.
+        db.CareRelationships.Where(r => r.TenantId == tenant.TenantId).AsEnumerable()
+            .Count(r => r.HasActiveGrant(MyHealth.Domain.CareRelationships.DataCategory.AiCoaching)).ShouldBe(6);
+        db.TherapyCarePlans.Count(p => p.TenantId == tenant.TenantId).ShouldBe(1);
+        db.TherapySessions.Where(s => s.TenantId == tenant.TenantId).Select(s => s.Status).AsEnumerable().Order()
+            .ShouldBe([MyHealth.Domain.Therapies.TherapySessionStatus.Scheduled, MyHealth.Domain.Therapies.TherapySessionStatus.Completed, MyHealth.Domain.Therapies.TherapySessionStatus.Completed]);
 
         // Ana allowed AI analysis and is at the top of the range in the squat: the coach proposes a progression.
         var coach = scope.ServiceProvider.GetRequiredService<CoachContextBuilder>();
