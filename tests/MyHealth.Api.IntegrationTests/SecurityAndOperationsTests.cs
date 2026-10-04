@@ -13,6 +13,44 @@ namespace MyHealth.Api.IntegrationTests;
 /// <summary>MFA enforcement (RNF-02), notification delivery (outbox) and the rest of the admin console (RF-50).</summary>
 public sealed class SecurityAndOperationsTests(ApiFactory factory) : IntegrationTest(factory)
 {
+    [Theory]
+    [InlineData("127.0.0.1", "203.0.113.7", "ip:203.0.113.7")] // The web dashboard (loopback here) relays the browser's address.
+    [InlineData("198.51.100.1", "203.0.113.7", "ip:198.51.100.1")] // Anyone else cannot pick the address they are counted under.
+    [InlineData("198.51.100.1", null, "ip:198.51.100.1")]
+    public async Task Sign_in_attempts_count_against_the_browser_address_relayed_only_by_a_trusted_proxy(string remote, string? forwarded, string expected)
+    {
+        Scenario.Factory.EnsureAvailable();
+        var options = Scenario.Factory.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>>();
+        var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        context.Request.Path = "/api/v1/auth/login";
+        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse(remote);
+        if (forwarded is not null)
+        {
+            context.Request.Headers["X-Forwarded-For"] = forwarded;
+        }
+
+        await new Microsoft.AspNetCore.HttpOverrides.ForwardedHeadersMiddleware(_ => Task.CompletedTask, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance, options)
+            .Invoke(context);
+
+        MyHealth.ApiService.Infrastructure.AuthenticationRateLimit.PartitionKey(context).ShouldBe(expected);
+    }
+
+    [Fact]
+    public void Token_refresh_is_not_limited_and_signed_in_calls_count_per_user()
+    {
+        var refresh = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        refresh.Request.Path = "/api/v1/auth/refresh";
+        MyHealth.ApiService.Infrastructure.AuthenticationRateLimit.PartitionKey(refresh).ShouldBeNull();
+
+        var userId = Guid.NewGuid();
+        var signedIn = new Microsoft.AspNetCore.Http.DefaultHttpContext
+        {
+            User = new(new System.Security.Claims.ClaimsIdentity([new(System.Security.Claims.ClaimTypes.NameIdentifier, userId.ToString())], "test")),
+        };
+        signedIn.Request.Path = "/api/v1/auth/manage/2fa";
+        MyHealth.ApiService.Infrastructure.AuthenticationRateLimit.PartitionKey(signedIn).ShouldBe($"user:{userId}");
+    }
+
     [Fact]
     public async Task Professionals_and_administrators_need_two_factor_authentication_while_clients_do_not()
     {

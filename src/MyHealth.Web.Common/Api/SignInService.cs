@@ -22,12 +22,21 @@ public sealed record SignInResult(SignInOutcome Outcome, ClaimsPrincipal? Princi
 /// </summary>
 public sealed class SignInService(IHttpClientFactory httpClients, TimeProvider clock)
 {
-    public async Task<SignInResult> SignInAsync(string email, string password, string? twoFactorCode, CancellationToken ct)
+    /// <param name="clientAddress">The browser's address, sent as <c>X-Forwarded-For</c> so the API limits sign-in attempts per person, not per dashboard.</param>
+    public async Task<SignInResult> SignInAsync(string email, string password, string? twoFactorCode, CancellationToken ct, System.Net.IPAddress? clientAddress = null)
     {
         var http = httpClients.CreateClient(MyHealthApiClient.HttpClientName);
-        using var login = await http.PostAsJsonAsync(
-            "/api/v1/auth/login", new { email, password, twoFactorCode = string.IsNullOrWhiteSpace(twoFactorCode) ? null : twoFactorCode.Trim() },
-            MyHealthApiClient.Json, ct);
+        using var loginRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")
+        {
+            Content = JsonContent.Create(
+                new { email, password, twoFactorCode = string.IsNullOrWhiteSpace(twoFactorCode) ? null : twoFactorCode.Trim() }, options: MyHealthApiClient.Json),
+        };
+        if (clientAddress is not null)
+        {
+            loginRequest.Headers.Add("X-Forwarded-For", clientAddress.ToString());
+        }
+
+        using var login = await http.SendAsync(loginRequest, ct);
 
         if (!login.IsSuccessStatusCode)
         {

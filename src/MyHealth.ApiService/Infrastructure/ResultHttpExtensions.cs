@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using MyHealth.Domain.Abstractions;
 
 namespace MyHealth.ApiService.Infrastructure;
@@ -47,4 +48,25 @@ internal static class RateLimitPolicies
 
     /// <summary>Messages to the assistant, per user: each one calls the AI provider.</summary>
     public const string Assistant = "assistant";
+}
+
+/// <summary>
+/// Who the authentication limit counts against. Signed-in calls (two-factor setup) count per user; token refresh is not
+/// limited (it needs a valid refresh token, which cannot be guessed); everything else (login, registration, password
+/// reset) counts per client address. Behind the web dashboard or a load balancer that address comes from
+/// <c>X-Forwarded-For</c>, accepted only from the proxies in <c>ForwardedHeaders:KnownProxies</c> (and loopback).
+/// </summary>
+internal static class AuthenticationRateLimit
+{
+    public static string? PartitionKey(HttpContext context)
+    {
+        if (context.Request.Path.Value?.EndsWith("/refresh", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return null;
+        }
+
+        return context.User.FindFirstValue(ClaimTypes.NameIdentifier) is { } userId
+            ? $"user:{userId}"
+            : $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
+    }
 }

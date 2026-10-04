@@ -1,8 +1,10 @@
 using MyHealth.Application.Abstractions.Media;
+using System.Net;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using MyHealth.ApiService.Endpoints;
 using MyHealth.ApiService.Infrastructure;
 using MyHealth.Application;
@@ -28,15 +30,27 @@ builder.Services.AddSingleton<IAuthorizationHandler, TwoFactorRequirementHandler
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(AuthorizationPolicies.Administrator, policy => policy.RequireRole(Roles.Administrator).AddRequirements(new TwoFactorRequirement()));
 
-// Brute-force protection for login, registration and password reset (per client IP and minute).
+// Brute-force protection for login, registration and password reset: per client address and minute (see
+// AuthenticationRateLimit). The address of a request relayed by the web dashboard or a load balancer is taken from
+// X-Forwarded-For, trusted only from loopback and the addresses in ForwardedHeaders:KnownProxies.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor;
+    options.ForwardLimit = 1;
+    foreach (var proxy in builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
+    {
+        options.KnownProxies.Add(IPAddress.Parse(proxy));
+    }
+});
+
 var authPermitLimit = builder.Configuration.GetValue("RateLimiting:AuthenticationPerMinute", 20);
 var assistantPermitLimit = builder.Configuration.GetValue("RateLimiting:AssistantPerMinute", 20);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy(RateLimitPolicies.Authentication, context => RateLimitPartition.GetFixedWindowLimiter(
-        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = authPermitLimit, Window = TimeSpan.FromMinutes(1) }));
+    options.AddPolicy(RateLimitPolicies.Authentication, context => AuthenticationRateLimit.PartitionKey(context) is { } key
+        ? RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions { PermitLimit = authPermitLimit, Window = TimeSpan.FromMinutes(1) })
+        : RateLimitPartition.GetNoLimiter("refresh"));
 
     // Each assistant message calls the AI provider: limited per signed-in user.
     options.AddPolicy(RateLimitPolicies.Assistant, context => RateLimitPartition.GetFixedWindowLimiter(
@@ -46,6 +60,7 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
