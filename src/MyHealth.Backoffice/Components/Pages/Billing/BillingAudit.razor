@@ -1,0 +1,12 @@
+@page "/billing/audit"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+
+<PageTitle>Auditoria de cobrança · Back office</PageTitle>
+
+<h1 class="@Ui.PageTitle">Auditoria de cobrança</h1>
+<p class="@($"{Ui.Help} mb-4")">
+    O que operadores e administradores fizeram na cobrança: preços, módulos, testes estendidos, suspensões, faturas, pagamentos registrados à mão e
+    revisões de pagamento. Os acessos a dados de saúde ficam na auditoria da plataforma.
+</p>
+
+<AuditTable Endpoint="admin/audit-entries" AllowTenantFilter="true" Area="billing" />

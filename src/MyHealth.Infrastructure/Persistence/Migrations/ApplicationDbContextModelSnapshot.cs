@@ -678,6 +678,10 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<long?>("AmountCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("amount_cents");
+
                     b.Property<Guid?>("InvoiceId")
                         .HasColumnType("uuid")
                         .HasColumnName("invoice_id");
@@ -700,9 +704,27 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("provider_event_id");
 
+                    b.Property<string>("ProviderPaymentId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("provider_payment_id");
+
                     b.Property<DateTimeOffset>("ReceivedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("received_at");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("review_note");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid?>("ReviewedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -712,6 +734,9 @@ namespace MyHealth.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_billing_payment_events");
+
+                    b.HasIndex("Outcome", "ReviewedAt")
+                        .HasDatabaseName("ix_billing_payment_events_outcome_reviewed_at");
 
                     b.HasIndex("Provider", "ProviderEventId")
                         .IsUnique()

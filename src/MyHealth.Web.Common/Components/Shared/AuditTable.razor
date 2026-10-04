@@ -94,6 +94,10 @@ else
     [Parameter]
     public bool AllowTenantFilter { get; set; }
 
+    /// <summary><c>billing</c> to show only subscriptions, invoices, payments and prices (platform endpoint only).</summary>
+    [Parameter]
+    public string? Area { get; set; }
+
     private const int PageSize = 50;
 
     private PagedResponse<AuditEntryItem>? _page;
@@ -136,6 +140,11 @@ else
         if (AllowTenantFilter && Guid.TryParse(_tenant, out var tenant))
         {
             query.Add($"tenantId={tenant}");
+        }
+
+        if (Area is not null)
+        {
+            query.Add($"area={Area}");
         }
 
         var result = await Api.GetAsync<PagedResponse<AuditEntryItem>>($"{Endpoint}?{string.Join('&', query)}");

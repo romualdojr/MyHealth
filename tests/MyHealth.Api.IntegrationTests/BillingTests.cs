@@ -149,6 +149,28 @@ public sealed class BillingTests(ApiFactory factory) : IntegrationTest(factory)
 
         (await Scenario.Read<WebhookResult>(await WebhookAsync(body, Sign(body)))).Outcome.ShouldBe("amount-mismatch");
         (await TenantBillingAsync(tenantId)).Invoices.ShouldHaveSingleItem().Status.ShouldBe(InvoiceStatus.Open);
+
+        // It waits in the operators' review queue with both amounts, until an operator says how it was handled.
+        var admin = Operator();
+        var queue = await Scenario.Read<List<PaymentReviewItem>>(await admin.Http.GetAsync("/api/v1/admin/billing/payment-reviews", Ct));
+        var review = queue.Single(r => r.InvoiceId == invoiceId);
+        (review.AmountCents, review.ProviderPaymentId, review.TenantId, review.InvoiceStatus, review.ReviewedAt).ShouldBe((1L, "pay_partial", tenantId, "Open", null));
+        review.InvoiceTotalCents.ShouldNotBeNull().ShouldBeGreaterThan(1);
+
+        (await admin.Http.PostAsJsonAsync($"/api/v1/admin/billing/payment-reviews/{review.Id}/review", new { note = " " }, Ct)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await owner.Http.PostAsJsonAsync($"/api/v1/admin/billing/payment-reviews/{review.Id}/review", new { note = "x" }, Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        await Scenario.EnsureSuccess(await admin.Http.PostAsJsonAsync($"/api/v1/admin/billing/payment-reviews/{review.Id}/review", new { note = "Valor estornado no provedor." }, Ct));
+        (await admin.Http.PostAsJsonAsync($"/api/v1/admin/billing/payment-reviews/{review.Id}/review", new { note = "De novo" }, Ct)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
+
+        (await Scenario.Read<List<PaymentReviewItem>>(await admin.Http.GetAsync("/api/v1/admin/billing/payment-reviews", Ct))).ShouldNotContain(r => r.Id == review.Id);
+        var all = await Scenario.Read<List<PaymentReviewItem>>(await admin.Http.GetAsync("/api/v1/admin/billing/payment-reviews?pending=false", Ct));
+        all.Single(r => r.Id == review.Id).ReviewNote.ShouldBe("Valor estornado no provedor.");
+
+        // The billing audit shows the review, apart from clinical access.
+        var audit = await Scenario.Read<MyHealth.Application.Common.PagedResponse<MyHealth.Application.Auditing.AuditEntryResponse>>(
+            await admin.Http.GetAsync($"/api/v1/admin/audit-entries?area=billing&tenantId={tenantId}", Ct));
+        audit.Items.ShouldContain(e => e.Action == "review" && e.ResourceType == "PaymentEvent" && e.ResourceId == review.Id);
+        audit.Items.ShouldAllBe(e => e.ResourceType == "TenantSubscription" || e.ResourceType == "Invoice" || e.ResourceType == "Invoice.Charge" || e.ResourceType == "PaymentEvent");
     }
 
     [Fact]

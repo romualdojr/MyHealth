@@ -70,6 +70,13 @@ internal static class BillingEndpoints
                 Guid invoiceId, ICommandHandler<SimulatePaymentCommand, WebhookResult> handler, CancellationToken ct) =>
             (await handler.Handle(new SimulatePaymentCommand(invoiceId), ct)).ToHttp());
 
+        admin.MapGet("/payment-reviews", async (bool? pending, IQueryHandler<ListPaymentReviewsQuery, IReadOnlyList<PaymentReviewItem>> handler, CancellationToken ct) =>
+            (await handler.Handle(new ListPaymentReviewsQuery(pending ?? true), ct)).ToHttp());
+
+        admin.MapPost("/payment-reviews/{eventId:guid}/review", async (
+                Guid eventId, InvoiceNoteRequest request, ICommandHandler<ReviewPaymentEventCommand> handler, CancellationToken ct) =>
+            (await handler.Handle(new ReviewPaymentEventCommand(eventId, request.Note), ct)).ToHttp());
+
         admin.MapPost("/run-cycle", async (ICommandHandler<RunBillingCycleCommand, BillingCycleResult> handler, CancellationToken ct) =>
             (await handler.Handle(new RunBillingCycleCommand(), ct)).ToHttp());
 

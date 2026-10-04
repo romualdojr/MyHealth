@@ -70,6 +70,9 @@ internal sealed class PaymentEventConfiguration : IEntityTypeConfiguration<Payme
         builder.Property(e => e.ProviderEventId).HasMaxLength(128).IsRequired();
         builder.Property(e => e.Type).HasMaxLength(64).IsRequired();
         builder.Property(e => e.Outcome).HasMaxLength(32).IsRequired();
+        builder.Property(e => e.ProviderPaymentId).HasMaxLength(128);
+        builder.Property(e => e.ReviewNote).HasMaxLength(1000);
+        builder.HasIndex(e => new { e.Outcome, e.ReviewedAt });
 
         // The guarantee behind webhook idempotency: two deliveries of one event cannot both be recorded (409 → retry → duplicate).
         builder.HasIndex(e => new { e.Provider, e.ProviderEventId }).IsUnique();

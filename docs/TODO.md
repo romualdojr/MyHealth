@@ -62,8 +62,7 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] Real `IPaymentProvider` (charge creation, webhook signature, refunds/chargebacks) and the provider's sandbox in staging.
 - [ ] Self-service plan changes for tenant administrators (today operators change modules), with proration if wanted.
 - [ ] Card / recurring payments; dunning e-mails before the due date.
-- [ ] Review queue for `amount-mismatch` payment events in the back office.
-- [ ] Back office behind VPN or IP allow list in production; operator action audit view for billing.
+- [ ] Back office behind VPN or IP allow list in production (the billing audit view is done: `/billing/audit`).
 - [ ] Fiscal documents (NF-e/NFS-e) once the provider is chosen.
 - [ ] PostgreSQL row-level security as defence in depth behind the application checks.
 - [ ] Encryption at rest and tested backup/restore (RNF-02, RNF-05).

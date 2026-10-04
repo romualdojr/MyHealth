@@ -1,0 +1,121 @@
+@page "/billing/payment-reviews"
+@attribute [Authorize(Roles = SessionClaims.AdministratorRole)]
+@inject MyHealthApiClient Api
+
+<PageTitle>Pagamentos para revisar · Back office</PageTitle>
+
+<h1 class="@Ui.PageTitle">Pagamentos para revisar</h1>
+<p class="@($"{Ui.Help} mb-4")">
+    O provedor confirmou um pagamento com valor diferente da fatura, então ele não foi aplicado. Resolva fora daqui (estorno no provedor,
+    pagamento registrado à mão na assinatura ou acordo com o cliente) e marque como revisado dizendo o que foi feito.
+</p>
+
+<div class="mb-4 flex flex-wrap gap-2">
+    <button class="@(_pendingOnly ? Ui.ButtonSm : Ui.ButtonSecondarySm)" @onclick="() => FilterAsync(true)">Pendentes</button>
+    <button class="@(!_pendingOnly ? Ui.ButtonSm : Ui.ButtonSecondarySm)" @onclick="() => FilterAsync(false)">Todos</button>
+</div>
+
+<ProblemAlert Problem="_problem" />
+
+@if (_items is null)
+{
+    <Loading />
+}
+else if (_items.Count == 0)
+{
+    <p class="@Ui.Help">@(_pendingOnly ? "Nenhum pagamento esperando revisão." : "Nenhum pagamento com valor diferente.")</p>
+}
+else
+{
+    <div class="space-y-3">
+        @foreach (var r in _items)
+        {
+            <article class="@(r.ReviewedAt is null ? Ui.CardHighlight : Ui.Card)" aria-label="Pagamento @r.ProviderEventId">
+                <div class="@Ui.CardBody">
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if (r.TenantId is { } tenantId)
+                        {
+                            <a class="@($"{Ui.Link} font-semibold")" href="billing/tenants/@tenantId">@r.TenantName</a>
+                        }
+                        else
+                        {
+                            <span class="font-semibold text-slate-900">Fatura desconhecida</span>
+                        }
+                        @if (r.InvoiceStatus is { } status)
+                        {
+                            <StatusBadge Status="@status" />
+                        }
+                        <span class="grow"></span>
+                        <span class="text-sm text-slate-500">recebido em @r.ReceivedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                    </div>
+                    <dl class="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                        <div><dt class="text-slate-500">Valor da fatura</dt><dd class="font-semibold text-slate-900">@(r.InvoiceTotalCents is { } total ? BillingLabels.Money(total) : "—")</dd></div>
+                        <div><dt class="text-slate-500">Valor pago</dt><dd class="font-semibold text-red-700">@(r.AmountCents is { } paid ? BillingLabels.Money(paid) : "—")</dd></div>
+                        <div><dt class="text-slate-500">Provedor</dt><dd class="break-all text-slate-700">@r.Provider · @(r.ProviderPaymentId ?? r.ProviderEventId)</dd></div>
+                        <div><dt class="text-slate-500">Diferença</dt><dd class="text-slate-700">@(r is { AmountCents: { } a, InvoiceTotalCents: { } t } ? BillingLabels.Money(a - t) : "—")</dd></div>
+                    </dl>
+                    @if (r.ReviewedAt is { } reviewedAt)
+                    {
+                        <p class="@($"{Ui.AlertNeutral} mt-3")">Revisado em @reviewedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm"): @r.ReviewNote</p>
+                    }
+                    else if (_reviewing == r.Id)
+                    {
+                        <div class="mt-3">
+                            <label class="@Ui.Label" for="note-@r.Id">O que foi feito</label>
+                            <input id="note-@r.Id" class="@Ui.Input" placeholder="Ex.: diferença estornada no provedor em 03/10" @bind="_note" @bind:event="oninput" />
+                            <div class="mt-2 flex flex-col gap-2 sm:flex-row">
+                                <button class="@Ui.ButtonSm" disabled="@string.IsNullOrWhiteSpace(_note)" @onclick="() => ReviewAsync(r.Id)">Marcar como revisado</button>
+                                <button class="@Ui.ButtonLinkSm" @onclick="() => _reviewing = null">Cancelar</button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <button class="@($"{Ui.ButtonOutlineSm} mt-3")" @onclick="() => StartReview(r.Id)">Marcar como revisado…</button>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+}
+
+@code {
+    private List<PaymentReviewItem>? _items;
+    private ApiProblem? _problem;
+    private bool _pendingOnly = true;
+    private Guid? _reviewing;
+    private string? _note;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Api.GetAsync<List<PaymentReviewItem>>($"admin/billing/payment-reviews?pending={(_pendingOnly ? "true" : "false")}");
+        _items = result.Value ?? [];
+        _problem = result.Problem;
+    }
+
+    private Task FilterAsync(bool pendingOnly)
+    {
+        _pendingOnly = pendingOnly;
+        _items = null;
+        return LoadAsync();
+    }
+
+    private void StartReview(Guid id)
+    {
+        _reviewing = id;
+        _note = null;
+    }
+
+    private async Task ReviewAsync(Guid id)
+    {
+        var result = await Api.PostAsync($"admin/billing/payment-reviews/{id}/review", new { note = _note!.Trim() });
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _reviewing = null;
+            await LoadAsync();
+        }
+    }
+}

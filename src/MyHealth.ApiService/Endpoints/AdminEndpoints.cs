@@ -49,9 +49,9 @@ internal static class AdminEndpoints
             (await handler.Handle(new SuspendProfessionalCommand(profileId, request.Reason), ct)).ToHttp());
 
         group.MapGet("/audit-entries", async (
-                Guid? subjectUserId, Guid? actorUserId, Guid? tenantId, int? page, int? pageSize,
+                Guid? subjectUserId, Guid? actorUserId, Guid? tenantId, int? page, int? pageSize, string? area,
                 IQueryHandler<ListAuditEntriesQuery, PagedResponse<AuditEntryResponse>> handler, CancellationToken ct) =>
-            (await handler.Handle(new ListAuditEntriesQuery(subjectUserId, actorUserId, tenantId, page ?? 1, pageSize ?? 100), ct)).ToHttp());
+            (await handler.Handle(new ListAuditEntriesQuery(subjectUserId, actorUserId, tenantId, page ?? 1, pageSize ?? 100, area), ct)).ToHttp());
 
         group.MapGet("/tenants", async (IQueryHandler<ListTenantsQuery, IReadOnlyList<TenantSummaryResponse>> handler, CancellationToken ct) =>
             (await handler.Handle(new ListTenantsQuery(), ct)).ToHttp());

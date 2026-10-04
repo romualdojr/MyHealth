@@ -189,6 +189,9 @@ public interface IInvoiceRepository : IRepository<Invoice, Guid>
 /// </summary>
 public sealed class PaymentEvent : AggregateRoot<Guid>
 {
+    /// <summary>The provider reported a payment whose amount differs from the invoice: not applied, an operator reviews it.</summary>
+    public const string MismatchOutcome = "amount-mismatch";
+
     private PaymentEvent(Guid id) : base(id) { }
 
     private PaymentEvent() { }
@@ -204,9 +207,25 @@ public sealed class PaymentEvent : AggregateRoot<Guid>
     /// <summary>What happened: applied, ignored (unknown charge or type), mismatch (amount differs, needs review).</summary>
     public string Outcome { get; private set; } = null!;
 
+    /// <summary>The amount the provider reported, in cents (null for events without an amount).</summary>
+    public long? AmountCents { get; private set; }
+
+    public string? ProviderPaymentId { get; private set; }
+
     public DateTimeOffset ReceivedAt { get; private set; }
 
-    public static PaymentEvent Record(string provider, string providerEventId, string type, Guid? invoiceId, string outcome, DateTimeOffset now) =>
+    public DateTimeOffset? ReviewedAt { get; private set; }
+
+    public Guid? ReviewedBy { get; private set; }
+
+    /// <summary>What the operator did about it (refund at the provider, payment recorded by hand, agreement with the customer).</summary>
+    public string? ReviewNote { get; private set; }
+
+    public bool NeedsReview => Outcome == MismatchOutcome && ReviewedAt is null;
+
+    public static PaymentEvent Record(
+        string provider, string providerEventId, string type, Guid? invoiceId, string outcome, DateTimeOffset now, long? amountCents = null,
+        string? providerPaymentId = null) =>
         new(Guid.CreateVersion7(now))
         {
             Provider = provider,
@@ -214,8 +233,29 @@ public sealed class PaymentEvent : AggregateRoot<Guid>
             Type = type,
             InvoiceId = invoiceId,
             Outcome = outcome,
+            AmountCents = amountCents,
+            ProviderPaymentId = providerPaymentId,
             ReceivedAt = now,
         };
+
+    /// <summary>An operator closes a mismatch after handling it outside the webhook (the note says how).</summary>
+    public Result Review(Guid operatorUserId, string note, DateTimeOffset now)
+    {
+        if (!NeedsReview)
+        {
+            return BillingErrors.PaymentEventNotPendingReview;
+        }
+
+        if (string.IsNullOrWhiteSpace(note))
+        {
+            return BillingErrors.ReasonRequired;
+        }
+
+        ReviewedAt = now;
+        ReviewedBy = operatorUserId;
+        ReviewNote = note.Trim();
+        return Result.Success();
+    }
 }
 
 public interface IPaymentEventRepository : IRepository<PaymentEvent, Guid>

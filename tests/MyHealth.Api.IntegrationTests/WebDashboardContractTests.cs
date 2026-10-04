@@ -218,6 +218,8 @@ public sealed class WebDashboardContractTests(ApiFactory factory) : IntegrationT
         (await Ok(operatorApi.PostAsync<Web.BillingCycleResult>("admin/billing/run-cycle", null, ct: Ct))).Subscriptions.ShouldBeGreaterThan(0);
 
         var summary = await Ok(operatorApi.GetAsync<Web.RevenueSummary>("admin/billing/summary", ct: Ct));
+        await Ok(operatorApi.GetAsync<List<Web.PaymentReviewItem>>("admin/billing/payment-reviews?pending=false", ct: Ct));
+        await Ok(operatorApi.GetAsync<Web.PagedResponse<AuditEntryItem>>("admin/audit-entries?page=1&pageSize=50&area=billing", ct: Ct));
         summary.TenantsByStatus.ShouldContainKey("Active");
         summary.RecentPayments.ShouldContain(p => p.InvoiceId == invoice.Id && p.TenantName == detail.Summary.Name);
         (await Scenario.Read<Web.MeResponse>(await owner.Http.GetAsync("/api/v1/me", Ct))).Memberships.Single(m => m.TenantId == tenantId).SubscriptionStatus.ShouldBe("Active");

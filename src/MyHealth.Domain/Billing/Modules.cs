@@ -90,6 +90,9 @@ public static class BillingErrors
     public static readonly Error InvoiceNotOpen = Error.Conflict("Billing.InvoiceNotOpen", "The invoice is already paid or void.");
     public static readonly Error NothingToInvoice = Error.Conflict("Billing.NothingToInvoice", "The next billing period has not started yet.");
     public static readonly Error AmountMismatch = Error.Conflict("Billing.AmountMismatch", "The amount paid differs from the invoice total.");
+    public static readonly Error PaymentEventNotPendingReview = Error.Conflict(
+        "Billing.PaymentEventNotPendingReview", "Only a payment with a different amount, not reviewed yet, can be marked as reviewed.");
+    public static readonly Error PaymentEventNotFound = Error.NotFound("Billing.PaymentEventNotFound", "The payment event was not found.");
 
     public static readonly Error Suspended = Error.Forbidden(
         "Tenant.Suspended", "This organization's subscription is suspended. Its administrator can settle the open invoices under Plano e cobrança.");

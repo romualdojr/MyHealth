@@ -12,6 +12,8 @@ public sealed class BackofficeTests(AppFixture app) : BrowserTest(app)
         await OpenAsync(App.Backoffice, "billing/tenants", "Assinaturas");
         await ExpectTextAsync("Estúdio Movimento");
         await OpenAsync(App.Backoffice, "billing/prices", "Preços dos módulos");
+        await OpenAsync(App.Backoffice, "billing/payment-reviews", "Pagamentos para revisar");
+        await OpenAsync(App.Backoffice, "billing/audit", "Auditoria de cobrança");
         await OpenAsync(App.Backoffice, "admin/tenants", "Organizações");
         await ExpectTextAsync("Estúdio Movimento");
         await OpenAsync(App.Backoffice, "admin/professionals", "Verificação de profissionais");

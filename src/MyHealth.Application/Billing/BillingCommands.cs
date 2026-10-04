@@ -355,7 +355,7 @@ internal sealed class ProcessPaymentWebhookHandler(
     public const string Applied = "applied";
     public const string Duplicate = "duplicate";
     public const string Ignored = "ignored";
-    public const string Mismatch = "amount-mismatch";
+    public const string Mismatch = PaymentEvent.MismatchOutcome;
 
     public async Task<Result<WebhookResult>> Handle(ProcessPaymentWebhookCommand command, CancellationToken cancellationToken)
     {
@@ -383,7 +383,8 @@ internal sealed class ProcessPaymentWebhookHandler(
             }
         }
 
-        events.Add(PaymentEvent.Record(provider.Name, notification.EventId, notification.Type, invoice?.Id, outcome, now));
+        events.Add(PaymentEvent.Record(
+            provider.Name, notification.EventId, notification.Type, invoice?.Id, outcome, now, notification.AmountCents, notification.ProviderPaymentId));
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return new WebhookResult(outcome);
     }

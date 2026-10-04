@@ -435,3 +435,7 @@ public static class NutritionLabels
         };
     }
 }
+
+public sealed record PaymentReviewItem(
+    Guid Id, string Provider, string ProviderEventId, string? ProviderPaymentId, Guid? InvoiceId, Guid? TenantId, string? TenantName, long? InvoiceTotalCents,
+    string? InvoiceStatus, long? AmountCents, DateTimeOffset ReceivedAt, DateTimeOffset? ReviewedAt, Guid? ReviewedBy, string? ReviewNote);
