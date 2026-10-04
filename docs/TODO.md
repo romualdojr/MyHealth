@@ -75,7 +75,8 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [x] Back office (separate Blazor app for operators) with the platform admin console and billing; shared `MyHealth.Web.Common` library.
 - [x] Web: trainer workflow — clients (invite), plan editor (sessions, exercises, sets, aerobic), publishing with change description, version history, copy, end, review acknowledgement, exercise library, workouts with feedback replies ([TRAINER_WORKSPACE_PHASES.md](TRAINER_WORKSPACE_PHASES.md) phase 1).
 - [ ] Web: trainer heart-rate views; plan templates without a client; drag and drop in the editor.
-- [ ] Web: dietitian workflow (assessments, meal plan editor, food diary with comments; see [NUTRITION_WORKSPACE_PHASES.md](NUTRITION_WORKSPACE_PHASES.md)) and therapist workflow (services, schedule, session record, consent status, care plans).
+- [x] Web: dietitian workflow, phase 1 (patients, assessments, meal plan editor, food diary with comments; [NUTRITION_WORKSPACE_PHASES.md](NUTRITION_WORKSPACE_PHASES.md)).
+- [ ] Web: dietitian phases 2–4 (templates and copy, adherence view, RF-31/32, photos) and therapist workflow (services, schedule, session record, consent status, care plans).
 - [ ] Web: invitation flows (clients and organizations), professional profile and onboarding, QR code for 2FA setup.
 - [x] Web: end-to-end browser tests (Playwright + Edge, `tests/MyHealth.E2ETests`): sign-in, every page of both apps, plan editor, AI coach, feedback reply, exercise library.
 - [x] Web: mobile first for iPhone and Android (tab bar, touch sizes, card lists, bottom sheets, PWA install, reconnection), with phone e2e tests.
@@ -98,6 +99,7 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] 3D for the curated library (operators' back office) and a notification to the trainer when a conversion finishes.
 - [x] Trainer chat ("Assistente IA"): all students with summaries, chat over the students who allow AI analysis (pseudonymised), suggestions to evolve exercises applied to each draft.
 - [ ] AI coach and chat as a paid module, per-tenant daily limit for chat messages and cost reporting; first-draft plan generation from goal/level/equipment.
+- [ ] API: times sent with an offset other than UTC (e.g. `-03:00` from a phone) fail with a 500 when saved (Npgsql writes only UTC to `timestamptz`); convert every `DateTimeOffset` to UTC in an EF convention or at the API edge.
 - [ ] Sign-in rate limit: the API limits logins per IP, and every dashboard sign-in comes from the web app's address — forward the user's IP (trusted proxy) or limit per account before production.
 
 ## Phase 5 — P1 features

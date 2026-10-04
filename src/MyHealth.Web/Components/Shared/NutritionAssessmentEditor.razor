@@ -1,0 +1,71 @@
+@* The fields of a nutrition assessment (RF-28): what the patient reports, the usual measurements and the follow-up.
+   Used to record a new assessment and to correct one (the correction also asks for a reason). *@
+
+<div class="grid grid-cols-12 gap-3">
+    <div class="col-span-6 min-w-0 md:col-span-3">
+        <label class="@Ui.Label" for="@($"{Prefix}-date")">Data da avaliação</label>
+        <input id="@($"{Prefix}-date")" type="date" class="@($"{Ui.Input} min-w-0")" @bind="Form.AssessedOn" />
+    </div>
+    <div class="col-span-12 md:col-span-9">
+        <label class="@Ui.Label" for="@($"{Prefix}-goals")">Objetivos</label>
+        <input id="@($"{Prefix}-goals")" class="@Ui.Input" placeholder="Ex.: mais energia, reduzir doces à noite" @bind="Form.Goals" />
+    </div>
+    <div class="col-span-12 md:col-span-6">
+        <label class="@Ui.Label" for="@($"{Prefix}-allergies")">Alergias relatadas</label>
+        <textarea id="@($"{Prefix}-allergies")" class="@Ui.Textarea" rows="2" placeholder="Ex.: amendoim, camarão" @bind="Form.ReportedAllergies"></textarea>
+    </div>
+    <div class="col-span-12 md:col-span-6">
+        <label class="@Ui.Label" for="@($"{Prefix}-restrictions")">Restrições e intolerâncias relatadas</label>
+        <textarea id="@($"{Prefix}-restrictions")" class="@Ui.Textarea" rows="2" placeholder="Ex.: intolerância à lactose, vegetariana" @bind="Form.ReportedRestrictions"></textarea>
+    </div>
+    <div class="col-span-12 md:col-span-6">
+        <label class="@Ui.Label" for="@($"{Prefix}-preferences")">Preferências</label>
+        <textarea id="@($"{Prefix}-preferences")" class="@Ui.Textarea" rows="2" @bind="Form.Preferences"></textarea>
+    </div>
+    <div class="col-span-12 md:col-span-6">
+        <label class="@Ui.Label" for="@($"{Prefix}-times")">Horários das refeições</label>
+        <textarea id="@($"{Prefix}-times")" class="@Ui.Textarea" rows="2" placeholder="Ex.: acorda 6h30, almoça 12h, janta 20h" @bind="Form.MealTimes"></textarea>
+    </div>
+</div>
+
+<fieldset class="mt-4">
+    <legend class="@($"{Ui.CardTitle} mb-2")">Medidas (opcional)</legend>
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
+        @foreach (var m in NutritionLabels.CommonMeasurements)
+        {
+            var metric = m.Metric;
+            <div class="min-w-0">
+                <label class="@Ui.Label" for="@($"{Prefix}-{metric}")">@m.Label</label>
+                <input id="@($"{Prefix}-{metric}")" type="number" inputmode="decimal" min="0" step="0.1" class="@Ui.Input"
+                       @bind="Form.Measurements[metric]" />
+            </div>
+        }
+    </div>
+    @if (Form.OtherMeasurements.Count > 0)
+    {
+        <p class="@($"{Ui.Help} mt-2")">Outras medidas mantidas: @string.Join(" · ", Form.OtherMeasurements.Select(NutritionLabels.Measurement))</p>
+    }
+</fieldset>
+
+<div class="mt-4 grid grid-cols-12 gap-3">
+    <div class="col-span-12 md:col-span-9">
+        <label class="@Ui.Label" for="@($"{Prefix}-followup")">Conduta e acompanhamento</label>
+        <textarea id="@($"{Prefix}-followup")" class="@Ui.Textarea" rows="2" placeholder="Ex.: retorno em 30 dias com o diário preenchido" @bind="Form.FollowUp"></textarea>
+    </div>
+    <div class="col-span-12 min-w-0 md:col-span-3">
+        <label class="@Ui.Label" for="@($"{Prefix}-next")">Próximo retorno</label>
+        <input id="@($"{Prefix}-next")" type="date" class="@($"{Ui.Input} min-w-0")" @bind="Form.NextFollowUpOn" />
+    </div>
+    <div class="col-span-12">
+        <label class="@Ui.Label" for="@($"{Prefix}-notes")">Observações</label>
+        <textarea id="@($"{Prefix}-notes")" class="@Ui.Textarea" rows="2" @bind="Form.Notes"></textarea>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public NutritionAssessmentForm Form { get; set; } = default!;
+
+    [Parameter]
+    public string Prefix { get; set; } = "assessment";
+}

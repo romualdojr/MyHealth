@@ -211,6 +211,54 @@ public sealed class NutritionTests(ApiFactory factory) : IntegrationTest(factory
     }
 
     [Fact]
+    public async Task The_dietitian_dashboard_lists_active_clients_with_plan_diary_counts_uncommented_entries_and_follow_ups()
+    {
+        var (ana, dietitian, relationshipId) = await LinkedDietitianAsync();
+        var bia = await Scenario.ClientAsync("bia");
+        await Scenario.LinkAsync(dietitian, bia, Discipline.Dietitian);
+
+        // Ana follows a published plan, has a draft in progress, logged three meals and has a follow-up due.
+        var planId = await Scenario.DraftMealPlanAsync(dietitian, ana.Id, "Reeducação");
+        await Scenario.PublishMealPlanAsync(dietitian, planId);
+        await Scenario.DraftMealPlanAsync(dietitian, ana.Id, "Próxima fase");
+        var entries = new[] { Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7() };
+        var adherence = new[] { "AsPlanned", "AsPlanned", "Different" };
+        for (var i = 0; i < entries.Length; i++)
+        {
+            await Scenario.EnsureSuccess(await ana.Http.PutAsJsonAsync($"/api/v1/me/food-diary/{entries[i]}", new
+            {
+                mealPlanId = planId, eatenAt = DateTimeOffset.UtcNow.AddDays(-i).AddHours(-1), adherence = adherence[i], description = "Refeição",
+            }, Ct));
+        }
+
+        // A private entry never shows up, not even as a count.
+        await Scenario.EnsureSuccess(await ana.Http.PutAsJsonAsync($"/api/v1/me/food-diary/{Guid.CreateVersion7()}", new { eatenAt = DateTimeOffset.UtcNow, waterMl = 300 }, Ct));
+        await Scenario.EnsureSuccess(await dietitian.Http.PostAsJsonAsync($"/api/v1/food-diary/{entries[0]}/comments", new { message = "Muito bem!" }, Ct));
+        var yesterday = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1);
+        await Scenario.EnsureSuccess(await dietitian.Http.PostAsJsonAsync("/api/v1/nutrition-assessments", new
+        {
+            clientId = ana.Id, assessment = new { assessedOn = yesterday.AddDays(-30), goals = "Mais energia", nextFollowUpOn = yesterday },
+        }, Ct));
+
+        var dashboard = await Scenario.Read<DietitianDashboardResponse>(await dietitian.Http.GetAsync("/api/v1/dietitian/dashboard", Ct));
+
+        dashboard.Clients.Select(c => c.ClientId).ShouldBe([ana.Id, bia.Id]);
+        var first = dashboard.Clients[0];
+        (first.RelationshipId, first.ActivePlanId, first.ActivePlanName, first.DraftPlans).ShouldBe((relationshipId, planId, "Reeducação", 1));
+        (first.EntriesLast7Days, first.DaysWithEntriesLast7Days, first.AsPlannedLast7Days, first.UncommentedEntries).ShouldBe((3, 3, 2, 2));
+        (first.LastAssessedOn, first.NextFollowUpOn).ShouldBe((yesterday.AddDays(-30), yesterday));
+        first.LastEntryAt.ShouldNotBeNull();
+
+        var second = dashboard.Clients[1];
+        (second.ActivePlanId, second.EntriesLast7Days, second.LastEntryAt, second.NextFollowUpOn).ShouldBe((null, 0, null, null));
+        (dashboard.TotalUncommentedEntries, dashboard.TotalFollowUpsDue, dashboard.ClientsWithoutPlan).ShouldBe((2, 1, 1));
+
+        // Trainers have no dietitian dashboard.
+        var (trainer, _) = await Scenario.ProfessionalAsync();
+        (await trainer.Http.GetAsync("/api/v1/dietitian/dashboard", Ct)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task A_dietitian_in_another_tenant_cannot_reach_the_plan_and_the_attempt_is_audited()
     {
         var (client, dietitian, _) = await LinkedDietitianAsync();

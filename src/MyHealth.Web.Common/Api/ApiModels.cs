@@ -177,6 +177,58 @@ public sealed record WorkoutSessionDetail(
     DateTimeOffset? CompletedAt, IReadOnlyList<SetLogItem> Sets, WorkoutFeedbackItem? Feedback, FeedbackReplyItem? Reply,
     IReadOnlyList<BodyCheckItem> BodyChecks);
 
+// Nutrition: the dietitian's clients, assessments, meal plans and the clients' food diary.
+
+public sealed record DietitianClientSummary(
+    Guid ClientId, string ClientName, Guid RelationshipId, Guid? ActivePlanId, string? ActivePlanName, int DraftPlans, int EntriesLast7Days,
+    int DaysWithEntriesLast7Days, int AsPlannedLast7Days, int UncommentedEntries, DateTimeOffset? LastEntryAt, DateOnly? LastAssessedOn,
+    DateOnly? NextFollowUpOn);
+
+public sealed record DietitianDashboard(IReadOnlyList<DietitianClientSummary> Clients, int TotalUncommentedEntries, int TotalFollowUpsDue, int ClientsWithoutPlan);
+
+public sealed record MeasurementItem(string Metric, string Method, string Unit, decimal Value);
+
+public sealed record NutritionAssessmentContent(
+    DateOnly AssessedOn, string? Goals, string? ReportedRestrictions, string? ReportedAllergies, string? Preferences, string? MealTimes,
+    IReadOnlyList<MeasurementItem> Measurements, string? FollowUp, DateOnly? NextFollowUpOn, string? Notes);
+
+public sealed record NutritionAssessmentCorrection(int ReplacedVersion, NutritionAssessmentContent PreviousContent, string Reason, DateTimeOffset CorrectedAt);
+
+public sealed record NutritionAssessmentItem(
+    Guid Id, Guid ClientId, string DietitianName, NutritionAssessmentContent Content, int Version, IReadOnlyList<NutritionAssessmentCorrection> Corrections,
+    DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+
+public sealed record MealPlanItem(Guid Id, Guid ClientId, string Name, string Status, int CurrentVersionNumber, bool HasUnpublishedChanges, DateTimeOffset UpdatedAt);
+
+public sealed record MealPlanDetails(string Name, string? Goal, DateOnly StartDate, DateOnly? EndDate, string? Notes);
+
+public sealed record MealItem(Guid Id, string Food, decimal? Quantity, string? Unit, string? HouseholdMeasure, string? Notes, IReadOnlyList<string> Substitutions);
+
+public sealed record PlannedMeal(Guid Id, string Name, TimeOnly? Time, int Order, string? Notes, IReadOnlyList<MealItem> Items);
+
+public sealed record MealPlanContent(IReadOnlyList<PlannedMeal> Meals);
+
+public sealed record MealPlanVersionItem(Guid VersionId, int VersionNumber, string ChangeDescription, string AuthorName, DateTimeOffset PublishedAt);
+
+public sealed record DietitianMealPlan(
+    Guid Id, Guid ClientId, MealPlanDetails Details, string Status, MealPlanContent Draft, bool HasUnpublishedChanges, int CurrentVersionNumber,
+    IReadOnlyList<MealPlanVersionItem> Versions);
+
+public sealed record MealPlanVersionDetail(
+    Guid PlanId, Guid VersionId, int VersionNumber, MealPlanDetails Details, MealPlanContent Content, string ChangeDescription, string AuthorName,
+    DateTimeOffset PublishedAt);
+
+public sealed record FoodDiaryCommentItem(Guid Id, string AuthorName, string Message, DateTimeOffset CreatedAt);
+
+public sealed record FoodDiaryEntryItem(
+    Guid Id, Guid? MealPlanId, int? MealPlanVersionNumber, Guid? PlannedMealId, string? MealName, DateTimeOffset EatenAt, DateOnly LocalDate,
+    string? Description, int? WaterMl, string? Adherence, string? ClientNotes, IReadOnlyList<FoodDiaryCommentItem> Comments);
+
+public sealed record DiaryAdherenceSummary(
+    DateOnly From, DateOnly To, int Entries, int DaysWithEntries, int AsPlanned, int Partly, int Different, int Unplanned, int NotStated, int WaterMl);
+
+public sealed record DietitianFoodDiary(IReadOnlyList<FoodDiaryEntryItem> Entries, DiaryAdherenceSummary Summary);
+
 /// <summary>Disciplines and council-facing labels in Portuguese, for display only.</summary>
 public static class Labels
 {
@@ -328,4 +380,58 @@ public static class BillingLabels
     };
 
     public static string Date(DateTimeOffset value) => value.ToLocalTime().ToString("dd/MM/yyyy", Brazil);
+}
+
+/// <summary>Nutrition labels for display.</summary>
+public static class NutritionLabels
+{
+    private static readonly System.Globalization.CultureInfo Brazil = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+
+    /// <summary>Units the API accepts for a food portion (free text up to 20 characters; these are the usual ones).</summary>
+    public static readonly IReadOnlyList<string> PortionUnits = ["g", "ml", "unidade", "colher de sopa", "colher de chá", "xícara", "fatia", "porção"];
+
+    /// <summary>Measurements a nutrition assessment usually records: metric, method, unit and the Portuguese label.</summary>
+    public static readonly IReadOnlyList<(string Metric, string Method, string Unit, string Label)> CommonMeasurements =
+    [
+        ("body_mass", "scale", "kg", "Peso (kg)"),
+        ("height", "stadiometer", "cm", "Altura (cm)"),
+        ("waist_circumference", "tape", "cm", "Cintura (cm)"),
+        ("hip_circumference", "tape", "cm", "Quadril (cm)"),
+        ("body_fat", "bioimpedance", "%", "Gordura corporal (%, bioimpedância)"),
+    ];
+
+    public static string Measurement(MeasurementItem m) =>
+        CommonMeasurements.FirstOrDefault(c => c.Metric == m.Metric && c.Method == m.Method && c.Unit == m.Unit) is { Label: not null } known
+            ? $"{known.Label.Split(" (")[0]}: {m.Value.ToString("0.##", Brazil)} {m.Unit}"
+            : $"{m.Metric.Replace('_', ' ')} ({m.Method.Replace('_', ' ')}): {m.Value.ToString("0.##", Brazil)} {m.Unit}";
+
+    public static string Adherence(string? value) => value switch
+    {
+        "AsPlanned" => "como planejado",
+        "Partly" => "em parte",
+        "Different" => "diferente do plano",
+        "Unplanned" => "fora do plano",
+        _ => "não informado",
+    };
+
+    /// <summary>Neutral colours on purpose: the diary never sounds punitive (RF-30).</summary>
+    public static string AdherenceBadge(string? value) => value switch
+    {
+        "AsPlanned" => Ui.BadgeSuccess,
+        "Partly" => Ui.BadgeInfo,
+        _ => Ui.BadgeNeutral,
+    };
+
+    /// <summary>"100 g", "1 xícara", or "100 g (1 xícara)" when both are given.</summary>
+    public static string Portion(MealItem item)
+    {
+        var quantity = item.Quantity is { } q && !string.IsNullOrWhiteSpace(item.Unit) ? $"{q.ToString("0.##", Brazil)} {item.Unit}" : null;
+        return (quantity, item.HouseholdMeasure) switch
+        {
+            ({ } a, { } b) => $"{a} ({b})",
+            ({ } a, null) => a,
+            (null, { } b) => b,
+            _ => string.Empty,
+        };
+    }
 }

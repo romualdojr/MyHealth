@@ -56,7 +56,15 @@ public sealed class DevelopmentSeedTests(ApiFactory factory) : IntegrationTest(f
         var anaPlan = plans.Single(p => p.Details.Name == "Força — fase 1");
         db.WorkoutSessions.Count(w => w.TrainingPlanId == anaPlan.Id && w.Status == MyHealth.Domain.Training.Workouts.WorkoutStatus.Completed).ShouldBe(5);
         db.WorkoutSessions.Single(w => w.TenantId == tenant.TenantId && w.Feedback!.ReportedDiscomfort).Reply.ShouldBeNull();
-        db.CareRelationships.Count(r => r.TenantId == tenant.TenantId).ShouldBe(3);
+        db.CareRelationships.Count(r => r.TenantId == tenant.TenantId).ShouldBe(4);
+
+        // The dietitian's screens: Ana's assessment, published meal plan and diary (one entry commented).
+        var mealPlan = db.MealPlans.Single(p => p.TenantId == tenant.TenantId);
+        (mealPlan.Details.Name, mealPlan.CurrentVersionNumber).ShouldBe(("Reeducação alimentar", 1));
+        db.NutritionAssessments.Count(a => a.TenantId == tenant.TenantId).ShouldBe(1);
+        var diary = db.FoodDiaryEntries.Where(e => e.TenantId == tenant.TenantId).ToList();
+        diary.Count.ShouldBe(8);
+        diary.Count(e => e.Comments.Count > 0).ShouldBe(1);
 
         // Ana allowed AI analysis and is at the top of the range in the squat: the coach proposes a progression.
         var coach = scope.ServiceProvider.GetRequiredService<CoachContextBuilder>();

@@ -69,6 +69,9 @@ internal static class NutritionEndpoints
 
         var dietitian = routes.MapGroup("/dietitian").WithTags("Nutrition");
 
+        dietitian.MapGet("/dashboard", async (IQueryHandler<GetDietitianDashboardQuery, DietitianDashboardResponse> handler, CancellationToken ct) =>
+            (await handler.Handle(new GetDietitianDashboardQuery(), ct)).ToHttp());
+
         dietitian.MapGet("/clients/{clientId:guid}/food-diary", async (
                 Guid clientId, DateOnly from, DateOnly to, IQueryHandler<ListClientFoodDiaryQuery, DietitianFoodDiaryResponse> handler, CancellationToken ct) =>
             (await handler.Handle(new ListClientFoodDiaryQuery(clientId, from, to), ct)).ToHttp());

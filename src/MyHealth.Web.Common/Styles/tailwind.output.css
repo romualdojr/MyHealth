@@ -651,8 +651,17 @@
   .grid-cols-12 {
     grid-template-columns: repeat(12, minmax(0, 1fr));
   }
+  .grid-cols-\[5\.5rem_minmax\(0\,1fr\)\] {
+    grid-template-columns: 5.5rem minmax(0,1fr);
+  }
   .grid-cols-\[auto_minmax\(0\,1fr\)_2\.75rem\] {
     grid-template-columns: auto minmax(0,1fr) 2.75rem;
+  }
+  .grid-cols-\[minmax\(0\,1fr\)_2\.75rem\] {
+    grid-template-columns: minmax(0,1fr) 2.75rem;
+  }
+  .grid-cols-\[minmax\(0\,1fr\)_7\.5rem\] {
+    grid-template-columns: minmax(0,1fr) 7.5rem;
   }
   .flex-col {
     flex-direction: column;
@@ -750,6 +759,9 @@
   .gap-x-4 {
     column-gap: calc(var(--spacing) * 4);
   }
+  .gap-x-6 {
+    column-gap: calc(var(--spacing) * 6);
+  }
   .gap-y-0 {
     row-gap: 0px;
   }
@@ -761,6 +773,9 @@
   }
   .gap-y-2 {
     row-gap: calc(var(--spacing) * 2);
+  }
+  .gap-y-3 {
+    row-gap: calc(var(--spacing) * 3);
   }
   :where(.divide-y > :not(:last-child)) {
     --tw-divide-y-reverse: 0;
@@ -1305,6 +1320,9 @@
   .text-teal-800 {
     color: var(--color-teal-800);
   }
+  .text-teal-900 {
+    color: var(--color-teal-900);
+  }
   .text-white {
     color: var(--color-white);
   }
@@ -1761,6 +1779,9 @@
     .sm\:min-h-10 {
       min-height: calc(var(--spacing) * 10);
     }
+    .sm\:w-32 {
+      width: calc(var(--spacing) * 32);
+    }
     .sm\:w-56 {
       width: calc(var(--spacing) * 56);
     }
@@ -1775,6 +1796,9 @@
     }
     .sm\:flex-none {
       flex: none;
+    }
+    .sm\:grow {
+      flex-grow: 1;
     }
     .sm\:basis-auto {
       flex-basis: auto;
@@ -1895,8 +1919,14 @@
     .sm\:px-4 {
       padding-inline: calc(var(--spacing) * 4);
     }
+    .sm\:px-5 {
+      padding-inline: calc(var(--spacing) * 5);
+    }
     .sm\:px-6 {
       padding-inline: calc(var(--spacing) * 6);
+    }
+    .sm\:py-0\.5 {
+      padding-block: calc(var(--spacing) * 0.5);
     }
     .sm\:py-1 {
       padding-block: var(--spacing);
@@ -1951,6 +1981,9 @@
   @media (width >= 48rem) {
     .md\:order-last {
       order: 9999;
+    }
+    .md\:col-span-1 {
+      grid-column: span 1 / span 1;
     }
     .md\:col-span-2 {
       grid-column: span 2 / span 2;
@@ -2009,8 +2042,14 @@
     .md\:grid-cols-2 {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+    .md\:grid-cols-5 {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
     .md\:grid-cols-\[2\.5rem_9rem_minmax\(0\,1fr\)_8rem_2rem\] {
       grid-template-columns: 2.5rem 9rem minmax(0,1fr) 8rem 2rem;
+    }
+    .md\:grid-cols-\[minmax\(0\,1fr\)_5\.5rem_8rem_minmax\(0\,0\.8fr\)_2rem\] {
+      grid-template-columns: minmax(0,1fr) 5.5rem 8rem minmax(0,0.8fr) 2rem;
     }
     .md\:grid-cols-subgrid {
       grid-template-columns: subgrid;

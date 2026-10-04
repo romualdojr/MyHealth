@@ -6,8 +6,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MyHealth.Application.Abstractions.Messaging;
+using MyHealth.Application.Assessments;
 using MyHealth.Application.CareRelationships;
 using MyHealth.Application.Exercises;
+using MyHealth.Application.Nutrition;
 using MyHealth.Application.Professionals;
 using MyHealth.Application.Tenants;
 using MyHealth.Application.TrainingPlans;
@@ -16,6 +18,7 @@ using MyHealth.Application.Wellbeing;
 using MyHealth.Application.Workouts;
 using MyHealth.Domain.Abstractions;
 using MyHealth.Domain.CareRelationships;
+using MyHealth.Domain.Nutrition;
 using MyHealth.Domain.Professionals;
 using MyHealth.Domain.Tenants;
 using MyHealth.Domain.Training.Plans;
@@ -26,7 +29,8 @@ namespace MyHealth.Infrastructure.Persistence;
 /// <summary>
 /// Development data so every screen has something to show: an operator, an organization with a verified trainer and a
 /// dietitian, three clients (two linked, one invitation pending), published training plans and a few weeks of
-/// workouts. Accounts and password are in <c>Seed:Development</c> (appsettings.Development.json).
+/// workouts, and Ana's nutrition follow-up (assessment, meal plan and diary). Accounts and password are in
+/// <c>Seed:Development</c> (appsettings.Development.json).
 /// <para>
 /// Each step runs the same application command the API runs, as the person who would do it (a signed-in user and the
 /// selected organization are set on the request context), so domain rules, trials, grants, versions and notifications
@@ -135,6 +139,9 @@ public sealed class DevelopmentSeeder(IServiceProvider services, IConfiguration 
             [Strength("Treino único", Reps(Exercise("Supino reto"), 3, 10, 12, 20m, 60), Reps(Exercise("Remada curvada"), 3, 10, 12, 20m, 60), Timed(Exercise("Prancha"), 2, 20, 30))]);
         await WorkoutAsync(bruno, brunoPlan, "Treino único", daysAgo: 1, exertion: 8, atTop: false,
             discomfort: "Leve dor no ombro direito no supino.", comments: "Cansei bastante.", cancellationToken: cancellationToken);
+
+        // Nutrition: Ana also sees the dietitian, who assessed her, published a meal plan and follows her diary.
+        await NutritionAsync(dietitian, tenant, ana, today, cancellationToken);
 
         logger.LogInformation(
             "Development data seeded: operator {Operator}, trainer {Trainer} (organization Estúdio Movimento), clients {Ana}, {Bruno}; password in Seed:Development:Password.",
@@ -263,6 +270,74 @@ public sealed class DevelopmentSeeder(IServiceProvider services, IConfiguration 
         await RunAsync(client, null, new CompleteWorkoutCommand(
             workoutId, startedAtOffset.AddMinutes(minute + 5), exertion, discomfort is not null, discomfort, comments));
         return workoutId;
+    }
+
+    /// <summary>
+    /// An assessment with a follow-up in two weeks, a published meal plan and four days of diary: most meals as planned, one
+    /// unplanned, one entry already commented and the rest waiting for the dietitian.
+    /// </summary>
+    private async Task NutritionAsync(Account dietitian, Guid tenant, Account client, DateOnly today, CancellationToken cancellationToken)
+    {
+        var link = await RunAsync(dietitian, tenant, new InviteClientCommand(Discipline.Dietitian, client.Email));
+        await RunAsync(client, null, new RespondToInvitationCommand(link, InvitationResponse.Accept));
+
+        await RunAsync(dietitian, tenant, new RecordNutritionAssessmentCommand(client.Id, new NutritionAssessmentInput(
+            today.AddDays(-14), "Mais energia nos treinos e menos doces à noite", null, "Amendoim", "Gosta de frutas e de comida caseira; não gosta de peixe",
+            "Acorda 6h30, almoça 12h30, treina 20h, janta 21h30",
+            [new MeasurementInput("body_mass", "scale", "kg", 68.5m), new MeasurementInput("waist_circumference", "tape", "cm", 78m)],
+            "Diário de 4 dias por semana; retorno com o diário preenchido.", today.AddDays(14), null)));
+
+        var planId = await RunAsync(dietitian, tenant, new CreateMealPlanCommand(client.Id, new MealPlanDetailsInput(
+            "Reeducação alimentar", "Mais energia nos treinos", today.AddDays(-13), null, "Beba 2 litros de água por dia.")));
+        await RunAsync(dietitian, tenant, new UpdateMealPlanMealsCommand(planId,
+        [
+            new PlannedMealInput(null, "Café da manhã", new TimeOnly(7, 0), null,
+            [
+                new MealItemInput(null, "Pão integral", null, null, "2 fatias", null, ["Tapioca (2 colheres de sopa)", "Cuscuz (1 xícara)"]),
+                new MealItemInput(null, "Ovo mexido", 2m, "unidade", null, null, null),
+                new MealItemInput(null, "Café com leite", 200m, "ml", null, "Sem açúcar", null),
+            ]),
+            new PlannedMealInput(null, "Almoço", new TimeOnly(12, 30), null,
+            [
+                new MealItemInput(null, "Arroz integral", 100m, "g", "4 colheres de sopa", null, null),
+                new MealItemInput(null, "Feijão", null, null, "1 concha", null, null),
+                new MealItemInput(null, "Frango grelhado", 120m, "g", null, null, ["Carne magra (120 g)"]),
+                new MealItemInput(null, "Salada de folhas", null, null, "À vontade", null, null),
+            ]),
+            new PlannedMealInput(null, "Lanche pré-treino", new TimeOnly(18, 30), null,
+            [new MealItemInput(null, "Banana", 1m, "unidade", null, null, ["Maçã (1 unidade)"]), new MealItemInput(null, "Iogurte natural", 170m, "g", null, null, null)]),
+            new PlannedMealInput(null, "Jantar", new TimeOnly(21, 30), "Refeição leve depois do treino.",
+            [new MealItemInput(null, "Omelete de legumes", null, null, "2 ovos", null, null), new MealItemInput(null, "Salada de folhas", null, null, "À vontade", null, null)]),
+        ]));
+        await RunAsync(dietitian, tenant, new PublishMealPlanCommand(planId, "Primeira versão do plano"));
+
+        Dictionary<string, Guid> meals;
+        await using (var scope = services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            meals = (await db.MealPlans.AsNoTracking().SingleAsync(p => p.Id == planId, cancellationToken)).Draft.Meals.ToDictionary(m => m.Name, m => m.Id);
+        }
+
+        async Task<Guid> LogAsync(int daysAgo, string meal, int hour, MealAdherence adherence, string? description = null, string? notes = null)
+        {
+            // São Paulo is UTC-3; the API stores UTC.
+            var eatenAt = new DateTimeOffset(today.AddDays(-daysAgo).ToDateTime(new TimeOnly(hour, 0)), TimeSpan.Zero).AddHours(3);
+            var entryId = Guid.CreateVersion7(eatenAt);
+            await RunAsync(client, null, new SaveFoodDiaryEntryCommand(
+                entryId, planId, meals[meal], null, null, eatenAt, TimeZone, description, null, adherence, notes));
+            return entryId;
+        }
+
+        var commented = await LogAsync(4, "Café da manhã", 7, MealAdherence.AsPlanned);
+        await LogAsync(4, "Almoço", 13, MealAdherence.Partly, "Comi arroz branco no restaurante do trabalho.");
+        await LogAsync(3, "Café da manhã", 7, MealAdherence.AsPlanned);
+        await LogAsync(3, "Lanche pré-treino", 18, MealAdherence.AsPlanned);
+        await LogAsync(2, "Jantar", 21, MealAdherence.Unplanned, "Pizza com amigos.", "Fiquei com muita fome depois do treino.");
+        await LogAsync(1, "Café da manhã", 7, MealAdherence.AsPlanned);
+        await LogAsync(1, "Almoço", 12, MealAdherence.AsPlanned);
+        await RunAsync(client, null, new SaveFoodDiaryEntryCommand(
+            Guid.CreateVersion7(), null, null, link, "Água", clock.GetUtcNow().AddDays(-1), TimeZone, null, 2000, null, null));
+        await RunAsync(dietitian, tenant, new CommentOnFoodDiaryEntryCommand(commented, "Ótimo começo! Mantenha o café da manhã assim."));
     }
 
     private static PlannedSessionInput Strength(string name, params PlannedExerciseInput[] exercises) =>

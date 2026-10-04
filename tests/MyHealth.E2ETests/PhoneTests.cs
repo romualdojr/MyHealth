@@ -107,6 +107,35 @@ public abstract class PhoneTests(AppFixture app, string device) : BrowserTest(ap
     }
 
     [Fact]
+    public async Task The_dietitian_pages_and_the_meal_plan_editor_fit_the_phone()
+    {
+        await SignInAsync(App.Web, AppFixture.Dietitian);
+        await OpenAsync(App.Web, "dietitian", "Pacientes");
+        await CheckAsync("patients");
+
+        await Page.GetByText("Ana Souza").First.ClickAsync();
+        await WaitForPageAsync("Ana Souza");
+        await CheckAsync("patient-plans");
+        foreach (var (tab, name) in new[] { ("Avaliações", "patient-assessments"), ("Diário", "patient-diary") })
+        {
+            await Page.GetByRole(AriaRole.Tab, new() { Name = tab, Exact = true }).ClickAsync();
+            await Assertions.Expect(Page.GetByRole(AriaRole.Tab, new() { Name = tab, Exact = true })).ToHaveAttributeAsync("aria-selected", "true");
+            await CheckAsync(name);
+        }
+
+        await Page.GetByRole(AriaRole.Tab, new() { Name = "Avaliações", Exact = true }).ClickAsync();
+        await Page.GetByRole(AriaRole.Button, new() { Name = "Nova avaliação", Exact = true }).ClickAsync();
+        await CheckAsync("assessment-form");
+
+        await OpenAsync(App.Web, "dietitian", "Pacientes");
+        await Page.GetByText("Ana Souza").First.ClickAsync();
+        await Page.GetByText("Reeducação alimentar").First.ClickAsync();
+        await WaitForPageAsync("Reeducação alimentar");
+        await Page.Locator("summary").Filter(new() { HasText = "Substituições e observações" }).First.ClickAsync();
+        await CheckAsync("meal-plan-editor");
+    }
+
+    [Fact]
     public async Task The_assistant_chat_works_on_the_phone()
     {
         await SignInAsync(App.Web, AppFixture.Trainer);

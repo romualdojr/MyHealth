@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MyHealth.Api.IntegrationTests.Infrastructure;
 using MyHealth.Infrastructure.Identity;
 using web::MyHealth.Web.Common.Api;
+using web::MyHealth.Web.Common.Nutrition;
 using web::MyHealth.Web.Common.Training;
 using Web = web::MyHealth.Web.Common.Api;
 
@@ -377,6 +378,117 @@ public sealed class WebDashboardContractTests(ApiFactory factory) : IntegrationT
         (copy.ClientId, copy.Status, copy.Details.Name, copy.Draft.Sessions.Count).ShouldBe((caio.Id, "Draft", "Força — Caio", 2));
         (await api.PostAsync($"training-plans/{planId}/end", ct: Ct)).Problem.ShouldBeNull();
         (await Ok(api.GetAsync<TrainerPlan>($"training-plans/{planId}", ct: Ct))).Status.ShouldBe("Ended");
+    }
+
+    [Fact]
+    public async Task A_dietitian_assesses_prescribes_and_follows_the_diary_with_the_web_pages()
+    {
+        var (api, session, _) = await SignedInAsync("nutri", administrator: false);
+        var (operatorApi, _, _) = await SignedInAsync("operator", administrator: true);
+        (await api.PostAsync("me/profile", new { fullName = "Nina Nutricionista", timeZoneId = "America/Sao_Paulo" }, ct: Ct)).Problem.ShouldBeNull();
+        var profileId = (await Ok(api.PostAsync<Web.IdResponse>("professional-profiles", new
+        {
+            discipline = "Dietitian", displayName = "Nina", registration = new { council = "CRN", number = "54321", region = "3" },
+        }, ct: Ct))).Id;
+        (await operatorApi.PostAsync($"admin/professional-profiles/{profileId}/verify", new { notes = "ok" }, ct: Ct)).Problem.ShouldBeNull();
+        session.TenantId = (await Ok(api.PostAsync<Web.IdResponse>("tenants", new { name = "Consultório Nina", kind = "SoloPractice", disciplines = new[] { "Dietitian" } }, ct: Ct))).Id;
+
+        // Patients page: invite a patient, who accepts in the app.
+        var ana = await Scenario.ClientAsync("ana");
+        var invitation = await Ok(api.PostAsync<Web.IdResponse>("care-relationships/invitations", new { discipline = "Dietitian", clientEmail = ana.Email }, ct: Ct));
+        await Scenario.EnsureSuccess(await ana.Http.PostAsync($"/api/v1/care-relationships/{invitation.Id}/accept", null, Ct));
+        var patient = (await Ok(api.GetAsync<DietitianDashboard>("dietitian/dashboard", ct: Ct))).Clients.ShouldHaveSingleItem();
+        (patient.ClientId, patient.RelationshipId, patient.ActivePlanId).ShouldBe((ana.Id, invitation.Id, null));
+
+        // Assessments tab: record one with the form, then correct it with a reason.
+        var form = new NutritionAssessmentForm
+        {
+            AssessedOn = new DateOnly(2026, 9, 29), Goals = "Mais energia", ReportedAllergies = "Amendoim", NextFollowUpOn = new DateOnly(2026, 10, 29),
+        };
+        form.Measurements["body_mass"] = 72.4m;
+        form.Measurements["waist_circumference"] = 80m;
+        (await api.PostAsync("nutrition-assessments", new { clientId = ana.Id, assessment = form.ToBody() }, ct: Ct)).Problem.ShouldBeNull();
+        var assessment = (await Ok(api.GetAsync<List<NutritionAssessmentItem>>($"nutrition-assessments?clientId={ana.Id}", ct: Ct))).ShouldHaveSingleItem();
+        assessment.Content.Measurements.Select(NutritionLabels.Measurement).ShouldBe(["Peso: 72,4 kg", "Cintura: 80 cm"], ignoreOrder: true);
+
+        var fix = NutritionAssessmentForm.From(assessment.Content);
+        fix.Measurements["body_mass"].ShouldBe(72.4m);
+        fix.Measurements["body_mass"] = 74.2m;
+        (await api.PostAsync($"nutrition-assessments/{assessment.Id}/corrections", new { assessment = fix.ToBody(), reason = "Peso digitado errado" }, ct: Ct)).Problem.ShouldBeNull();
+        assessment = (await Ok(api.GetAsync<List<NutritionAssessmentItem>>($"nutrition-assessments?clientId={ana.Id}", ct: Ct))).Single();
+        (assessment.Version, assessment.Corrections.ShouldHaveSingleItem().Reason, assessment.Content.NextFollowUpOn).ShouldBe((2, "Peso digitado errado", new DateOnly(2026, 10, 29)));
+
+        // Plans tab: a new plan; the editor fills it with the same bodies the screens send.
+        var details = new MealPlanDetailsForm { Name = "Reeducação alimentar", Goal = "Mais energia", StartDate = new DateOnly(2026, 10, 5) };
+        var planId = (await Ok(api.PostAsync<Web.IdResponse>("meal-plans", new { clientId = ana.Id, details = details.ToBody() }, ct: Ct))).Id;
+        var plan = await Ok(api.GetAsync<DietitianMealPlan>($"meal-plans/{planId}", ct: Ct));
+        (plan.Status, plan.CurrentVersionNumber, plan.Details.Name).ShouldBe(("Draft", 0, "Reeducação alimentar"));
+
+        var draft = MealPlanDraft.From(plan.Draft);
+        draft.PublishingIssues().ShouldNotBeEmpty();
+        draft.AddUsualDay();
+        draft.Meals.RemoveAll(m => m.Name is "Lanche da manhã" or "Lanche da tarde");
+        var breakfast = draft.Meals[0].Items[0];
+        breakfast.Food = "Pão integral";
+        breakfast.HouseholdMeasure = "2 fatias";
+        breakfast.Substitutions = "Tapioca (2 colheres de sopa)\n\nCuscuz (1 xícara)";
+        draft.Meals[0].Items.Add(new MealItemDraft { Food = "Café com leite", Quantity = 200m, Unit = "ml" });
+        draft.Meals[1].Items[0].Food = "Arroz integral";
+        draft.SavingIssues().ShouldBe(["Almoço · Arroz integral: informe a quantidade com unidade ou uma medida caseira."]);
+        draft.Meals[1].Items[0].Quantity = 100m;
+        draft.Meals[2].Items[0].Food = "Sopa de legumes";
+        draft.Meals[2].Items[0].HouseholdMeasure = "1 prato fundo";
+        draft.Meals.Add(new MealDraft { Name = "Ceia", Items = [new MealItemDraft()] });
+        draft.PublishingIssues().ShouldBe(["Ceia: adicione alimentos."]);
+        draft.Meals.RemoveAt(3);
+        draft.PublishingIssues().ShouldBeEmpty();
+
+        var edited = MealPlanDetailsForm.From(plan.Details);
+        edited.Notes = "Beba 2 litros de água por dia";
+        (await api.PutAsync($"meal-plans/{planId}", edited.ToBody(), ct: Ct)).Problem.ShouldBeNull();
+        (await api.PutAsync($"meal-plans/{planId}/meals", draft.ToBody(), ct: Ct)).Problem.ShouldBeNull();
+
+        plan = await Ok(api.GetAsync<DietitianMealPlan>($"meal-plans/{planId}", ct: Ct));
+        plan.Details.Notes.ShouldBe("Beba 2 litros de água por dia");
+        var saved = MealPlanDraft.From(plan.Draft);
+        saved.Meals.Select(m => (m.Name, m.Time)).ShouldBe([("Café da manhã", new TimeOnly(7, 0)), ("Almoço", new TimeOnly(12, 30)), ("Jantar", new TimeOnly(19, 30))]);
+        saved.Meals[0].Items.Select(i => i.Food).ShouldBe(["Pão integral", "Café com leite"]);
+        saved.Meals[0].Items[0].Substitutions.ShouldBe("Tapioca (2 colheres de sopa)\nCuscuz (1 xícara)");
+        NutritionLabels.Portion(plan.Draft.Meals[0].Items[1]).ShouldBe("200 ml");
+
+        // Saving again without changes keeps every id, so the editor sees no unsaved changes after a reload.
+        (await api.PutAsync($"meal-plans/{planId}/meals", saved.ToBody(), ct: Ct)).Problem.ShouldBeNull();
+        MealPlanDraft.From((await Ok(api.GetAsync<DietitianMealPlan>($"meal-plans/{planId}", ct: Ct))).Draft).Snapshot().ShouldBe(saved.Snapshot());
+
+        var published = await Ok(api.PostAsync<PublishedVersion>($"meal-plans/{planId}/publish", new { changeDescription = "Primeira versão do plano" }, ct: Ct));
+        published.VersionNumber.ShouldBe(1);
+        var item = (await Ok(api.GetAsync<List<MealPlanItem>>($"meal-plans?clientId={ana.Id}", ct: Ct))).ShouldHaveSingleItem();
+        (item.Status, item.CurrentVersionNumber, item.HasUnpublishedChanges).ShouldBe(("Published", 1, false));
+        (await Ok(api.GetAsync<DietitianMealPlan>($"meal-plans/{planId}", ct: Ct))).Versions.ShouldHaveSingleItem().AuthorName.ShouldBe("Nina");
+
+        // Diary tab: the patient logs breakfast against the plan; the page names the meal from the version and comments on it.
+        var mealId = plan.Draft.Meals[0].Id;
+        var entryId = Guid.CreateVersion7();
+        await Scenario.EnsureSuccess(await ana.Http.PutAsJsonAsync($"/api/v1/me/food-diary/{entryId}", new
+        {
+            mealPlanId = planId, plannedMealId = mealId, eatenAt = DateTimeOffset.UtcNow.AddHours(-1), adherence = "Partly", waterMl = 300,
+        }, Ct));
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var diary = await Ok(api.GetAsync<DietitianFoodDiary>($"dietitian/clients/{ana.Id}/food-diary?from={today.AddDays(-6):yyyy-MM-dd}&to={today.AddDays(1):yyyy-MM-dd}", ct: Ct));
+        var entry = diary.Entries.ShouldHaveSingleItem();
+        (entry.Adherence, entry.MealPlanVersionNumber, entry.PlannedMealId, diary.Summary.Partly, diary.Summary.WaterMl).ShouldBe(("Partly", 1, mealId, 1, 300));
+        var version = await Ok(api.GetAsync<MealPlanVersionDetail>($"meal-plans/{planId}/versions/1", ct: Ct));
+        version.Content.Meals.Single(m => m.Id == mealId).Name.ShouldBe("Café da manhã");
+
+        (await Ok(api.GetAsync<DietitianDashboard>("dietitian/dashboard", ct: Ct))).Clients[0].UncommentedEntries.ShouldBe(1);
+        (await api.PostAsync($"food-diary/{entryId}/comments", new { message = "Ótimo começo!" }, ct: Ct)).Problem.ShouldBeNull();
+        diary = await Ok(api.GetAsync<DietitianFoodDiary>($"dietitian/clients/{ana.Id}/food-diary?from={today.AddDays(-6):yyyy-MM-dd}&to={today.AddDays(1):yyyy-MM-dd}", ct: Ct));
+        diary.Entries[0].Comments.ShouldHaveSingleItem().AuthorName.ShouldBe("Nina");
+        var summary = (await Ok(api.GetAsync<DietitianDashboard>("dietitian/dashboard", ct: Ct))).Clients[0];
+        (summary.UncommentedEntries, summary.ActivePlanId, summary.ActivePlanName, summary.EntriesLast7Days).ShouldBe((0, planId, "Reeducação alimentar", 1));
+
+        (await api.PostAsync($"meal-plans/{planId}/end", ct: Ct)).Problem.ShouldBeNull();
+        (await Ok(api.GetAsync<DietitianMealPlan>($"meal-plans/{planId}", ct: Ct))).Status.ShouldBe("Ended");
     }
 
     [Fact]

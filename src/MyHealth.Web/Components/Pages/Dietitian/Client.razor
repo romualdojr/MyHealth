@@ -1,0 +1,554 @@
+@page "/dietitian/clients/{ClientId:guid}"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>@(_client?.ClientName ?? "Paciente") · MyHealth</PageTitle>
+
+<nav aria-label="Caminho" class="@Ui.Breadcrumb"><a href="dietitian" class="@Ui.TapLink">Pacientes</a> / @(_client?.ClientName ?? "Paciente")</nav>
+
+@if (!Workspace.Practices("Dietitian"))
+{
+    <p class="@Ui.AlertInfo">Selecione uma organização em que você atua como nutricionista.</p>
+}
+else
+{
+    <h1 class="@($"{Ui.PageTitle} mb-4 min-w-0 break-words")">@(_client?.ClientName ?? "Paciente")</h1>
+
+    <ProblemAlert Problem="_problem" />
+
+    @if (_message is not null)
+    {
+        <p class="@($"{Ui.AlertSuccess} mb-4")" role="status">@_message</p>
+    }
+
+    @if (_client is { } c)
+    {
+        <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+            <div><Metric Label="Dias com registro (7 dias)" Text="@($"{c.DaysWithEntriesLast7Days} de 7")" /></div>
+            <div><Metric Label="Como planejado (7 dias)" Text="@(c.EntriesLast7Days == 0 ? "—" : $"{c.AsPlannedLast7Days} de {c.EntriesLast7Days}")" /></div>
+            <div><Metric Label="Registros sem comentário" Value="@c.UncommentedEntries" /></div>
+            <div><Metric Label="Próximo retorno" Text="@(c.NextFollowUpOn?.ToString("dd/MM/yyyy") ?? "—")" /></div>
+        </div>
+    }
+
+    <div role="tablist" aria-label="Seções do paciente" class="@($"{Ui.ChipRow} mb-4")">
+        @foreach (var (key, label) in Tabs)
+        {
+            <button role="tab" id="tab-@key" aria-controls="panel-@key" aria-selected="@(Tab == key ? "true" : "false")" aria-pressed="@(Tab == key ? "true" : "false")"
+                    class="@Ui.Chip" @onclick="() => SelectTab(key)">@label</button>
+        }
+    </div>
+
+    <div role="tabpanel" id="panel-@Tab" aria-labelledby="tab-@Tab">
+        @if (Tab == "assessments")
+        {
+            @Assessments
+        }
+        else if (Tab == "diary")
+        {
+            @Diary
+        }
+        else
+        {
+            @Plans
+        }
+    </div>
+}
+
+@code {
+    private static readonly (string Key, string Label)[] Tabs = [("plans", "Plano alimentar"), ("assessments", "Avaliações"), ("diary", "Diário")];
+
+    [Parameter]
+    public Guid ClientId { get; set; }
+
+    /// <summary>The open section: <c>plans</c> (default), <c>assessments</c> or <c>diary</c>.</summary>
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? TabParameter { get; set; }
+
+    private string Tab => Tabs.Any(t => t.Key == TabParameter) ? TabParameter! : "plans";
+
+    private DietitianClientSummary? _client;
+    private ApiProblem? _problem;
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        _problem = null;
+        if (!Workspace.Practices("Dietitian"))
+        {
+            return;
+        }
+
+        var dashboard = await Api.GetAsync<DietitianDashboard>("dietitian/dashboard");
+        _client = dashboard.Value?.Clients.FirstOrDefault(c => c.ClientId == ClientId);
+        _problem = dashboard.Problem;
+
+        var plans = await Api.GetAsync<List<MealPlanItem>>($"meal-plans?clientId={ClientId}");
+        _plans = plans.Value ?? [];
+        _creating = _creating || (_plans.Count == 0 && plans.IsSuccess);
+
+        var assessments = await Api.GetAsync<List<NutritionAssessmentItem>>($"nutrition-assessments?clientId={ClientId}");
+        _assessments = [.. (assessments.Value ?? []).OrderByDescending(a => a.Content.AssessedOn).ThenByDescending(a => a.CreatedAt)];
+
+        await LoadDiaryAsync();
+        _problem ??= plans.Problem ?? assessments.Problem;
+    }
+
+    private void SelectTab(string key)
+    {
+        _message = null;
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("tab", key == "plans" ? (string?)null : key), replace: true);
+    }
+
+    /// <summary>Reloads the patient's numbers at the top after an action (comment, assessment).</summary>
+    private async Task RefreshSummaryAsync()
+    {
+        var dashboard = await Api.GetAsync<DietitianDashboard>("dietitian/dashboard");
+        _client = dashboard.Value?.Clients.FirstOrDefault(c => c.ClientId == ClientId) ?? _client;
+    }
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}
+
+@* Plans: the patient's meal plans and a new one. *@
+@code {
+    private List<MealPlanItem>? _plans;
+    private bool _creating;
+    private MealPlanDetailsForm _newPlan = new() { Name = "Plano alimentar" };
+
+    private RenderFragment Plans => __builder =>
+    {
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="@Ui.SectionTitle">Planos alimentares</h2>
+            @if (!_creating)
+            {
+                <button class="@Ui.Button" @onclick="() => _creating = true">Novo plano</button>
+            }
+        </div>
+
+        @if (_creating)
+        {
+            <div class="@($"{Ui.CardHighlight} mb-6")">
+                <div class="@Ui.CardBody">
+                    <h3 class="@($"{Ui.CardTitle} mb-1")">Novo plano alimentar</h3>
+                    <p class="@($"{Ui.Help} mb-4")">Comece pelo essencial; as refeições e alimentos você monta na próxima tela. Nada chega ao paciente antes de você publicar.</p>
+                    <MealPlanDetailsEditor Form="_newPlan" Prefix="new-plan" OnChanged="StateHasChanged" />
+                    <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                        <button class="@Ui.Button" disabled="@string.IsNullOrWhiteSpace(_newPlan.Name)" @onclick="CreatePlanAsync">Criar e montar refeições</button>
+                        @if (_plans is { Count: > 0 })
+                        {
+                            <button class="@Ui.ButtonLink" @onclick="() => _creating = false">Cancelar</button>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_plans is null)
+        {
+            @if (_problem is null)
+            {
+                <Loading />
+            }
+        }
+        else if (_plans.Count > 0)
+        {
+            <div class="mb-6 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white shadow-sm">
+                @foreach (var plan in _plans)
+                {
+                    <div class="flex flex-wrap items-center gap-2 px-4 py-3">
+                        <div class="min-w-0 grow basis-full sm:basis-auto">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <a href="dietitian/plans/@plan.Id" class="inline-flex min-h-11 items-center font-semibold break-words text-teal-700 hover:text-teal-900 hover:underline sm:min-h-0">@plan.Name</a>
+                                <span class="@TrainingLabels.PlanBadge(plan.Status)">@TrainingLabels.PlanStatus(plan.Status)</span>
+                            </div>
+                            <div class="mt-0.5 text-sm text-slate-500">
+                                @(plan.CurrentVersionNumber > 0 ? $"Versão {plan.CurrentVersionNumber} publicada" : "Nunca publicado")
+                                @(plan.HasUnpublishedChanges ? " · alterações não publicadas" : string.Empty)
+                                · atualizado em @plan.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy")
+                            </div>
+                        </div>
+                        <a class="@($"{Ui.ButtonOutlineSm} w-full sm:w-auto")" href="dietitian/plans/@plan.Id">Abrir</a>
+                    </div>
+                }
+            </div>
+        }
+    };
+
+    private async Task CreatePlanAsync()
+    {
+        var result = await Api.PostAsync<IdResponse>("meal-plans", new { clientId = ClientId, details = _newPlan.ToBody() });
+        _problem = result.Problem;
+        if (result.Value is { } created)
+        {
+            Navigation.NavigateTo($"dietitian/plans/{created.Id}");
+        }
+    }
+}
+
+@* Assessments (RF-28): the history, a new assessment, and corrections with a reason. *@
+@code {
+    private List<NutritionAssessmentItem>? _assessments;
+    private NutritionAssessmentForm? _assessmentForm;
+    private NutritionAssessmentItem? _correcting;
+    private string? _correctionReason;
+    private bool _busy;
+
+    private RenderFragment Assessments => __builder =>
+    {
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="@Ui.SectionTitle">Avaliações nutricionais</h2>
+            @if (_assessmentForm is null)
+            {
+                <button class="@Ui.Button" @onclick="StartAssessment">Nova avaliação</button>
+            }
+        </div>
+
+        @if (_assessmentForm is { } form)
+        {
+            <div class="@($"{Ui.CardHighlight} mb-6")">
+                <div class="@Ui.CardBody">
+                    <h3 class="@($"{Ui.CardTitle} mb-1")">@(_correcting is null ? "Nova avaliação" : $"Corrigir a avaliação de {_correcting.Content.AssessedOn:dd/MM/yyyy}")</h3>
+                    <p class="@($"{Ui.Help} mb-4")">
+                        @(_correcting is null
+                            ? "O paciente recebe um aviso e vê a avaliação no aplicativo. Personal trainers nunca veem estes dados."
+                            : "A versão anterior fica guardada no histórico com o motivo da correção, e o paciente vê as duas.")
+                    </p>
+                    <NutritionAssessmentEditor Form="form" Prefix="@(_correcting is null ? "new-assessment" : "fix-assessment")" />
+                    @if (_correcting is not null)
+                    {
+                        <div class="mt-4">
+                            <label class="@Ui.Label" for="correction-reason">Motivo da correção</label>
+                            <input id="correction-reason" class="@Ui.Input" placeholder="Ex.: peso digitado errado" @bind="_correctionReason" @bind:event="oninput" />
+                        </div>
+                    }
+                    <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                        <button class="@Ui.Button" disabled="@(_busy || (_correcting is not null && string.IsNullOrWhiteSpace(_correctionReason)))" @onclick="SaveAssessmentAsync">
+                            @(_correcting is null ? "Registrar avaliação" : "Salvar correção")
+                        </button>
+                        <button class="@Ui.ButtonLink" @onclick="CancelAssessment">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_assessments is null)
+        {
+            @if (_problem is null)
+            {
+                <Loading />
+            }
+        }
+        else if (_assessments.Count == 0 && _assessmentForm is null)
+        {
+            <div class="@Ui.EmptyState">
+                <p class="mb-3">Nenhuma avaliação registrada.</p>
+                <button class="@Ui.Button" @onclick="StartAssessment">Registrar a primeira avaliação</button>
+            </div>
+        }
+        else
+        {
+            <div class="space-y-4">
+                @foreach (var a in _assessments)
+                {
+                    var content = a.Content;
+                    <article class="@Ui.Card" aria-label="Avaliação de @content.AssessedOn.ToString("dd/MM/yyyy")">
+                        <div class="@Ui.CardHeader">
+                            <h3 class="@($"{Ui.CardTitle} grow")">Avaliação de @content.AssessedOn.ToString("dd/MM/yyyy")</h3>
+                            @if (a.Corrections.Count > 0)
+                            {
+                                <span class="@Ui.BadgeNeutral">corrigida @a.Corrections.Count×</span>
+                            }
+                            <button class="@Ui.ButtonSecondarySm" disabled="@(_assessmentForm is not null)" @onclick="() => StartCorrection(a)">Corrigir</button>
+                        </div>
+                        <dl class="grid gap-x-6 gap-y-3 p-4 text-sm sm:grid-cols-2 sm:p-5">
+                            @Field("Objetivos", content.Goals)
+                            @Field("Alergias relatadas", content.ReportedAllergies)
+                            @Field("Restrições relatadas", content.ReportedRestrictions)
+                            @Field("Preferências", content.Preferences)
+                            @Field("Horários", content.MealTimes)
+                            @Field("Medidas", content.Measurements.Count == 0 ? null : string.Join(" · ", content.Measurements.Select(NutritionLabels.Measurement)))
+                            @Field("Conduta", content.FollowUp)
+                            @Field("Próximo retorno", content.NextFollowUpOn?.ToString("dd/MM/yyyy"))
+                            @Field("Observações", content.Notes)
+                        </dl>
+                        @if (a.Corrections.Count > 0)
+                        {
+                            <details class="border-t border-slate-200 px-4 py-3 text-sm sm:px-5">
+                                <summary class="cursor-pointer text-slate-600 hover:text-slate-900">Histórico de correções</summary>
+                                <ul class="mt-2 space-y-1 text-slate-600">
+                                    @foreach (var fix in a.Corrections)
+                                    {
+                                        <li>v@(fix.ReplacedVersion) substituída em @fix.CorrectedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm"): @fix.Reason</li>
+                                    }
+                                </ul>
+                            </details>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    };
+
+    private static RenderFragment Field(string label, string? value) => __builder =>
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            <div class="min-w-0">
+                <dt class="font-medium text-slate-500">@label</dt>
+                <dd class="break-words whitespace-pre-line text-slate-900">@value</dd>
+            </div>
+        }
+    };
+
+    private void StartAssessment()
+    {
+        _correcting = null;
+        _message = null;
+        // A new assessment starts from the latest one's reported data, which the dietitian confirms or updates.
+        _assessmentForm = _assessments is { Count: > 0 } list ? NutritionAssessmentForm.From(list[0].Content) : new NutritionAssessmentForm();
+        _assessmentForm.AssessedOn = DateOnly.FromDateTime(DateTime.Today);
+        _assessmentForm.NextFollowUpOn = null;
+    }
+
+    private void StartCorrection(NutritionAssessmentItem assessment)
+    {
+        _correcting = assessment;
+        _correctionReason = null;
+        _message = null;
+        _assessmentForm = NutritionAssessmentForm.From(assessment.Content);
+    }
+
+    private void CancelAssessment()
+    {
+        _assessmentForm = null;
+        _correcting = null;
+    }
+
+    private async Task SaveAssessmentAsync()
+    {
+        _busy = true;
+        try
+        {
+            var result = _correcting is { } fix
+                ? await Api.PostAsync($"nutrition-assessments/{fix.Id}/corrections", new { assessment = _assessmentForm!.ToBody(), reason = _correctionReason!.Trim() })
+                : await Api.PostAsync("nutrition-assessments", new { clientId = ClientId, assessment = _assessmentForm!.ToBody() });
+            _problem = result.Problem;
+            if (result.IsSuccess)
+            {
+                _message = _correcting is null ? "Avaliação registrada. O paciente foi avisado." : "Correção salva.";
+                CancelAssessment();
+                var assessments = await Api.GetAsync<List<NutritionAssessmentItem>>($"nutrition-assessments?clientId={ClientId}");
+                _assessments = [.. (assessments.Value ?? []).OrderByDescending(a => a.Content.AssessedOn).ThenByDescending(a => a.CreatedAt)];
+                await RefreshSummaryAsync();
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
+
+@* Diary (RF-30): a week of what the patient shared, against the plan, with comments. *@
+@code {
+    private DateOnly _weekEnd = DateOnly.FromDateTime(DateTime.Today);
+    private DietitianFoodDiary? _diary;
+    private readonly Dictionary<(Guid PlanId, int Version), MealPlanVersionDetail?> _versions = [];
+    private Guid? _commentingOn;
+    private string? _comment;
+
+    private DateOnly WeekStart => _weekEnd.AddDays(-6);
+
+    private RenderFragment Diary => __builder =>
+    {
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="@Ui.SectionTitle">Diário alimentar</h2>
+            <div class="flex items-center gap-2">
+                <button class="@Ui.IconButton" aria-label="Semana anterior" @onclick="() => MoveWeekAsync(-7)">‹</button>
+                <span class="text-sm font-medium text-slate-700" aria-live="polite">@WeekStart.ToString("dd/MM") a @_weekEnd.ToString("dd/MM")</span>
+                <button class="@Ui.IconButton" aria-label="Próxima semana" disabled="@(_weekEnd >= DateOnly.FromDateTime(DateTime.Today))" @onclick="() => MoveWeekAsync(7)">›</button>
+            </div>
+        </div>
+        <p class="@($"{Ui.Help} mb-4")">Só aparecem os registros que o paciente fez no seu plano ou compartilhou com você.</p>
+
+        @if (_diary is null)
+        {
+            @if (_problem is null)
+            {
+                <Loading />
+            }
+        }
+        else
+        {
+            var s = _diary.Summary;
+            <div class="mb-4 flex flex-wrap gap-2 text-sm">
+                <span class="@Ui.BadgeNeutral">@s.DaysWithEntries de 7 dias com registro</span>
+                <span class="@Ui.BadgeSuccess">@s.AsPlanned como planejado</span>
+                <span class="@Ui.BadgeInfo">@s.Partly em parte</span>
+                <span class="@Ui.BadgeNeutral">@s.Different diferente</span>
+                <span class="@Ui.BadgeNeutral">@s.Unplanned fora do plano</span>
+                @if (s.WaterMl > 0)
+                {
+                    <span class="@Ui.BadgeNeutral">@((s.WaterMl / 1000m).ToString("0.#")) L de água</span>
+                }
+            </div>
+
+            @if (_diary.Entries.Count == 0)
+            {
+                <div class="@Ui.EmptyState"><p>Nenhum registro nesta semana.</p></div>
+            }
+            else
+            {
+                @foreach (var day in _diary.Entries.GroupBy(e => e.LocalDate).OrderByDescending(g => g.Key))
+                {
+                    <h3 class="mt-4 mb-2 text-sm font-semibold text-slate-700">@day.Key.ToString("dddd, dd/MM", Brazil)</h3>
+                    <div class="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white shadow-sm">
+                        @foreach (var entry in day.OrderBy(e => e.EatenAt))
+                        {
+                            <article class="px-4 py-3" aria-label="@MealName(entry) às @entry.EatenAt.ToLocalTime().ToString("HH:mm")">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="font-semibold text-slate-900">@entry.EatenAt.ToLocalTime().ToString("HH:mm") · @MealName(entry)</span>
+                                    @if (entry.Adherence is not null)
+                                    {
+                                        <span class="@NutritionLabels.AdherenceBadge(entry.Adherence)">@NutritionLabels.Adherence(entry.Adherence)</span>
+                                    }
+                                    @if (entry.WaterMl is { } water)
+                                    {
+                                        <span class="@Ui.BadgeNeutral">@water ml de água</span>
+                                    }
+                                    @if (entry.MealPlanVersionNumber is { } v)
+                                    {
+                                        <span class="text-xs text-slate-500">plano v@(v)</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(entry.Description))
+                                {
+                                    <p class="mt-1 text-sm break-words whitespace-pre-line text-slate-700">@entry.Description</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(entry.ClientNotes))
+                                {
+                                    <p class="mt-1 text-sm break-words whitespace-pre-line text-slate-500"><span class="font-medium">Observação do paciente:</span> @entry.ClientNotes</p>
+                                }
+                                @foreach (var comment in entry.Comments)
+                                {
+                                    <div class="mt-2 rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-900">
+                                        <span class="font-medium">@comment.AuthorName</span> · @comment.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")
+                                        <div class="break-words whitespace-pre-line">@comment.Message</div>
+                                    </div>
+                                }
+                                @if (_commentingOn == entry.Id)
+                                {
+                                    <div class="mt-2">
+                                        <label class="sr-only" for="comment-@entry.Id">Comentário para o paciente</label>
+                                        <textarea id="comment-@entry.Id" class="@Ui.Textarea" rows="2" placeholder="Um comentário curto e acolhedor; o paciente recebe um aviso."
+                                                  @bind="_comment" @bind:event="oninput"></textarea>
+                                        <div class="mt-2 flex flex-col gap-2 sm:flex-row">
+                                            <button class="@Ui.ButtonSm" disabled="@(string.IsNullOrWhiteSpace(_comment) || _busy)" @onclick="() => CommentAsync(entry.Id)">Enviar comentário</button>
+                                            <button class="@Ui.ButtonLinkSm" @onclick="() => _commentingOn = null">Cancelar</button>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <button class="@($"{Ui.ButtonLinkSm} mt-1")" @onclick="() => StartComment(entry.Id)">Comentar</button>
+                                }
+                            </article>
+                        }
+                    </div>
+                }
+            }
+        }
+    };
+
+    private static readonly System.Globalization.CultureInfo Brazil = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+
+    /// <summary>The meal's own name, or the planned meal's name in the version the entry was logged against.</summary>
+    private string MealName(FoodDiaryEntryItem entry)
+    {
+        if (!string.IsNullOrWhiteSpace(entry.MealName))
+        {
+            return entry.MealName;
+        }
+
+        if (entry is { MealPlanId: { } planId, MealPlanVersionNumber: { } version, PlannedMealId: { } mealId }
+            && _versions.GetValueOrDefault((planId, version)) is { } detail
+            && detail.Content.Meals.FirstOrDefault(m => m.Id == mealId) is { } meal)
+        {
+            return meal.Name;
+        }
+
+        return entry.MealPlanId is null ? "Registro" : "Refeição do plano";
+    }
+
+    private async Task LoadDiaryAsync()
+    {
+        var result = await Api.GetAsync<DietitianFoodDiary>($"dietitian/clients/{ClientId}/food-diary?from={WeekStart:yyyy-MM-dd}&to={_weekEnd:yyyy-MM-dd}");
+        _diary = result.Value;
+        _problem ??= result.Problem;
+        if (_diary is null)
+        {
+            return;
+        }
+
+        foreach (var key in _diary.Entries
+                     .Where(e => e is { MealPlanId: not null, MealPlanVersionNumber: not null, PlannedMealId: not null } && string.IsNullOrWhiteSpace(e.MealName))
+                     .Select(e => (e.MealPlanId!.Value, e.MealPlanVersionNumber!.Value))
+                     .Distinct()
+                     .Where(k => !_versions.ContainsKey(k)))
+        {
+            _versions[key] = (await Api.GetAsync<MealPlanVersionDetail>($"meal-plans/{key.Item1}/versions/{key.Item2}")).Value;
+        }
+    }
+
+    private async Task MoveWeekAsync(int days)
+    {
+        _weekEnd = _weekEnd.AddDays(days);
+        _commentingOn = null;
+        _diary = null;
+        await LoadDiaryAsync();
+    }
+
+    private void StartComment(Guid entryId)
+    {
+        _commentingOn = entryId;
+        _comment = null;
+        _message = null;
+    }
+
+    private async Task CommentAsync(Guid entryId)
+    {
+        _busy = true;
+        try
+        {
+            var result = await Api.PostAsync($"food-diary/{entryId}/comments", new { message = _comment!.Trim() });
+            _problem = result.Problem;
+            if (result.IsSuccess)
+            {
+                _commentingOn = null;
+                _comment = null;
+                await LoadDiaryAsync();
+                await RefreshSummaryAsync();
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

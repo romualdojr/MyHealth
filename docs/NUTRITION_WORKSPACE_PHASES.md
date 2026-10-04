@@ -29,17 +29,20 @@ Rules that apply across all of them:
 The same as the trainer workspace: one task per screen, one primary button; nothing reaches the client until *Publicar*
 (with a change description); Portuguese UI, WCAG 2.2 AA; the API is the authority and every page has contract tests.
 
-## Phase 1 — Prescribe and follow (P0 on the web)
+## Phase 1 — Prescribe and follow (P0 on the web) ✅
 
 | Screen | What the dietitian does | API |
 |---|---|---|
-| Clientes (`/dietitian`) | Sees active clients, plans, diary entries without a reply and next follow-up dates; invites a client. | ⚠️ needs a dietitian dashboard query (the trainer has `/trainer/dashboard`) |
-| Cliente (`/dietitian/clients/{id}`) | Tabs: assessments, meal plans, food diary. | ✅ |
-| Avaliação | Records an assessment (goals, restrictions, allergies, preferences, meal times, measurements, follow-up); corrects one with a reason. | ✅ |
+| Pacientes (`/dietitian`) | Sees active patients, their plan, diary activity of the last 7 days, entries without a comment and follow-ups due; invites a patient. | ✅ `GET /dietitian/dashboard` (counts only) |
+| Paciente (`/dietitian/clients/{id}`) | Tabs: meal plans (create), assessments, food diary (`?tab=assessments`, `?tab=diary`). | ✅ |
+| Avaliações | Records an assessment (pre-filled from the latest one: goals, restrictions, allergies, preferences, meal times, the usual measurements, follow-up); corrects one with a reason; shows the corrections. | ✅ |
 | Plano alimentar (`/dietitian/plans/{id}`) | Edits details (name, goal, dates, notes); adds meals with times; foods with quantity, unit, household measure, substitutions and notes; saves the draft; publishes with a change description; sees version history; ends the plan. | ✅ |
-| Diário | Reads entries per day (meal, time, text, water, adherence) against the plan; comments; jumps to the plan to revise it. | ✅ |
+| Diário | One week at a time: entries per day (meal named from the plan version, time, text, water, adherence in neutral wording), the week's counts, comments. | ✅ |
 
-Acceptance: tests 6 and 7 (nutrition part) passing through the web, plus e2e tests like the trainer workspace.
+The meal plan editor offers the usual day (five meals) for an empty plan, says which foods still need a portion before saving, drops empty food lines, takes substitutions one per line and keeps the latest assessment's allergies and restrictions in sight.
+
+Tests: `NutritionTests` (dashboard), `WebDashboardContractTests` (every call and body of the pages), `NutritionWorkspaceTests` (browser) and
+`PhoneTests` (the pages on iPhone and Android). The Development seed gives the dietitian Ana with an assessment, a meal plan and a diary.
 
 ## Phase 2 — Comfort features
 

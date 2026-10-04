@@ -1,0 +1,189 @@
+@page "/dietitian"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+
+<PageTitle>Pacientes · MyHealth</PageTitle>
+
+<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+    <h1 class="@Ui.PageTitle">Pacientes</h1>
+    @if (Workspace.Practices("Dietitian"))
+    {
+        <button class="@Ui.Button" aria-expanded="@(_inviting ? "true" : "false")" @onclick="() => _inviting = !_inviting">Convidar paciente</button>
+    }
+</div>
+
+@if (!Workspace.Practices("Dietitian"))
+{
+    <p class="@Ui.AlertInfo">Selecione uma organização em que você atua como nutricionista.</p>
+}
+else
+{
+    <p class="@($"{Ui.Help} mb-4")">
+        Abra um paciente para registrar a avaliação, montar e publicar o plano alimentar e acompanhar o diário. O diário mostra só o que o
+        paciente compartilhou com você.
+    </p>
+
+    <ProblemAlert Problem="_problem" />
+
+    @if (_inviting)
+    {
+        <div class="@($"{Ui.Card} mb-6")">
+            <div class="@Ui.CardBody">
+                <h2 class="@($"{Ui.CardTitle} mb-1")">Convidar paciente</h2>
+                <p class="@($"{Ui.Help} mb-3")">
+                    O paciente recebe o convite no aplicativo ao entrar com este e-mail e decide o que compartilhar com você.
+                </p>
+                <div class="grid grid-cols-12 items-end gap-3">
+                    <div class="col-span-12 md:col-span-6">
+                        <label class="@Ui.Label" for="client-email">E-mail do paciente</label>
+                        <input id="client-email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false"
+                               class="@Ui.Input" @bind="_inviteEmail" @bind:event="oninput" />
+                    </div>
+                    <div class="col-span-12 md:col-span-3">
+                        <button class="@($"{Ui.Button} w-full")" disabled="@string.IsNullOrWhiteSpace(_inviteEmail)" @onclick="InviteAsync">Enviar convite</button>
+                    </div>
+                </div>
+                @if (_invited is not null)
+                {
+                    <p class="mt-2 text-sm text-emerald-700" role="status">Convite enviado para @_invited.</p>
+                }
+            </div>
+        </div>
+    }
+
+    @if (_dashboard is null)
+    {
+        @if (_problem is null)
+        {
+            <Loading />
+        }
+    }
+    else
+    {
+        <div class="mb-6 grid grid-cols-3 gap-2 sm:gap-4">
+            <div><Metric Label="Registros sem comentário" Value="@_dashboard.TotalUncommentedEntries" /></div>
+            <div><Metric Label="Retornos vencidos" Value="@_dashboard.TotalFollowUpsDue" Warn="true" /></div>
+            <div><Metric Label="Sem plano publicado" Value="@_dashboard.ClientsWithoutPlan" /></div>
+        </div>
+
+        @if (_dashboard.Clients.Count == 0)
+        {
+            <div class="@Ui.EmptyState">
+                <p class="mb-3">Nenhum paciente com vínculo ativo ainda.</p>
+                <button class="@Ui.Button" @onclick="() => _inviting = true">Convidar o primeiro paciente</button>
+            </div>
+        }
+        else
+        {
+            @* Same pattern as the trainer's clients: a table from md up; on phones each row is a card tapped as a whole. *@
+            <div class="md:overflow-x-auto md:rounded-xl md:border md:border-slate-200 md:bg-white md:shadow-sm">
+                <table class="w-full text-sm max-md:block md:min-w-full">
+                    <thead class="bg-slate-50 max-md:hidden">
+                        <tr><th class="@Ui.Th">Paciente</th><th class="@Ui.Th">Plano alimentar</th><th class="@Ui.Th">Diário (7 dias)</th><th class="@Ui.Th">Pendências</th><th class="@Ui.Th">Retorno</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 max-md:block max-md:divide-slate-200 max-md:overflow-hidden max-md:rounded-xl max-md:border max-md:border-slate-200 max-md:bg-white max-md:shadow-sm">
+                        @foreach (var c in _dashboard.Clients)
+                        {
+                            var due = IsDue(c);
+                            <tr class="@($"relative max-md:grid max-md:min-h-14 max-md:grid-cols-[minmax(0,1fr)_auto] max-md:items-center max-md:gap-x-3 max-md:gap-y-1 max-md:px-4 max-md:py-3 max-md:active:bg-slate-100 {(due ? Ui.RowWarning : string.Empty)}")">
+                                <td class="@($"{Cell} col-start-1 row-start-1 min-w-0 max-md:block")">
+                                    <a href="dietitian/clients/@c.ClientId" class="@($"{Ui.Link} font-semibold max-md:block max-md:truncate max-md:text-base max-md:after:absolute max-md:after:inset-0")">@c.ClientName</a>
+                                </td>
+                                <td class="@($"{Cell} col-start-1 row-start-2 min-w-0 max-md:block max-md:truncate max-md:text-slate-500")">
+                                    @(c.ActivePlanName ?? "Sem plano publicado")
+                                    @if (c.DraftPlans > 0)
+                                    {
+                                        <span class="@($"{Ui.BadgeWarning} ml-1")">@c.DraftPlans rascunho@(c.DraftPlans > 1 ? "s" : string.Empty)</span>
+                                    }
+                                </td>
+                                <td class="@($"{Cell} col-start-2 row-span-2 row-start-1 max-md:block max-md:text-right")">
+                                    <span class="max-md:block max-md:text-base max-md:font-semibold max-md:text-slate-900">@c.DaysWithEntriesLast7Days de 7 dias</span>
+                                    <span class="block text-xs text-slate-500">
+                                        @(c.EntriesLast7Days == 0 ? "sem registros" : $"{c.AsPlannedLast7Days} de {c.EntriesLast7Days} como planejado")
+                                    </span>
+                                </td>
+                                <td class="@($"{Cell} col-span-2 row-start-3 {(c.UncommentedEntries > 0 || due ? "max-md:block" : "max-md:hidden")}")">
+                                    <div class="flex flex-wrap gap-1">
+                                        @if (c.UncommentedEntries > 0)
+                                        {
+                                            <span class="@Ui.BadgeInfo">@c.UncommentedEntries sem comentário</span>
+                                        }
+                                        @if (due)
+                                        {
+                                            <span class="@Ui.BadgeWarning md:hidden">retorno vencido</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="@($"{Cell} max-md:hidden")">
+                                    @if (c.NextFollowUpOn is { } next)
+                                    {
+                                        <span class="@(due ? "font-semibold text-amber-800" : string.Empty)">@next.ToString("dd/MM/yyyy")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-slate-400">—</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+}
+
+@code {
+    private DietitianDashboard? _dashboard;
+    private ApiProblem? _problem;
+    private bool _inviting;
+    private string? _inviteEmail;
+    private string? _invited;
+
+    /// <summary>A table cell from md up; on phones a piece of the patient's card (each cell adds max-md:block or max-md:hidden).</summary>
+    private const string Cell = "align-middle text-slate-700 md:px-3 md:py-2";
+
+    private static bool IsDue(DietitianClientSummary c) => c.NextFollowUpOn <= DateOnly.FromDateTime(DateTime.Today);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        _dashboard = null;
+        _problem = null;
+        if (!Workspace.Practices("Dietitian"))
+        {
+            return;
+        }
+
+        var result = await Api.GetAsync<DietitianDashboard>("dietitian/dashboard");
+        _dashboard = result.Value;
+        _problem = result.Problem;
+    }
+
+    private async Task InviteAsync()
+    {
+        var email = _inviteEmail!.Trim();
+        var result = await Api.PostAsync<IdResponse>("care-relationships/invitations", new { discipline = "Dietitian", clientEmail = email });
+        _problem = result.Problem;
+        if (result.IsSuccess)
+        {
+            _invited = email;
+            _inviteEmail = null;
+        }
+    }
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

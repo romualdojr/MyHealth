@@ -18,6 +18,7 @@ public sealed class AppFixture : IAsyncLifetime
 
     public const string Operator = "operador@myhealth.dev";
     public const string Trainer = "treinador@myhealth.dev";
+    public const string Dietitian = "nutri@myhealth.dev";
 
     private static readonly TimeSpan StartTimeout = TimeSpan.FromMinutes(5);
 
