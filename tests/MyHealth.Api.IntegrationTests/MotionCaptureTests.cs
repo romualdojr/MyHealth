@@ -59,6 +59,8 @@ public sealed class MotionCaptureTests(ApiFactory factory) : IntegrationTest(fac
         await ProcessAsync();
         var done = (await Scenario.Read<List<MotionCaptureJobResponse>>(await trainer.Http.GetAsync($"/api/v1/exercises/{exerciseId}/motion-captures", Ct))).ShouldHaveSingleItem();
         (done.Status, done.ProgressPercent, done.SourceDeleted).ShouldBe((MotionCaptureStatus.Succeeded, 100, true));
+        var notifications = await Scenario.Read<List<MyHealth.Application.Notifications.NotificationResponse>>(await trainer.Http.GetAsync("/api/v1/me/notifications", Ct));
+        notifications.ShouldContain(n => n.Type == MyHealth.Domain.Notifications.NotificationType.MotionCaptureReady && n.ResourceId == exerciseId);
         done.Outputs.Select(o => (o.Kind, o.Angle, o.Format)).ShouldBe(
         [
             (MediaKind.Loop, CameraAngle.Side, "mp4"), (MediaKind.Loop, CameraAngle.Front, "mp4"), (MediaKind.Loop, CameraAngle.Back, "mp4"), (MediaKind.Model3D, null, "glb"),

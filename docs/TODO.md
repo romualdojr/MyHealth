@@ -95,7 +95,7 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] **(legal)** AI coach: DPA with the AI provider, client-facing text for the "Análise por IA" sharing option, evaluation set of real cases before enabling Claude (`Coach:Provider=Anthropic`).
 - [ ] Production media storage: bucket + CDN implementation of `IMediaStorage`, signed uploads straight from the browser/phone (today the video passes through the web app and API), transcoding and thumbnails (RF-27).
 - [ ] Phone apps: render `Model3D` media (glTF; USDZ conversion for iOS Quick Look if wanted), WhatsApp opt-in screen, "Análise por IA" sharing toggle.
-- [ ] 3D for the curated library (operators' back office) and a notification to the trainer when a conversion finishes.
+- [ ] 3D for the curated library (operators' back office). The trainer is notified when a conversion finishes (done).
 - [x] Trainer chat ("Assistente IA"): all students with summaries, chat over the students who allow AI analysis (pseudonymised), suggestions to evolve exercises applied to each draft.
 - [ ] AI coach and chat as a paid module, per-tenant daily limit for chat messages and cost reporting; first-draft plan generation from goal/level/equipment.
 

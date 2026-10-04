@@ -28,6 +28,10 @@ public enum NotificationType
 
     /// <summary>The client ended the relationship; the professional ends the plans still open for them.</summary>
     CareRelationshipEndedByClient = 22,
+
+    /// <summary>A 3D exercise video the professional filmed is ready to review, or could not be made.</summary>
+    MotionCaptureReady = 23,
+    MotionCaptureFailed = 24,
 }
 
 /// <summary>Push/e-mail delivery state (the notification row is its own outbox entry).</summary>

@@ -144,6 +144,7 @@ public sealed class MotionCaptureJob : AggregateRoot<Guid>
         Status = MotionCaptureStatus.Succeeded;
         ProgressPercent = 100;
         CompletedAt = now;
+        Raise(new MotionCaptureFinished(Id, TenantId, ExerciseId, RequestedByUserId, Succeeded: true, now));
     }
 
     public void Fail(string error, DateTimeOffset now)
@@ -151,6 +152,7 @@ public sealed class MotionCaptureJob : AggregateRoot<Guid>
         Status = MotionCaptureStatus.Failed;
         Error = error.Length > 500 ? error[..500] : error;
         CompletedAt = now;
+        Raise(new MotionCaptureFinished(Id, TenantId, ExerciseId, RequestedByUserId, Succeeded: false, now));
     }
 
     /// <summary>The provider could not be reached: try again with back-off (1, 2, 4… minutes), then give up.</summary>
@@ -215,3 +217,7 @@ public static class MotionCaptureErrors
 
     private const int MaxSeconds = MotionCaptureJob.MaxDurationSeconds;
 }
+
+/// <summary>A conversion finished (rendered or failed), so the trainer who filmed it can review it.</summary>
+public sealed record MotionCaptureFinished(Guid JobId, Guid TenantId, Guid ExerciseId, Guid RequestedByUserId, bool Succeeded, DateTimeOffset OccurredAt)
+    : DomainEvent(OccurredAt);
