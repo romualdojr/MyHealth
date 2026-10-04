@@ -216,7 +216,7 @@ else
                     Só alunos que autorizaram a análise por IA são enviados ao assistente, sem nome nem dados de contato.
                     @if (_overview is not null)
                     {
-                        <span>Modelo: @_overview.Model.</span>
+                        <span>Modelo: @_overview.Model. @_overview.UsedToday de @_overview.DailyLimit mensagens da organização nas últimas 24 horas.</span>
                     }
                 </p>
             </div>
@@ -319,6 +319,7 @@ else
             if (result.Value is { } reply)
             {
                 _messages.Add(new Message(false, reply.Reply, [.. reply.Suggestions]));
+                _overview = _overview is null ? null : _overview with { UsedToday = _overview.UsedToday + 1 };
             }
         }
         finally

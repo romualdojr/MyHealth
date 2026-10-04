@@ -96,7 +96,7 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] Phone apps: render `Model3D` media (glTF; USDZ conversion for iOS Quick Look if wanted), WhatsApp opt-in screen, "Análise por IA" sharing toggle.
 - [ ] 3D for the curated library (operators' back office). The trainer is notified when a conversion finishes (done).
 - [x] Trainer chat ("Assistente IA"): all students with summaries, chat over the students who allow AI analysis (pseudonymised), suggestions to evolve exercises applied to each draft.
-- [ ] AI coach and chat as a paid module, per-tenant daily limit for chat messages and cost reporting; first-draft plan generation from goal/level/equipment.
+- [ ] AI coach and chat as a paid module, cost reporting (needs the provider's token usage); first-draft plan generation from goal/level/equipment. (Per-tenant daily chat limit: done.)
 
 ## Phase 5 — P1 features
 

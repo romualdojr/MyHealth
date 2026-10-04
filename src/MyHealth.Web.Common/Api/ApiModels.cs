@@ -153,7 +153,7 @@ public sealed record StudentSummaryItem(
     Guid ClientId, string Name, Guid RelationshipId, bool AiConsent, Guid? PlanId, string? PlanName, int PlanVersion, int CompletedLast28Days,
     int ExpectedLast28Days, DateTimeOffset? LastWorkoutAt, double? AverageExertion14Days, bool RecentDiscomfort, int PendingFeedback);
 
-public sealed record TrainerAssistantOverviewItem(string Model, IReadOnlyList<StudentSummaryItem> Students);
+public sealed record TrainerAssistantOverviewItem(string Model, IReadOnlyList<StudentSummaryItem> Students, int DailyLimit, int UsedToday);
 
 public sealed record TrainerChatSuggestionItem(Guid AnalysisId, Guid PlanId, Guid ClientId, string ClientName, string PlanName, CoachSuggestionItem Suggestion);
 

@@ -266,6 +266,8 @@ public static class CoachErrors
         "Coach.SharingRequired", "The client has not allowed AI analysis of their training data. They can turn it on in the app's sharing settings.");
     public static readonly Error Unavailable = Error.Failure("Coach.Unavailable", "The AI coach is not available right now. Try again later.");
     public static readonly Error DailyLimitReached = Error.Conflict("Coach.DailyLimitReached", "Your organization reached today's limit of AI analyses.");
+    public static readonly Error DailyChatLimitReached = Error.Conflict(
+        "Coach.DailyChatLimitReached", "Your organization reached today's limit of messages to the AI assistant. It resets within 24 hours.");
     public static readonly Error AnalysisNotFound = Error.NotFound("Coach.AnalysisNotFound", "The analysis was not found.");
     public static readonly Error SuggestionNotFound = Error.NotFound("Coach.SuggestionNotFound", "The suggestion was not found.");
     public static readonly Error SuggestionClosed = Error.Conflict("Coach.SuggestionClosed", "This suggestion was already applied or dismissed.");

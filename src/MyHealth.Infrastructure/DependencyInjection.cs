@@ -128,7 +128,8 @@ public static class DependencyInjection
 
         // Trainer's AI coach: rule-based unless Claude is configured (Coach:Provider=Anthropic). Analyses are capped per tenant per day.
         services.AddScoped<ICoachAnalysisRepository, CoachAnalysisRepository>();
-        services.AddSingleton(new CoachSettings(builder.Configuration.GetValue("Coach:DailyAnalysesPerTenant", 100)));
+        services.AddSingleton(new CoachSettings(
+            builder.Configuration.GetValue("Coach:DailyAnalysesPerTenant", 100), builder.Configuration.GetValue("Coach:DailyChatMessagesPerTenant", 300)));
         if (string.Equals(builder.Configuration["Coach:Provider"], "Anthropic", StringComparison.OrdinalIgnoreCase))
         {
             var apiKey = builder.Configuration["Coach:Anthropic:ApiKey"] ?? builder.Configuration["Assistant:Anthropic:ApiKey"]

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using MyHealth.Api.IntegrationTests.Infrastructure;
 using MyHealth.Application.Coaching;
 using MyHealth.Application.TrainerAssistant;
@@ -46,6 +47,33 @@ public sealed class TrainerAssistantTests(ApiFactory factory) : IntegrationTest(
     private async Task<TrainerAssistantReplyResponse> AskAsync(TestUser trainer, string message, Guid? clientId = null) =>
         await Scenario.Read<TrainerAssistantReplyResponse>(
             await trainer.Http.PostAsJsonAsync("/api/v1/trainer/assistant/messages", new { message, history = Array.Empty<object>(), clientId }, Ct));
+
+    [Fact]
+    public async Task Each_organization_has_a_daily_limit_of_chat_messages()
+    {
+        var (trainer, _) = await Scenario.ProfessionalAsync();
+        var tenantId = Guid.Parse(trainer.Http.DefaultRequestHeaders.GetValues(MyHealth.Infrastructure.Identity.TenantHeader.Name).Single());
+        await Scenario.EnsureSuccess(await trainer.Http.PostAsJsonAsync("/api/v1/trainer/assistant/messages", new { message = "resumo" }, Ct));
+        var overview = await Scenario.Read<TrainerAssistantOverview>(await trainer.Http.GetAsync("/api/v1/trainer/assistant", Ct));
+        (overview.DailyLimit, overview.UsedToday).ShouldBe((300, 1));
+
+        // The rest of the day's quota is used by colleagues of the same organization.
+        await using (var scope = Scenario.Factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MyHealth.Infrastructure.Persistence.ApplicationDbContext>();
+            db.AuditEntries.AddRange(Enumerable.Range(0, 299).Select(_ => MyHealth.Application.Abstractions.Auditing.AuditEntry.Create(
+                Guid.NewGuid(), "message", "TrainerAssistant.Message", Guid.NewGuid(), null, tenantId, DateTimeOffset.UtcNow.AddHours(-1))));
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var refused = await trainer.Http.PostAsJsonAsync("/api/v1/trainer/assistant/messages", new { message = "resumo" }, Ct);
+        refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await refused.Content.ReadAsStringAsync(Ct)).ShouldContain("Coach.DailyChatLimitReached");
+
+        // Another organization is not affected.
+        var (other, _) = await Scenario.ProfessionalAsync("other");
+        await Scenario.EnsureSuccess(await other.Http.PostAsJsonAsync("/api/v1/trainer/assistant/messages", new { message = "resumo" }, Ct));
+    }
 
     [Fact]
     public async Task The_trainer_sees_every_student_and_the_chat_summarizes_only_those_who_allow_ai()

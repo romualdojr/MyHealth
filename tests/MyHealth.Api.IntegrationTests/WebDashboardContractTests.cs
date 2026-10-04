@@ -382,6 +382,7 @@ public sealed class WebDashboardContractTests(ApiFactory factory) : IntegrationT
             message = "Resumo da semana de todos", history = new[] { new ChatTurn("user", "Olá"), new ChatTurn("assistant", "Olá!") }, clientId = (Guid?)null,
         }, ct: Ct));
         (chat.StudentsIncluded, chat.StudentsWithoutConsent).ShouldBe((1, 1));
+        (await Ok(api.GetAsync<TrainerAssistantOverviewItem>("trainer/assistant", ct: Ct))).UsedToday.ShouldBe(1);
         chat.Reply.ShouldNotBeNullOrWhiteSpace();
         var focused = await Ok(api.PostAsync<TrainerAssistantReply>("trainer/assistant/messages", new { message = "Como evoluir os exercícios?", clientId = ana.Id }, ct: Ct));
         focused.Suggestions.ShouldAllBe(s => s.ClientId == ana.Id && s.ClientName != null);

@@ -34,7 +34,8 @@ public sealed record StudentSummary(
     bool RecentDiscomfort,
     int PendingFeedback);
 
-public sealed record TrainerAssistantOverview(string Model, IReadOnlyList<StudentSummary> Students);
+/// <param name="DailyLimit">Messages the organization may send to the assistant per 24 hours; <paramref name="UsedToday"/> already sent.</param>
+public sealed record TrainerAssistantOverview(string Model, IReadOnlyList<StudentSummary> Students, int DailyLimit, int UsedToday);
 
 /// <summary>What the model knows about one student. <see cref="Alias"/> replaces the name ("Aluno 1"); no identifiers are sent.</summary>
 public sealed record TrainerAssistantStudent(
@@ -58,7 +59,8 @@ public sealed record TrainerAssistantReplyResponse(
 
 public sealed record GetTrainerAssistantOverviewQuery : IQuery<TrainerAssistantOverview>;
 
-internal sealed class GetTrainerAssistantOverviewHandler(ICareAccess access, TrainerRoster roster, ITrainerAssistantModel model)
+internal sealed class GetTrainerAssistantOverviewHandler(
+    ICareAccess access, TrainerRoster roster, ITrainerAssistantModel model, IReadDbContext db, CoachSettings settings, TimeProvider clock)
     : IQueryHandler<GetTrainerAssistantOverviewQuery, TrainerAssistantOverview>
 {
     public async Task<Result<TrainerAssistantOverview>> Handle(GetTrainerAssistantOverviewQuery query, CancellationToken cancellationToken)
@@ -70,7 +72,8 @@ internal sealed class GetTrainerAssistantOverviewHandler(ICareAccess access, Tra
         }
 
         var students = await roster.BuildAsync(trainer.Value, cancellationToken);
-        return new TrainerAssistantOverview(model.Name, [.. students.Select(s => s.Summary)]);
+        var used = await TrainerChatUsage.CountAsync(db, trainer.Value.TenantId, clock.GetUtcNow(), cancellationToken);
+        return new TrainerAssistantOverview(model.Name, [.. students.Select(s => s.Summary)], settings.DailyChatMessagesPerTenant, used);
     }
 }
 
@@ -102,7 +105,7 @@ internal sealed class SendTrainerAssistantMessageValidator : AbstractValidator<S
 
 internal sealed class SendTrainerAssistantMessageHandler(
     ICareAccess access, TrainerRoster roster, CoachContextBuilder contexts, ITrainerAssistantModel model, ITrainingPlanRepository plans,
-    ICoachAnalysisRepository analyses, IAuditLog audit, IUnitOfWork unitOfWork, TimeProvider clock)
+    ICoachAnalysisRepository analyses, IAuditLog audit, IUnitOfWork unitOfWork, TimeProvider clock, IReadDbContext db, CoachSettings settings)
     : ICommandHandler<SendTrainerAssistantMessageCommand, TrainerAssistantReplyResponse>
 {
     public const int MaxStudents = 25;
@@ -113,6 +116,11 @@ internal sealed class SendTrainerAssistantMessageHandler(
         if (trainer.IsFailure)
         {
             return trainer.Error;
+        }
+
+        if (await TrainerChatUsage.CountAsync(db, trainer.Value.TenantId, clock.GetUtcNow(), cancellationToken) >= settings.DailyChatMessagesPerTenant)
+        {
+            return CoachErrors.DailyChatLimitReached;
         }
 
         var everyone = await roster.BuildAsync(trainer.Value, cancellationToken);
@@ -164,6 +172,9 @@ internal sealed class SendTrainerAssistantMessageHandler(
         }
 
         var cards = await SuggestionsAsync(reply.ToolCalls, students, focus, aliases, command.Message, now, cancellationToken);
+
+        // One entry per answered message counts toward the organization's daily limit (TrainerChatUsage).
+        audit.Record(TrainerChatUsage.Action, TrainerChatUsage.ResourceType, trainer.Value.Profile.Id, subjectUserId: null, trainer.Value.TenantId);
 
         // Each student's records reached the AI provider: audited per student, without content.
         foreach (var (entry, _) in students)
@@ -393,4 +404,18 @@ public static class TrainerAssistantPrompt
         - Use only ids and numbers from the context. If the data is not there, say so. At most 8 tool calls per answer.
         - Do not say a change was made: the trainer applies suggestions.
         """;
+}
+
+/// <summary>Messages a tenant's trainers sent to the assistant in the last 24 hours, counted from the audit log.</summary>
+internal static class TrainerChatUsage
+{
+    public const string Action = "message";
+    public const string ResourceType = "TrainerAssistant.Message";
+
+    public static Task<int> CountAsync(IReadDbContext db, Guid tenantId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var since = now.AddDays(-1);
+        return db.AuditEntries.CountAsync(
+            e => e.TenantId == tenantId && e.ResourceType == ResourceType && e.Action == Action && e.OccurredAt >= since, cancellationToken);
+    }
 }

@@ -18,8 +18,11 @@ using MyHealth.Domain.Training.Plans;
 
 namespace MyHealth.Application.Coaching;
 
-/// <summary>Limits of the AI coach, set by the host (<c>Coach:DailyAnalysesPerTenant</c>).</summary>
-public sealed record CoachSettings(int DailyAnalysesPerTenant);
+/// <summary>
+/// Limits of the AI coach and the trainer chat per organization and day, set by the host
+/// (<c>Coach:DailyAnalysesPerTenant</c>, <c>Coach:DailyChatMessagesPerTenant</c>). Each one is a call to the AI provider.
+/// </summary>
+public sealed record CoachSettings(int DailyAnalysesPerTenant, int DailyChatMessagesPerTenant = 300);
 
 /// <summary>A suggestion as the trainer sees it: <see cref="Title"/> and <see cref="Change"/> are display texts set by the server.</summary>
 public sealed record CoachSuggestionResponse(
