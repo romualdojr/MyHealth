@@ -21,6 +21,7 @@ public static class Extensions
     public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
         builder.ConfigureOpenTelemetry();
+        builder.AddSentryMonitoring();
 
         builder.AddDefaultHealthChecks();
 
@@ -70,7 +71,16 @@ public static class Extensions
                     )
                     // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
                     //.AddGrpcClientInstrumentation()
-                    .AddHttpClientInstrumentation();
+                    .AddHttpClientInstrumentation()
+
+                    // Database spans (the Aspire PostgreSQL integration registers the source too; adding it twice is harmless).
+                    .AddSource("Npgsql");
+
+                // Traces also go to Sentry when it is configured (SentryExtensions).
+                if (builder.SentryDsn() is { } dsn)
+                {
+                    tracing.AddSentryOtlpExporter(dsn);
+                }
             });
 
         builder.AddOpenTelemetryExporters();

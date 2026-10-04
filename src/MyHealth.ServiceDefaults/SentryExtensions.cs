@@ -1,0 +1,82 @@
+using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Sentry;
+using Sentry.Extensibility;
+
+namespace Microsoft.Extensions.Hosting;
+
+/// <summary>
+/// Errors, traces and logs to Sentry when <c>Sentry:Dsn</c> (or <c>SENTRY_DSN</c>) is set; nothing is sent otherwise, so
+/// local runs and tests stay offline. Traces come from the existing OpenTelemetry instrumentation (ASP.NET Core, HTTP
+/// clients, Npgsql), not from Sentry's own. Health data never leaves: no default PII (user, IP, cookies), no request
+/// bodies, and e-mail addresses are masked in messages, exceptions, breadcrumbs and logs. Other settings bind from the
+/// <c>Sentry</c> section (e.g. <c>Sentry:TracesSampleRate</c>, <c>Sentry:Release</c> or <c>SENTRY_RELEASE</c>).
+/// </summary>
+public static partial class SentryExtensions
+{
+    internal static string? SentryDsn(this IHostApplicationBuilder builder) => Dsn(builder) is { Length: > 0 } dsn ? dsn : null;
+
+    public static TBuilder AddSentryMonitoring<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
+    {
+        if (Dsn(builder) is not { Length: > 0 } dsn || builder is not WebApplicationBuilder web)
+        {
+            return builder;
+        }
+
+        var service = builder.Environment.ApplicationName;
+        var environment = builder.Environment.EnvironmentName.ToLowerInvariant();
+        web.WebHost.UseSentry(options =>
+        {
+            options.Dsn = dsn;
+            options.UseOtlp();
+            options.TracesSampleRate ??= 1.0;
+            options.EnableLogs = true;
+            options.Environment ??= environment;
+            options.DefaultTags["service"] = service;
+
+            // Containers run as a non-root user without write access to the app folder: the installation id and the
+            // offline queue live in the temp directory instead.
+            options.CacheDirectoryPath ??= Path.Combine(Path.GetTempPath(), "sentry");
+
+            options.SendDefaultPii = false;
+            options.MaxRequestBodySize = RequestSize.None;
+            options.SetBeforeSend(Scrub);
+            options.SetBeforeBreadcrumb(crumb => crumb.Message is { } message && Email().IsMatch(message)
+                ? new Breadcrumb(Mask(message), crumb.Type ?? "default", crumb.Data, crumb.Category, crumb.Level)
+                : crumb);
+
+            // Logs keep their template and parameters; a formatted message with an address is dropped rather than sent.
+            options.SetBeforeSendLog(log => Email().IsMatch(log.Message) ? null : log);
+        });
+
+        return builder;
+    }
+
+    private static string? Dsn(IHostApplicationBuilder builder) => builder.Configuration["Sentry:Dsn"] ?? builder.Configuration["SENTRY_DSN"];
+
+    private static SentryEvent Scrub(SentryEvent sentryEvent)
+    {
+        if (sentryEvent.Message is { } message)
+        {
+            message.Formatted = message.Formatted is null ? null : Mask(message.Formatted);
+            message.Message = message.Message is null ? null : Mask(message.Message);
+        }
+
+        foreach (var exception in sentryEvent.SentryExceptions ?? [])
+        {
+            exception.Value = exception.Value is null ? null : Mask(exception.Value);
+        }
+
+        // Bearer tokens and the selected organization are not needed to read an error.
+        sentryEvent.Request.Headers.Remove("Authorization");
+        sentryEvent.Request.Headers.Remove("Cookie");
+        sentryEvent.Request.Cookies = null;
+        return sentryEvent;
+    }
+
+    private static string Mask(string text) => Email().Replace(text, "[email]");
+
+    [GeneratedRegex(@"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")]
+    private static partial Regex Email();
+}

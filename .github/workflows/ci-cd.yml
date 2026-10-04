@@ -76,6 +76,13 @@ jobs:
       - name: Install the Railway CLI
         run: npm install --global @railway/cli
 
+      # Sentry tags every event, trace and log with the commit being deployed (Sentry:Dsn is set on each service).
+      - name: Set the Sentry release
+        run: |
+          for service in apiservice web backoffice; do
+            railway variable set "SENTRY_RELEASE=myhealth@${GITHUB_SHA}" --service "$service" --skip-deploys
+          done
+
       # Each service builds its own Dockerfile (RAILWAY_DOCKERFILE_PATH is set on the service). The API first: it migrates
       # the database on startup.
       - name: Deploy
