@@ -7,8 +7,9 @@ using Sentry.Extensibility;
 namespace Microsoft.Extensions.Hosting;
 
 /// <summary>
-/// Errors, traces and logs to Sentry when <c>Sentry:Dsn</c> (or <c>SENTRY_DSN</c>) is set; nothing is sent otherwise, so
-/// local runs and tests stay offline. Traces come from the existing OpenTelemetry instrumentation (ASP.NET Core, HTTP
+/// Errors, traces and logs to Sentry from the deployed environments only (Railway: Staging), when <c>Sentry:Dsn</c> (or
+/// <c>SENTRY_DSN</c>) is set. Never in Development, even with a DSN configured, so local runs, debugging and tests send
+/// nothing. Traces come from the existing OpenTelemetry instrumentation (ASP.NET Core, HTTP
 /// clients, Npgsql), not from Sentry's own. Health data never leaves: no default PII (user, IP, cookies), no request
 /// bodies, and e-mail addresses are masked in messages, exceptions, breadcrumbs and logs. Other settings bind from the
 /// <c>Sentry</c> section (e.g. <c>Sentry:TracesSampleRate</c>, <c>Sentry:Release</c> or <c>SENTRY_RELEASE</c>).
@@ -53,7 +54,8 @@ public static partial class SentryExtensions
         return builder;
     }
 
-    private static string? Dsn(IHostApplicationBuilder builder) => builder.Configuration["Sentry:Dsn"] ?? builder.Configuration["SENTRY_DSN"];
+    private static string? Dsn(IHostApplicationBuilder builder) =>
+        builder.Environment.IsDevelopment() ? null : builder.Configuration["Sentry:Dsn"] ?? builder.Configuration["SENTRY_DSN"];
 
     private static SentryEvent? Scrub(SentryEvent sentryEvent)
     {
