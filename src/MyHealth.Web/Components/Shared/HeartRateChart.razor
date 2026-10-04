@@ -1,0 +1,160 @@
+@* One workout's heart rate as a line over minutes since the first sample. Measured samples form a 2 px line that breaks
+   at every gap (no interpolation across missing data); values the client typed in are hollow markers, never joined to
+   the line. Each sample has a hover label, and the same data is available as a table. *@
+
+@if (HeartRate.Points.Count == 0)
+{
+    <p class="@($"{Ui.Help} mt-3")">Sem amostras neste treino.</p>
+}
+else
+{
+    <figure class="mt-3">
+        <svg viewBox="0 0 @Width @Height" class="h-auto w-full" role="img"
+             aria-label="@($"Frequência cardíaca de {Bpm(_min)} a {Bpm(_max)} bpm em {Math.Round(_minutes)} minutos")">
+            @* Recessive grid and y labels. *@
+            @foreach (var tick in _yTicks)
+            {
+                var y = Y(tick);
+                <g>
+                <line x1="@Left" x2="@(Width - Right)" y1="@F(y)" y2="@F(y)" stroke="#e2e8f0" stroke-width="1" />
+                <text x="@(Left - 6)" y="@F(y + 4)" text-anchor="end" font-size="11" fill="#64748b">@tick</text>
+                </g>
+            }
+            @foreach (var minute in _xTicks)
+            {
+                <g><text x="@F(X(minute))" y="@(Height - 4)" text-anchor="middle" font-size="11" fill="#64748b">@minute min</text></g>
+            }
+
+            @foreach (var segment in _segments)
+            {
+                @if (segment.Count == 1)
+                {
+                    <circle cx="@F(X(segment[0]))" cy="@F(Y(segment[0].BeatsPerMinute))" r="2.5" fill="#0f766e" />
+                }
+                else
+                {
+                    <polyline points="@string.Join(' ', segment.Select(p => $"{F(X(p))},{F(Y(p.BeatsPerMinute))}"))"
+                              fill="none" stroke="#0f766e" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+                }
+            }
+
+            @foreach (var p in HeartRate.Points.Where(p => p.Kind == "self-reported"))
+            {
+                <circle cx="@F(X(p))" cy="@F(Y(p.BeatsPerMinute))" r="4" fill="#ffffff" stroke="#0f766e" stroke-width="2" />
+            }
+
+            @* Hover targets wider than the marks: one column per sample. *@
+            @for (var i = 0; i < HeartRate.Points.Count; i++)
+            {
+                var p = HeartRate.Points[i];
+                var x = X(p);
+                var half = Math.Max(3, (Width - Left - Right) / (2.0 * HeartRate.Points.Count));
+                <rect x="@F(x - half)" y="@Top" width="@F(half * 2)" height="@(Height - Top - Bottom)" fill="transparent">
+                    <title>@($"{p.Timestamp.ToLocalTime():HH:mm:ss} · {Bpm(p.BeatsPerMinute)} bpm · {(p.Kind == "self-reported" ? "informado pelo cliente" : "medido")} · {p.SourceName}")</title>
+                </rect>
+            }
+        </svg>
+        <figcaption class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+            <span>bpm por minuto de treino · @HeartRate.Points.Count amostras · @string.Join(", ", HeartRate.Sources)</span>
+            @if (HeartRate.Points.Any(p => p.Kind == "self-reported"))
+            {
+                <span><svg class="inline size-3 align-[-1px]" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4" fill="#fff" stroke="#0f766e" stroke-width="2" /></svg> informado pelo cliente</span>
+            }
+            @if (_segments.Count > 1)
+            {
+                <span>@(_segments.Count - 1) @(_segments.Count == 2 ? "trecho" : "trechos") sem medição (linha interrompida)</span>
+            }
+        </figcaption>
+        <details class="mt-2 text-sm">
+            <summary class="cursor-pointer py-3 text-slate-600 hover:text-slate-900 sm:py-1">Ver os dados em tabela</summary>
+            <div class="mt-2 max-h-64 overflow-y-auto rounded-lg border border-slate-200">
+                <table class="@Ui.Table">
+                    <thead class="@Ui.THead"><tr><th class="@Ui.Th">Hora</th><th class="@Ui.Th">bpm</th><th class="@Ui.Th">Tipo</th><th class="@Ui.Th">Fonte</th></tr></thead>
+                    <tbody class="@Ui.TBody">
+                        @foreach (var p in HeartRate.Points)
+                        {
+                            <tr>
+                                <td class="@Ui.Td">@p.Timestamp.ToLocalTime().ToString("HH:mm:ss")</td>
+                                <td class="@Ui.Td">@Bpm(p.BeatsPerMinute)</td>
+                                <td class="@Ui.Td">@(p.Kind == "self-reported" ? "informado" : "medido")</td>
+                                <td class="@Ui.Td">@p.SourceName</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    </figure>
+}
+
+@code {
+    private const int Width = 640;
+    private const int Height = 200;
+    private const int Left = 36;
+    private const int Right = 8;
+    private const int Top = 8;
+    private const int Bottom = 22;
+
+    [Parameter, EditorRequired]
+    public WorkoutHeartRateItem HeartRate { get; set; } = default!;
+
+    private DateTimeOffset _start;
+    private double _minutes;
+    private double _min;
+    private double _max;
+    private int _low;
+    private int _high;
+    private List<int> _yTicks = [];
+    private List<int> _xTicks = [];
+    private List<List<HeartRatePointItem>> _segments = [];
+
+    protected override void OnParametersSet()
+    {
+        var points = HeartRate.Points;
+        if (points.Count == 0)
+        {
+            return;
+        }
+
+        _start = points[0].Timestamp;
+        _minutes = Math.Max(1, (points[^1].Timestamp - _start).TotalMinutes);
+        _min = points.Min(p => p.BeatsPerMinute);
+        _max = points.Max(p => p.BeatsPerMinute);
+        _low = (int)Math.Floor((_min - 5) / 20) * 20;
+        _high = (int)Math.Ceiling((_max + 5) / 20) * 20;
+        _yTicks = [.. Enumerable.Range(0, (_high - _low) / 20 + 1).Select(i => _low + i * 20)];
+        var step = _minutes <= 10 ? 2 : _minutes <= 30 ? 5 : _minutes <= 90 ? 15 : 30;
+        _xTicks = [.. Enumerable.Range(0, (int)(_minutes / step) + 1).Select(i => i * step)];
+
+        // Measured samples only, split wherever the API reports a gap between two consecutive samples.
+        _segments = [];
+        var current = new List<HeartRatePointItem>();
+        HeartRatePointItem? previous = null;
+        foreach (var p in points.Where(p => p.Kind != "self-reported"))
+        {
+            if (previous is not null && HeartRate.Gaps.Any(g => g.From >= previous.Timestamp && g.From < p.Timestamp))
+            {
+                _segments.Add(current);
+                current = [];
+            }
+
+            current.Add(p);
+            previous = p;
+        }
+
+        if (current.Count > 0)
+        {
+            _segments.Add(current);
+        }
+    }
+
+    private double X(HeartRatePointItem p) => X((p.Timestamp - _start).TotalMinutes);
+
+    private double X(double minutes) => Left + (Width - Left - Right) * minutes / _minutes;
+
+    private double Y(double bpm) => Top + (Height - Top - Bottom) * (_high - bpm) / Math.Max(1, _high - _low);
+
+    private static string F(double value) => value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Bpm(double value) => Math.Round(value).ToString(System.Globalization.CultureInfo.InvariantCulture);
+}

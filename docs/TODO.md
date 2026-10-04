@@ -72,7 +72,7 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [x] Web dashboard foundation (Blazor): sign-in with 2FA, token refresh, organization switcher, platform admin console (RF-50), organization members and audit, trainer dashboard, contract tests.
 - [x] Back office (separate Blazor app for operators) with the platform admin console and billing; shared `MyHealth.Web.Common` library.
 - [x] Web: trainer workflow — clients (invite), plan editor (sessions, exercises, sets, aerobic), publishing with change description, version history, copy, end, review acknowledgement, exercise library, workouts with feedback replies ([TRAINER_WORKSPACE_PHASES.md](TRAINER_WORKSPACE_PHASES.md) phase 1).
-- [ ] Web: trainer heart-rate views; plan templates without a client; drag and drop in the editor.
+- [ ] Web: plan templates without a client; drag and drop in the editor (trainer heart-rate views are done).
 - [x] Web: dietitian workflow, phase 1 (patients, assessments, meal plan editor, food diary with comments; [NUTRITION_WORKSPACE_PHASES.md](NUTRITION_WORKSPACE_PHASES.md)).
 - [ ] Web: dietitian phases 2–4 (templates and copy, adherence view, RF-31/32, photos) and therapist workflow (services, schedule, session record, consent status, care plans).
 - [ ] Web: invitation flows (clients and organizations), professional profile and onboarding, QR code for 2FA setup.

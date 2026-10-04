@@ -439,3 +439,20 @@ public static class NutritionLabels
 public sealed record PaymentReviewItem(
     Guid Id, string Provider, string ProviderEventId, string? ProviderPaymentId, Guid? InvoiceId, Guid? TenantId, string? TenantName, long? InvoiceTotalCents,
     string? InvoiceStatus, long? AmountCents, DateTimeOffset ReceivedAt, DateTimeOffset? ReviewedAt, Guid? ReviewedBy, string? ReviewNote);
+
+// Heart rate shared by a client (HeartRate grant) through a care relationship.
+
+public sealed record HeartRateSummaryItem(
+    int SampleCount, int SelfReportedSampleCount, double AverageBeatsPerMinute, double? TimeWeightedAverageBeatsPerMinute, double MaximumBeatsPerMinute,
+    double MinimumBeatsPerMinute, DateTimeOffset FirstSampleAt, DateTimeOffset LastSampleAt);
+
+public sealed record SharedHeartRateSessionItem(
+    Guid SessionId, string PlannedSessionName, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, bool IsFinalized, HeartRateSummaryItem? Summary);
+
+public sealed record HeartRatePointItem(DateTimeOffset Timestamp, double BeatsPerMinute, string SourceName, string? DeviceName, string Kind);
+
+public sealed record HeartRateGapItem(DateTimeOffset From, DateTimeOffset To);
+
+public sealed record WorkoutHeartRateItem(
+    Guid SessionId, string DataKind, string Provider, bool IsFinalized, HeartRateSummaryItem? Summary, IReadOnlyList<string> Sources,
+    IReadOnlyList<HeartRatePointItem> Points, IReadOnlyList<HeartRateGapItem> Gaps);

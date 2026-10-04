@@ -152,6 +152,32 @@ public sealed class WebDashboardTests(AppFixture app) : BrowserTest(app)
     }
 
     [Fact]
+    public async Task The_trainer_sees_the_heart_rate_a_client_shares()
+    {
+        await SignInAsync(App.Web, AppFixture.Trainer);
+        await OpenAsync(App.Web, "trainer", "Clientes");
+        await Link("Ana Souza").ClickAsync();
+        await WaitForPageAsync("Ana Souza");
+
+        await ExpectTextAsync("Frequência cardíaca");
+        await Button("Ver gráfico").First.ClickAsync();
+        var chart = Page.Locator("figure svg[role=img]");
+        await Assertions.Expect(chart).ToBeVisibleAsync();
+        await Assertions.Expect(chart.Locator("polyline")).ToHaveCountAsync(2); // The 3-minute gap breaks the line.
+        await ExpectTextAsync("informado pelo cliente");
+        await ExpectTextAsync("1 trecho sem medição (linha interrompida)");
+        await Page.Locator("figure").ScreenshotAsync(new() { Path = Path.Combine(AppContext.BaseDirectory, "TestResults", "heart-rate-chart.png") });
+        await AssertHealthyAsync();
+
+        // Bruno does not share his heart rate.
+        await OpenAsync(App.Web, "trainer", "Clientes");
+        await Link("Bruno Lima").ClickAsync();
+        await WaitForPageAsync("Bruno Lima");
+        await ExpectTextAsync("O cliente não compartilha a frequência cardíaca com você.");
+        await AssertHealthyAsync();
+    }
+
+    [Fact]
     public async Task The_trainer_answers_a_discomfort_report()
     {
         await SignInAsync(App.Web, AppFixture.Trainer);

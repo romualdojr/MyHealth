@@ -194,6 +194,11 @@ else
             </table>
         </div>
     }
+
+    @if (_client is { } heartRateClient)
+    {
+        <HeartRatePanel RelationshipId="heartRateClient.RelationshipId" />
+    }
 }
 
 @code {

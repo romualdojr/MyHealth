@@ -1,0 +1,88 @@
+@* Heart rate the client shares from Apple Health (RF-41/RF-43), on the trainer's client page. Only with the client's
+   HeartRate grant; every read is audited by the API. The chart never implies continuous measurement: the line breaks
+   at gaps, and self-reported values are marked apart from measured ones. *@
+@inject MyHealthApiClient Api
+
+<h2 class="@($"{Ui.SectionTitle} mt-6 mb-3")">Frequência cardíaca</h2>
+
+@if (_notShared)
+{
+    <p class="@Ui.Help">O cliente não compartilha a frequência cardíaca com você. Ele pode ativar isso nas configurações de compartilhamento do aplicativo.</p>
+}
+else if (_sessions is null)
+{
+    <ProblemAlert Problem="_problem" />
+    @if (_problem is null)
+    {
+        <Loading />
+    }
+}
+else if (_sessions.Count == 0)
+{
+    <p class="@Ui.Help">Nenhum treino com frequência cardíaca ainda.</p>
+}
+else
+{
+    <ProblemAlert Problem="_problem" />
+    <div class="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white shadow-sm">
+        @foreach (var s in _sessions)
+        {
+            var open = _open?.SessionId == s.SessionId;
+            <div class="px-4 py-3">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span class="font-semibold text-slate-900">@s.PlannedSessionName</span>
+                    <span class="text-sm text-slate-500">@((s.CompletedAt ?? s.StartedAt).ToLocalTime().ToString("dd/MM HH:mm"))</span>
+                    @if (!s.IsFinalized)
+                    {
+                        <span class="@Ui.BadgeNeutral">sincronizando</span>
+                    }
+                    <span class="grow"></span>
+                    @if (s.Summary is { } sum)
+                    {
+                        <span class="text-sm text-slate-700">média <strong class="font-semibold">@Bpm(sum.TimeWeightedAverageBeatsPerMinute ?? sum.AverageBeatsPerMinute)</strong> · máx. @Bpm(sum.MaximumBeatsPerMinute) bpm</span>
+                    }
+                    <button class="@($"{Ui.ButtonSecondarySm} w-full sm:w-auto")" aria-expanded="@(open ? "true" : "false")" @onclick="() => ToggleAsync(s.SessionId)">@(open ? "Fechar" : "Ver gráfico")</button>
+                </div>
+                @if (open && _open is { } detail)
+                {
+                    <HeartRateChart HeartRate="detail" />
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>The trainer's relationship with the client.</summary>
+    [Parameter, EditorRequired]
+    public Guid RelationshipId { get; set; }
+
+    private List<SharedHeartRateSessionItem>? _sessions;
+    private WorkoutHeartRateItem? _open;
+    private ApiProblem? _problem;
+    private bool _notShared;
+
+    private static string Bpm(double value) => Math.Round(value).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _open = null;
+        var result = await Api.GetAsync<List<SharedHeartRateSessionItem>>($"care-relationships/{RelationshipId}/heart-rate/sessions");
+        _notShared = result.Problem?.Code == "CareRelationship.SharingNotGranted";
+        _sessions = result.Value;
+        _problem = _notShared ? null : result.Problem;
+    }
+
+    private async Task ToggleAsync(Guid sessionId)
+    {
+        if (_open?.SessionId == sessionId)
+        {
+            _open = null;
+            return;
+        }
+
+        var result = await Api.GetAsync<WorkoutHeartRateItem>($"care-relationships/{RelationshipId}/heart-rate/sessions/{sessionId}");
+        _open = result.Value;
+        _problem = result.Problem;
+    }
+}

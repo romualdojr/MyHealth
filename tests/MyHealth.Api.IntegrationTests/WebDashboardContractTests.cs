@@ -342,6 +342,26 @@ public sealed class WebDashboardContractTests(ApiFactory factory) : IntegrationT
         (await api.PostAsync($"workout-sessions/{workoutId}/feedback-reply", new { message = "Vamos reduzir a carga do agachamento." }, ct: Ct)).Problem.ShouldBeNull();
         (await Ok(api.GetAsync<WorkoutSessionDetail>($"workout-sessions/{workoutId}", ct: Ct))).Reply.ShouldNotBeNull().Message.ShouldBe("Vamos reduzir a carga do agachamento.");
 
+        // Heart-rate panel: nothing without the client's grant (the page says so), then the workout's samples and gaps.
+        var heartRateUrl = $"care-relationships/{relationships[ana.Id]}/heart-rate/sessions";
+        (await api.GetAsync<List<SharedHeartRateSessionItem>>(heartRateUrl, ct: Ct)).Problem.ShouldNotBeNull().Code.ShouldBe("CareRelationship.SharingNotGranted");
+        await Scenario.EnsureSuccess(await ana.Http.PutAsync($"/api/v1/care-relationships/{relationships[ana.Id]}/sharing/HeartRate", null, Ct));
+        await Scenario.EnsureSuccess(await ana.Http.PostAsync("/api/v1/me/health-connections/apple-health/connect", null, Ct));
+        var workoutStart = detail.StartedAt;
+        await Scenario.EnsureSuccess(await ana.Http.PutAsJsonAsync($"/api/v1/workout-sessions/{workoutId}/heart-rate", new
+        {
+            startedAt = workoutStart, endedAt = detail.CompletedAt,
+            points = new[]
+            {
+                new { healthKitId = Guid.NewGuid(), timestamp = workoutStart.AddSeconds(10), beatsPerMinute = 110.0, sourceName = "Apple Watch", wasUserEntered = false },
+                new { healthKitId = Guid.NewGuid(), timestamp = workoutStart.AddSeconds(40), beatsPerMinute = 130.0, sourceName = "Apple Watch", wasUserEntered = false },
+            },
+        }, Ct));
+        var heartRateSession = (await Ok(api.GetAsync<List<SharedHeartRateSessionItem>>(heartRateUrl, ct: Ct))).ShouldHaveSingleItem();
+        (heartRateSession.SessionId, heartRateSession.Summary.ShouldNotBeNull().MaximumBeatsPerMinute).ShouldBe((workoutId, 130.0));
+        var heartRate = await Ok(api.GetAsync<WorkoutHeartRateItem>($"{heartRateUrl}/{workoutId}", ct: Ct));
+        (heartRate.DataKind, heartRate.Points.Count, heartRate.Points[0].Kind).ShouldBe(("measured", 2, "measured"));
+
         // AI coach panel: the client allows AI analysis; after the discomfort report the coach proposes a conversation, not a progression.
         (await Ok(api.GetAsync<CoachOverview>($"training-plans/{planId}/coach", ct: Ct))).SharingGranted.ShouldBeFalse();
         await Scenario.EnsureSuccess(await ana.Http.PutAsync($"/api/v1/care-relationships/{relationships[ana.Id]}/sharing/AiCoaching", null, Ct));

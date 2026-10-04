@@ -9,6 +9,7 @@ using MyHealth.Application.Abstractions.Messaging;
 using MyHealth.Application.Assessments;
 using MyHealth.Application.CareRelationships;
 using MyHealth.Application.Exercises;
+using MyHealth.Application.HealthData;
 using MyHealth.Application.Nutrition;
 using MyHealth.Application.Professionals;
 using MyHealth.Application.Tenants;
@@ -94,7 +95,7 @@ public sealed class DevelopmentSeeder(IServiceProvider services, IConfiguration 
         // Clients: Ana and Bruno accepted and share their training; Carla's invitation is pending.
         var anaLink = await RunAsync(trainer, tenant, new InviteClientCommand(Discipline.PersonalTrainer, ana.Email));
         await RunAsync(ana, null, new RespondToInvitationCommand(anaLink, InvitationResponse.Accept));
-        foreach (var category in new[] { DataCategory.WorkoutSummary, DataCategory.Wellbeing, DataCategory.AiCoaching })
+        foreach (var category in new[] { DataCategory.WorkoutSummary, DataCategory.Wellbeing, DataCategory.AiCoaching, DataCategory.HeartRate })
         {
             await RunAsync(ana, null, new ChangeDataSharingCommand(anaLink, category, Shared: true));
         }
@@ -126,7 +127,12 @@ public sealed class DevelopmentSeeder(IServiceProvider services, IConfiguration 
         await WorkoutAsync(ana, anaPlan, "Treino B", daysAgo: 10, exertion: 7, atTop: false, cancellationToken: cancellationToken);
         var anaRecent = await WorkoutAsync(ana, anaPlan, "Treino A", daysAgo: 7, exertion: 6, atTop: true, comments: "Senti que dava para mais carga.", cancellationToken: cancellationToken);
         await WorkoutAsync(ana, anaPlan, "Treino B", daysAgo: 5, exertion: 7, atTop: false, cancellationToken: cancellationToken);
-        await WorkoutAsync(ana, anaPlan, "Treino A", daysAgo: 2, exertion: 6, atTop: true, comments: "Fácil hoje!", cancellationToken: cancellationToken);
+        var anaLatest = await WorkoutAsync(ana, anaPlan, "Treino A", daysAgo: 2, exertion: 6, atTop: true, comments: "Fácil hoje!", cancellationToken: cancellationToken);
+
+        // Her Apple Watch heart rate for the last two workouts, shared with the trainer.
+        await RunAsync(ana, null, new ChangeHealthConnectionCommand(HealthConnectionAction.Connect));
+        await HeartRateAsync(ana, anaRecent, cancellationToken);
+        await HeartRateAsync(ana, anaLatest, cancellationToken);
         await RunAsync(trainer, tenant, new ReplyToFeedbackCommand(anaRecent, "Ótimo! Na próxima semana vamos aumentar a carga do agachamento."));
         for (var day = 1; day <= 5; day++)
         {
@@ -337,6 +343,38 @@ public sealed class DevelopmentSeeder(IServiceProvider services, IConfiguration 
         await RunAsync(client, null, new SaveFoodDiaryEntryCommand(
             Guid.CreateVersion7(), null, null, link, "Água", clock.GetUtcNow().AddDays(-1), TimeZone, null, 2000, null, null));
         await RunAsync(dietitian, tenant, new CommentOnFoodDiaryEntryCommand(commented, "Ótimo começo! Mantenha o café da manhã assim."));
+    }
+
+    /// <summary>
+    /// A sample every 30 seconds following the workout's sets (warm-up, effort, recovery), with a 3-minute gap where the
+    /// watch lost contact and one value the client typed in.
+    /// </summary>
+    private async Task HeartRateAsync(Account client, Guid workoutId, CancellationToken cancellationToken)
+    {
+        DateTimeOffset startedAt, endedAt;
+        await using (var scope = services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var session = await db.WorkoutSessions.AsNoTracking().SingleAsync(s => s.Id == workoutId, cancellationToken);
+            (startedAt, endedAt) = (session.StartedAt, session.CompletedAt!.Value);
+        }
+
+        var points = new List<HeartRatePointInput>();
+        var count = (int)((endedAt - startedAt).TotalSeconds / 30);
+        for (var i = 1; i < count; i++)
+        {
+            var minute = i / 2.0;
+            if (minute is > 14 and < 17)
+            {
+                continue;
+            }
+
+            var bpm = 88 + (40 * Math.Min(1, minute / 6)) + (18 * Math.Sin(minute / 1.6)) - (minute > count / 2.0 - 4 ? 25 : 0);
+            points.Add(new HeartRatePointInput(Guid.CreateVersion7(), startedAt.AddSeconds(i * 30), Math.Round(bpm), "Apple Watch", "Apple Watch Series 9"));
+        }
+
+        points.Add(new HeartRatePointInput(Guid.CreateVersion7(), startedAt.AddMinutes(15.5), 150, "MyHealth", null, WasUserEntered: true));
+        await RunAsync(client, null, new SyncWorkoutHeartRateCommand(workoutId, startedAt, endedAt, points));
     }
 
     private static PlannedSessionInput Strength(string name, params PlannedExerciseInput[] exercises) =>

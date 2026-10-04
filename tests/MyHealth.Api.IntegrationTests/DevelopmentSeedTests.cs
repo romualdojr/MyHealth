@@ -58,6 +58,11 @@ public sealed class DevelopmentSeedTests(ApiFactory factory) : IntegrationTest(f
         db.WorkoutSessions.Single(w => w.TenantId == tenant.TenantId && w.Feedback!.ReportedDiscomfort).Reply.ShouldBeNull();
         db.CareRelationships.Count(r => r.TenantId == tenant.TenantId).ShouldBe(4);
 
+        // Ana shares the heart rate of her last two workouts (measured, with a gap and one value she typed in).
+        var heartRates = db.WorkoutHeartRates.Where(h => h.TenantId == tenant.TenantId).ToList();
+        heartRates.Count.ShouldBe(2);
+        heartRates.ShouldAllBe(h => h.Summary != null && h.Summary.SampleCount > 40 && h.Summary.SelfReportedSampleCount == 1);
+
         // The dietitian's screens: Ana's assessment, published meal plan and diary (one entry commented).
         var mealPlan = db.MealPlans.Single(p => p.TenantId == tenant.TenantId);
         (mealPlan.Details.Name, mealPlan.CurrentVersionNumber).ShouldBe(("Reeducação alimentar", 1));
