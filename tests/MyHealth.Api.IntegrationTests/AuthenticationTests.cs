@@ -1,4 +1,6 @@
 using System.Net.Http.Headers;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using MyHealth.Api.IntegrationTests.Infrastructure;
 using MyHealth.Application.Users;
 
@@ -38,6 +40,22 @@ public sealed class AuthenticationTests(ApiFactory factory) : IntegrationTest(fa
         var me = await Scenario.Read<MeResponse>(await http.GetAsync("/api/v1/me", Ct));
         me.Email.ShouldBe(email);
         me.IsAdministrator.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task The_key_ring_that_protects_tokens_is_kept_in_the_database()
+    {
+        Scenario.Factory.EnsureAvailable();
+        using var http = Scenario.Factory.CreateClient();
+        var email = $"keys-{Guid.NewGuid():N}@test.local";
+        const string password = "Sup3r-Secret!";
+        await Scenario.EnsureSuccess(await http.PostAsJsonAsync("/api/v1/auth/register", new { email, password }, Ct));
+        await Scenario.EnsureSuccess(await http.PostAsJsonAsync("/api/v1/auth/login", new { email, password }, Ct));
+
+        // Not in the container's file system, where every deploy would drop it and sign everyone out.
+        await using var scope = Scenario.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<MyHealth.Infrastructure.Persistence.ApplicationDbContext>();
+        (await db.DataProtectionKeys.CountAsync(Ct)).ShouldBeGreaterThan(0);
     }
 
     [Fact]

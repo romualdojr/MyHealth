@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +27,7 @@ using MyHealth.Infrastructure.Identity;
 namespace MyHealth.Infrastructure.Persistence;
 
 public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
+    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options), IDataProtectionKeyContext
 {
     public const string IdentitySchema = "identity";
     public const string DefaultSchema = "myhealth";
@@ -108,6 +109,9 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<Notification> Notifications => Set<Notification>();
 
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+
+    /// <summary>The API's Data Protection key ring (sign-in tokens), so tokens survive deploys and restarts.</summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

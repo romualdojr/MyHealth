@@ -47,7 +47,7 @@ public static partial class SentryExtensions
                 : crumb);
 
             // Logs keep their template and parameters; a formatted message with an address is dropped rather than sent.
-            options.SetBeforeSendLog(log => Email().IsMatch(log.Message) ? null : log);
+            options.SetBeforeSendLog(log => Email().IsMatch(log.Message) || IsFirstMigrationCheck(null, log.Message) ? null : log);
         });
 
         return builder;
@@ -55,8 +55,13 @@ public static partial class SentryExtensions
 
     private static string? Dsn(IHostApplicationBuilder builder) => builder.Configuration["Sentry:Dsn"] ?? builder.Configuration["SENTRY_DSN"];
 
-    private static SentryEvent Scrub(SentryEvent sentryEvent)
+    private static SentryEvent? Scrub(SentryEvent sentryEvent)
     {
+        if (IsFirstMigrationCheck(sentryEvent.Logger, sentryEvent.Message?.Formatted ?? sentryEvent.Message?.Message))
+        {
+            return null;
+        }
+
         if (sentryEvent.Message is { } message)
         {
             message.Formatted = message.Formatted is null ? null : Mask(message.Formatted);
@@ -74,6 +79,15 @@ public static partial class SentryExtensions
         sentryEvent.Request.Cookies = null;
         return sentryEvent;
     }
+
+    /// <summary>
+    /// On a new database EF Core reads the migrations history before the table exists and logs that query as an error,
+    /// then creates it and migrates: expected once, not a problem.
+    /// </summary>
+    private static bool IsFirstMigrationCheck(string? logger, string? message) =>
+        message?.Contains("__ef_migrations_history", StringComparison.Ordinal) == true
+        && message.Contains("SELECT migration_id", StringComparison.Ordinal)
+        && logger is null or "Microsoft.EntityFrameworkCore.Database.Command";
 
     private static string Mask(string text) => Email().Replace(text, "[email]");
 

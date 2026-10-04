@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -269,6 +270,12 @@ public static class DependencyInjection
             })
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<ApplicationDbContext>();
+
+        // Sign-in and refresh tokens are protected with this key ring: kept in the database (not in the container), so
+        // they survive deploys, restarts and more than one instance.
+        services.AddDataProtection()
+            .SetApplicationName("MyHealth.ApiService")
+            .PersistKeysToDbContext<ApplicationDbContext>();
 
         return builder;
     }

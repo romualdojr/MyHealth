@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
@@ -71,10 +72,17 @@ public static class Extensions
                     )
                     // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
                     //.AddGrpcClientInstrumentation()
-                    .AddHttpClientInstrumentation()
+                    // Not the telemetry uploads themselves (Sentry's envelopes and OTLP exports).
+                    .AddHttpClientInstrumentation(http => http.FilterHttpRequestMessage = request =>
+                        request.RequestUri?.Host.EndsWith(".sentry.io", StringComparison.OrdinalIgnoreCase) != true)
 
                     // Database spans (the Aspire PostgreSQL integration registers the source too; adding it twice is harmless).
-                    .AddSource("Npgsql");
+                    .AddSource("Npgsql")
+
+                    // Background workers poll the database every few seconds; those queries alone would be most of the
+                    // traces. Calls made while handling a request are kept with it (parent-based); requests are sampled at
+                    // Sentry:TracesSampleRate (default: all).
+                    .SetSampler(new ParentBasedSampler(new RequestRootSampler(builder.Configuration.GetValue("Sentry:TracesSampleRate", 1.0))));
 
                 // Traces also go to Sentry when it is configured (SentryExtensions).
                 if (builder.SentryDsn() is { } dsn)
