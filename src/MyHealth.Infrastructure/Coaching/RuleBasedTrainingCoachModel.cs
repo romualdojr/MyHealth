@@ -58,6 +58,7 @@ internal sealed class RuleBasedTrainingCoachModel : ITrainingCoachModel
             var lastTwo = history.Workouts.Take(2).ToList();
             var load = planned.Sets.Max(s => s.SuggestedLoadKg);
             var dates = string.Join(" e ", lastTwo.Select(x => x.Date.ToString("dd/MM", Brazil)));
+            var before = calls.Count;
 
             if (lastTwo.All(x => ReachedTop(x, planned)) && !poorRecovery && !context.HasRecentDiscomfort)
             {
@@ -82,7 +83,10 @@ internal sealed class RuleBasedTrainingCoachModel : ITrainingCoachModel
                     }));
                 }
 
-                findings.Add($"{planned.Name}: pronto para progredir.");
+                if (calls.Count > before)
+                {
+                    findings.Add($"{planned.Name}: pronto para progredir.");
+                }
             }
             else if (lastTwo.All(x => FellShort(x, planned)))
             {
@@ -106,7 +110,10 @@ internal sealed class RuleBasedTrainingCoachModel : ITrainingCoachModel
                     }));
                 }
 
-                findings.Add($"{planned.Name}: está difícil demais no momento.");
+                if (calls.Count > before)
+                {
+                    findings.Add($"{planned.Name}: está difícil demais no momento.");
+                }
             }
         }
 

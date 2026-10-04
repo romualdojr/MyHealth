@@ -110,6 +110,7 @@ public sealed class WebDashboardTests(AppFixture app) : BrowserTest(app)
 
         await Button("+ Treino de musculação").First.ClickAsync();
         await Page.Locator("#picker-search").FillAsync("Supino");
+        await Assertions.Expect(Button("Adicionar")).ToHaveCountAsync(1); // The search (debounced) narrowed the list.
         await Button("Adicionar").First.ClickAsync();
         await ExpectTextAsync("Supino reto adicionado a Treino A.");
 
@@ -119,6 +120,34 @@ public sealed class WebDashboardTests(AppFixture app) : BrowserTest(app)
         await Assertions.Expect(Page.Locator("#change-description")).ToHaveValueAsync("Primeira versão do plano");
         await Button("Publicar agora").ClickAsync();
         await ExpectTextAsync("Versão 1 publicada");
+        await AssertHealthyAsync();
+    }
+
+    [Fact]
+    public async Task The_assistant_shows_every_student_summarizes_them_and_suggests_how_to_evolve_exercises()
+    {
+        await SignInAsync(App.Web, AppFixture.Trainer);
+        await Page.Locator("nav").GetByRole(AriaRole.Link, new() { Name = "Assistente IA", Exact = true }).ClickAsync();
+        await WaitForPageAsync("Assistente IA");
+
+        // Every student, with summaries; Bruno has not allowed AI analysis.
+        await ExpectTextAsync("Ana Souza");
+        await ExpectTextAsync("Força — fase 1 · v");
+        await Assertions.Expect(Page.GetByRole(AriaRole.Button).Filter(new() { HasText = "Bruno Lima" })).ToBeDisabledAsync();
+        await ExpectTextAsync("sem IA");
+
+        // A summary of everyone comes back with real names.
+        await Button("Resumo da semana de todos").ClickAsync();
+        await Assertions.Expect(Page.Locator("section[aria-label='Conversa com o assistente']")).ToContainTextAsync("Ana Souza");
+        await ExpectTextAsync("não autorizaram a análise por IA");
+
+        // Focused on Ana: a suggestion to evolve her squat, applied to her plan's draft.
+        await Page.GetByRole(AriaRole.Button).Filter(new() { HasText = "Ana Souza" }).First.ClickAsync();
+        await ExpectTextAsync("Conversando sobre");
+        await Button("Como evoluir os exercícios de Ana Souza?").ClickAsync();
+        await ExpectTextAsync("Ajustar carga — Agachamento livre");
+        await Button("Aplicar ao rascunho").First.ClickAsync();
+        await ExpectTextAsync("aplicada");
         await AssertHealthyAsync();
     }
 
@@ -151,7 +180,7 @@ public sealed class WebDashboardTests(AppFixture app) : BrowserTest(app)
         await Button("Salvar").ClickAsync();
         await ExpectTextAsync("Afundo com halteres");
 
-        await Button("Vídeo 3D").First.ClickAsync();
+        await Page.Locator("tr").Filter(new() { HasText = "Afundo com halteres" }).GetByRole(AriaRole.Button, new() { Name = "Vídeo 3D" }).ClickAsync();
         await ExpectTextAsync("Vídeo 3D — Afundo com halteres");
         await ExpectTextAsync("nunca clientes");
         await AssertHealthyAsync();

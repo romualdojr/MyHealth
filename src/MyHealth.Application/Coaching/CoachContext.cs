@@ -145,7 +145,7 @@ public sealed class CoachContextBuilder(IReadDbContext db, TimeProvider clock)
         var perWeek = Enumerable.Range(0, 4)
             .Select(week => completedDates.Count(d => d > today.AddDays(-7 * (week + 1)) && d <= today.AddDays(-7 * week)))
             .ToList();
-        var adherence = new CoachAdherence(perWeek.Sum(), plan.Details.SuggestedSessionsPerWeek * 4, perWeek);
+        var adherence = new CoachAdherence(perWeek.Sum(), ExpectedSessions(plan.Details, today), perWeek);
 
         CoachWellbeing? wellbeing = null;
         if (includeWellbeing)
@@ -191,6 +191,16 @@ public sealed class CoachContextBuilder(IReadDbContext db, TimeProvider clock)
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Sessions the plan asked for in the last 28 days: the weekly frequency over the days the plan has been running in that
+    /// window, so a plan that started last week is not counted as four weeks of missed workouts.
+    /// </summary>
+    public static int ExpectedSessions(PlanDetails details, DateOnly today)
+    {
+        var days = Math.Clamp(today.DayNumber - details.StartDate.DayNumber + 1, 0, 28);
+        return (int)Math.Round(details.SuggestedSessionsPerWeek * days / 7.0, MidpointRounding.AwayFromZero);
     }
 
     private static double? Average(IEnumerable<int?> values)

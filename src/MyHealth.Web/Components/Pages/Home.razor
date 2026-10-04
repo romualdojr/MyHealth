@@ -15,7 +15,7 @@
 {
     <div class="@($"{Ui.AlertWarning} mb-4")">
         Profissionais e operadores precisam da verificação em duas etapas para acessar dados de organizações e a administração.
-        <a href="account/security" class="font-semibold underline underline-offset-2 hover:no-underline">Ativar agora</a>.
+        <a href="account/security" class="inline-flex min-h-11 items-center font-semibold underline underline-offset-2 hover:no-underline sm:min-h-0">Ativar agora</a>.
     </div>
 }
 
@@ -46,8 +46,8 @@ else
                 <ul class="divide-y divide-slate-100">
                     @foreach (var profile in Workspace.Me.ProfessionalProfiles)
                     {
-                        <li class="flex items-center justify-between gap-2 py-2 text-sm text-slate-700">
-                            <span>@Labels.Discipline(profile.Discipline) — @profile.DisplayName</span>
+                        <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm text-slate-700">
+                            <span class="min-w-0 break-words">@Labels.Discipline(profile.Discipline) — @profile.DisplayName</span>
                             <StatusBadge Status="@profile.VerificationStatus" />
                         </li>
                     }
@@ -64,8 +64,8 @@ else
                 <ul class="divide-y divide-slate-100">
                     @foreach (var membership in Workspace.Me.Memberships)
                     {
-                        <li class="py-2">
-                            <button class="cursor-pointer text-sm text-teal-700 hover:text-teal-900 hover:underline @(membership.TenantId == Workspace.Membership?.TenantId ? "font-bold" : "font-medium")"
+                        <li class="flex flex-wrap items-center gap-x-2 py-1">
+                            <button class="inline-flex min-h-11 cursor-pointer items-center text-left text-base text-teal-700 sm:min-h-8 sm:text-sm hover:text-teal-900 hover:underline @(membership.TenantId == Workspace.Membership?.TenantId ? "font-bold" : "font-medium")"
                                     @onclick="() => Workspace.SelectTenantAsync(membership.TenantId)">
                                 @membership.TenantName
                             </button>

@@ -3,7 +3,15 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    @* Installable app (PWA) and the iPhone home screen. *@
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="MyHealth" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
     <base href="/" />
     @* Tailwind CSS, built from MyHealth.Web.Common/Styles/tailwind.css: the only stylesheet. *@
     <link rel="stylesheet" href="@Assets["_content/MyHealth.Web.Common/css/app.css"]" />

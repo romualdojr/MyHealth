@@ -239,7 +239,7 @@ internal static class CoachMapping
         new(analysis.Id, analysis.TrainingPlanId, analysis.PlanVersionNumber, analysis.Model, analysis.Focus, analysis.Summary, analysis.Notices,
             [.. analysis.Suggestions.Select(ToResponse)], analysis.CreatedAt);
 
-    private static CoachSuggestionResponse ToResponse(CoachSuggestion s) =>
+    public static CoachSuggestionResponse ToResponse(CoachSuggestion s) =>
         new(s.Id, s.Kind, s.PlannedExerciseId, s.ExerciseName, Title(s), Change(s), s.Reason, s.LoadKg, s.Sets, s.MinRepetitions, s.MaxRepetitions,
             s.RestSeconds, s.ReplacementExerciseId, s.Instruction, s.Status, s.ResolvedAt);
 

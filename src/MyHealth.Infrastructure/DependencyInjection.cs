@@ -12,6 +12,7 @@ using MyHealth.Application.Abstractions.Data;
 using MyHealth.Application.Abstractions.Media;
 using MyHealth.Application.Abstractions.MotionCapture;
 using MyHealth.Application.Abstractions.Payments;
+using MyHealth.Application.Abstractions.TrainerAssistant;
 using MyHealth.Application.Abstractions.WhatsApp;
 using MyHealth.Domain.Abstractions;
 using MyHealth.Domain.Assessments;
@@ -144,6 +145,26 @@ public static class DependencyInjection
         else
         {
             services.AddSingleton<ITrainingCoachModel, RuleBasedTrainingCoachModel>();
+        }
+
+        // Trainer's chat: rule-based unless Claude is configured (TrainerAssistant:Provider=Anthropic).
+        if (string.Equals(builder.Configuration["TrainerAssistant:Provider"], "Anthropic", StringComparison.OrdinalIgnoreCase))
+        {
+            var apiKey = builder.Configuration["TrainerAssistant:Anthropic:ApiKey"] ?? builder.Configuration["Coach:Anthropic:ApiKey"]
+                         ?? builder.Configuration["Assistant:Anthropic:ApiKey"]
+                         ?? throw new InvalidOperationException("TrainerAssistant:Provider is Anthropic but no Anthropic API key is set.");
+            services.AddHttpClient<AnthropicTrainerAssistantModel>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.anthropic.com/");
+                client.DefaultRequestHeaders.Add("x-api-key", apiKey);
+                client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+                client.Timeout = TimeSpan.FromSeconds(60);
+            });
+            services.AddScoped<ITrainerAssistantModel>(sp => sp.GetRequiredService<AnthropicTrainerAssistantModel>());
+        }
+        else
+        {
+            services.AddSingleton<ITrainerAssistantModel, RuleBasedTrainerAssistantModel>();
         }
 
         // Media storage (RF-27): local disk for development; production swaps in a bucket behind the CDN.

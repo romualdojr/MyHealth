@@ -1,0 +1,356 @@
+@page "/trainer/assistant"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+
+<PageTitle>Assistente IA · MyHealth</PageTitle>
+
+<div class="mb-4 flex flex-wrap items-end justify-between gap-2">
+    <div>
+        <h1 class="@Ui.PageTitle">Assistente IA</h1>
+        <p class="@($"{Ui.Help} mt-1")">
+            Resumos dos seus alunos e sugestões para evoluir os exercícios de cada um. Você decide: nada muda até aplicar e publicar o plano.
+        </p>
+    </div>
+</div>
+
+@if (!Workspace.Practices("PersonalTrainer"))
+{
+    <p class="@Ui.AlertInfo">Selecione uma organização em que você atua como personal trainer.</p>
+}
+else
+{
+    <ProblemAlert Problem="_problem" />
+
+    <div class="grid grid-cols-12 gap-3 lg:gap-6">
+        @* Every student at a glance (from lg up): computed from the records, no AI. *@
+        <aside class="col-span-12 hidden lg:col-span-4 lg:block" aria-label="Alunos">
+            <div class="mb-2 flex items-center justify-between">
+                <h2 class="@Ui.SectionTitle">Alunos</h2>
+                @if (_overview is not null)
+                {
+                    <span class="text-xs text-slate-500">@_overview.Students.Count(s => s.AiConsent) de @_overview.Students.Count com IA autorizada</span>
+                }
+            </div>
+
+            @if (_overview is null)
+            {
+                <Loading />
+            }
+            else if (_overview.Students.Count == 0)
+            {
+                <div class="@Ui.EmptyState">Nenhum aluno com vínculo ativo ainda.</div>
+            }
+            else
+            {
+                <div class="flex flex-col gap-2">
+                    <button class="@($"{Card(_focus is null)} px-4 py-3 text-left")" @onclick="() => Focus(null)" aria-pressed="@(_focus is null ? "true" : "false")">
+                        <span class="font-semibold text-slate-900">Todos os alunos</span>
+                        <span class="block text-xs text-slate-500">Visão geral e prioridades da semana</span>
+                    </button>
+
+                    @foreach (var s in _overview.Students)
+                    {
+                        <button class="@($"{Card(_focus?.ClientId == s.ClientId)} px-4 py-3 text-left disabled:cursor-not-allowed disabled:opacity-60")"
+                                disabled="@(!s.AiConsent)" @onclick="() => Focus(s)" aria-pressed="@(_focus?.ClientId == s.ClientId ? "true" : "false")">
+                            <span class="flex items-center justify-between gap-2">
+                                <span class="font-semibold text-slate-900">@s.Name</span>
+                                @if (!s.AiConsent)
+                                {
+                                    <span class="@Ui.BadgeNeutral" title="O aluno pode autorizar em Compartilhamento › Análise por IA no aplicativo">sem IA</span>
+                                }
+                                else if (s.RecentDiscomfort)
+                                {
+                                    <span class="@Ui.BadgeDanger">desconforto</span>
+                                }
+                            </span>
+                            <span class="mt-1 block text-xs text-slate-500">@PlanLine(s)</span>
+                            @StudentStats(s)
+                        </button>
+                    }
+                </div>
+            }
+        </aside>
+
+        @* Phones and tablets: the students as a row of chips that scrolls sideways, so the chat stays in view. *@
+        <div class="col-span-12 min-w-0 lg:hidden" role="group" aria-label="Escolher aluno">
+            @if (_overview is null)
+            {
+                <Loading />
+            }
+            else if (_overview.Students.Count == 0)
+            {
+                <p class="@Ui.Help">Nenhum aluno com vínculo ativo ainda.</p>
+            }
+            else
+            {
+                <div class="@Ui.ChipRow">
+                    <button class="@Ui.Chip" aria-pressed="@(_focus is null ? "true" : "false")" @onclick="() => Focus(null)">Todos os alunos</button>
+                    @foreach (var s in _overview.Students)
+                    {
+                        <button class="@($"{Ui.Chip} gap-2 disabled:cursor-not-allowed")" disabled="@(!s.AiConsent)" @onclick="() => Focus(s)"
+                                aria-pressed="@(_focus?.ClientId == s.ClientId ? "true" : "false")">
+                            @s.Name
+                            @if (!s.AiConsent)
+                            {
+                                <span class="@Ui.BadgeNeutral">sem IA</span>
+                            }
+                            else if (s.RecentDiscomfort)
+                            {
+                                <span class="size-2 rounded-full bg-red-500" aria-hidden="true"></span><span class="sr-only">desconforto recente</span>
+                            }
+                        </button>
+                    }
+                </div>
+                <p class="mt-1 text-xs text-slate-500">@_overview.Students.Count(s => s.AiConsent) de @_overview.Students.Count com IA autorizada</p>
+
+                @if (_focus is { } focused)
+                {
+                    <div class="@($"{Ui.Card} mt-2 px-4 py-3 text-sm")">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="min-w-0 truncate text-slate-700">@PlanLine(focused)</span>
+                            @if (focused.RecentDiscomfort)
+                            {
+                                <span class="@Ui.BadgeDanger">desconforto</span>
+                            }
+                        </div>
+                        @StudentStats(focused)
+                    </div>
+                }
+            }
+        </div>
+
+        @* The chat. *@
+        <section class="@($"{Ui.Card} col-span-12 flex min-h-[calc(100dvh-16rem)] flex-col lg:col-span-8 lg:min-h-[32rem]")" aria-label="Conversa com o assistente">
+            <div class="@Ui.CardHeader">
+                <span class="text-sm text-slate-500">Conversando sobre</span>
+                <span class="font-semibold text-slate-900">@(_focus?.Name ?? "todos os alunos")</span>
+                @if (_focus is { PlanId: { } planId })
+                {
+                    <a class="@($"{Ui.TapLink} ml-auto text-sm")" href="trainer/plans/@planId">Abrir plano</a>
+                }
+            </div>
+
+            <div class="flex-1 space-y-4 overflow-y-auto p-3 sm:p-4" aria-live="polite">
+                @if (_messages.Count == 0)
+                {
+                    <div class="py-8 text-center text-sm text-slate-500">
+                        <p class="mb-3">Pergunte sobre seus alunos ou comece por uma sugestão:</p>
+                    </div>
+                }
+
+                @foreach (var m in _messages)
+                {
+                    @if (m.FromTrainer)
+                    {
+                        <div class="flex justify-end">
+                            <div class="max-w-[88%] break-words rounded-2xl rounded-br-sm bg-teal-700 px-4 py-2 text-sm whitespace-pre-line text-white">@m.Text</div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="flex justify-start">
+                            <div class="max-w-[88%] min-w-0 space-y-3">
+                                <div class="break-words rounded-2xl rounded-bl-sm border border-slate-200 bg-slate-50 px-4 py-3 text-sm whitespace-pre-line text-slate-800">@m.Text</div>
+                                @foreach (var card in m.Suggestions)
+                                {
+                                    var s = card.Suggestion;
+                                    <div class="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm @(s.Status == "Pending" ? string.Empty : "opacity-75")">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="@Ui.BadgePrimary">@card.ClientName</span>
+                                            <span class="font-semibold text-slate-900">@s.Title</span>
+                                        </div>
+                                        @if (s.Change is { } change)
+                                        {
+                                            <div class="mt-1 text-slate-800">@change</div>
+                                        }
+                                        <div class="mt-1 text-slate-500">@s.Reason</div>
+                                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                                            @if (s.Status == "Pending")
+                                            {
+                                                <button class="@Ui.ButtonOutlineSm" disabled="@_busy" @onclick="() => ResolveAsync(card, apply: true)">
+                                                    @(s.Kind == "TalkToClient" ? "Feito" : "Aplicar ao rascunho")
+                                                </button>
+                                                <button class="@Ui.ButtonLinkSm" disabled="@_busy" @onclick="() => ResolveAsync(card, apply: false)">Dispensar</button>
+                                            }
+                                            else
+                                            {
+                                                <span class="@(s.Status == "Applied" ? Ui.BadgeSuccess : Ui.BadgeNeutral)">@(s.Status == "Applied" ? "aplicada" : "dispensada")</span>
+                                            }
+                                            <a class="@($"{Ui.TapLink} ml-auto text-xs")" href="trainer/plans/@card.PlanId">@card.PlanName</a>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+
+                @if (_busy)
+                {
+                    <div class="flex items-center gap-2 text-sm text-slate-500" role="status">
+                        <span class="size-4 animate-spin rounded-full border-2 border-slate-300 border-t-teal-600" aria-hidden="true"></span>
+                        Pensando…
+                    </div>
+                }
+            </div>
+
+            @* On phones the composer sticks above the bottom tab bar while the conversation scrolls. *@
+            <div class="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-10 border-t border-slate-200 bg-white/95 p-4 backdrop-blur lg:static lg:bg-white lg:backdrop-blur-none">
+                <div class="@($"{Ui.ChipRow} mb-3")">
+                    @foreach (var prompt in QuickPrompts)
+                    {
+                        <button class="@Ui.Chip" disabled="@_busy" @onclick="() => SendAsync(prompt)">@prompt</button>
+                    }
+                </div>
+                <form class="flex items-end gap-2" @onsubmit="() => SendAsync(_draft)" @onsubmit:preventDefault>
+                    <label class="sr-only" for="assistant-message">Mensagem para o assistente</label>
+                    <textarea id="assistant-message" class="@($"{Ui.Textarea} min-w-0 flex-1 resize-none sm:resize-y")" rows="2" maxlength="2000"
+                              placeholder="Ex.: Quem precisa de atenção esta semana?" @bind="_draft" @bind:event="oninput"></textarea>
+                    <button type="submit" class="@($"{Ui.Button} shrink-0")" disabled="@(_busy || string.IsNullOrWhiteSpace(_draft))">Enviar</button>
+                </form>
+            </div>
+            <div class="px-4 pb-4">
+                <p class="text-xs text-slate-400">
+                    Só alunos que autorizaram a análise por IA são enviados ao assistente, sem nome nem dados de contato.
+                    @if (_overview is not null)
+                    {
+                        <span>Modelo: @_overview.Model.</span>
+                    }
+                </p>
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery]
+    public Guid? ClientId { get; set; }
+
+    private sealed record Message(bool FromTrainer, string Text, List<TrainerChatSuggestionItem> Suggestions);
+
+    private TrainerAssistantOverviewItem? _overview;
+    private StudentSummaryItem? _focus;
+    private readonly List<Message> _messages = [];
+    private ApiProblem? _problem;
+    private string? _draft;
+    private bool _busy;
+
+    private IReadOnlyList<string> QuickPrompts => _focus is null
+        ? ["Resumo da semana de todos", "Quem precisa de atenção?", "Como evoluir os exercícios de cada aluno?"]
+        : [$"Resumo de {_focus.Name}", $"Como evoluir os exercícios de {_focus.Name}?"];
+
+    private static string PlanLine(StudentSummaryItem s) => s.PlanName is null ? "Sem plano ativo" : $"{s.PlanName} · v{s.PlanVersion}";
+
+    /// <summary>Adherence bar and last workout of a student with an active plan (inside a button, so spans only).</summary>
+    private static RenderFragment StudentStats(StudentSummaryItem s) => __builder =>
+    {
+        if (s.PlanName is not null)
+        {
+            var adherence = s.ExpectedLast28Days > 0 ? Math.Min(100, s.CompletedLast28Days * 100 / s.ExpectedLast28Days) : 0;
+            <span class="mt-2 flex items-center gap-2">
+                <span class="@Ui.ProgressTrack" role="progressbar" aria-label="Adesão em 4 semanas" aria-valuenow="@adherence" aria-valuemin="0" aria-valuemax="100">
+                    <span class="@($"{Ui.ProgressBar} block")" style="width: @(adherence)%"></span>
+                </span>
+                <span class="whitespace-nowrap text-xs text-slate-600">@s.CompletedLast28Days/@s.ExpectedLast28Days treinos</span>
+            </span>
+            <span class="mt-1 block text-xs text-slate-500">
+                @(s.LastWorkoutAt is { } last ? $"Último treino {last.ToLocalTime():dd/MM}" : "Nenhum treino em 4 semanas")@(s.AverageExertion14Days is { } rpe ? $" · esforço {rpe:0.#}/10" : string.Empty)@(s.PendingFeedback > 0 ? $" · {s.PendingFeedback} feedback(s) sem resposta" : string.Empty)
+            </span>
+        }
+    };
+
+    private static string Card(bool selected) =>
+        selected
+            ? "rounded-xl border border-teal-500 bg-teal-50 ring-1 ring-teal-200"
+            : "rounded-xl border border-slate-200 bg-white shadow-sm hover:border-teal-300";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadAsync();
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        _messages.Clear();
+        _focus = null;
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    private async Task LoadAsync()
+    {
+        if (!Workspace.Practices("PersonalTrainer"))
+        {
+            return;
+        }
+
+        var result = await Api.GetAsync<TrainerAssistantOverviewItem>("trainer/assistant");
+        _overview = result.Value;
+        _problem = result.Problem;
+        _focus ??= _overview?.Students.FirstOrDefault(s => s.ClientId == ClientId && s.AiConsent);
+    }
+
+    private void Focus(StudentSummaryItem? student)
+    {
+        _focus = student;
+        _messages.Clear();
+        _problem = null;
+    }
+
+    private async Task SendAsync(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || _busy)
+        {
+            return;
+        }
+
+        var history = _messages.TakeLast(10).Select(m => new ChatTurn(m.FromTrainer ? "user" : "assistant", m.Text)).ToList();
+        _messages.Add(new Message(true, text.Trim(), []));
+        _draft = null;
+        _busy = true;
+        _problem = null;
+        try
+        {
+            var result = await Api.PostAsync<TrainerAssistantReply>("trainer/assistant/messages", new { message = text.Trim(), history, clientId = _focus?.ClientId });
+            _problem = result.Problem;
+            if (result.Value is { } reply)
+            {
+                _messages.Add(new Message(false, reply.Reply, [.. reply.Suggestions]));
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ResolveAsync(TrainerChatSuggestionItem card, bool apply)
+    {
+        _busy = true;
+        try
+        {
+            var result = await Api.PostAsync<CoachAnalysisItem>($"coach-analyses/{card.AnalysisId}/suggestions/{card.Suggestion.Id}/{(apply ? "apply" : "dismiss")}", null);
+            _problem = result.Problem;
+            if (result.Value?.Suggestions.FirstOrDefault(s => s.Id == card.Suggestion.Id) is { } updated)
+            {
+                foreach (var message in _messages)
+                {
+                    var index = message.Suggestions.FindIndex(c => c.Suggestion.Id == card.Suggestion.Id);
+                    if (index >= 0)
+                    {
+                        message.Suggestions[index] = card with { Suggestion = updated };
+                    }
+                }
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

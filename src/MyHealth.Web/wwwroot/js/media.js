@@ -25,3 +25,8 @@ window.myhealthMedia = {
         });
     }
 };
+
+// Installable app (PWA): the service worker only serves the offline page when there is no connection.
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('/sw.js').catch(() => { });
+}

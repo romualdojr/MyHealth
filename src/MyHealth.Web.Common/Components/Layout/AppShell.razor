@@ -1,42 +1,69 @@
-@* The frame of both apps: a dark sidebar (a drawer on small screens, opened with a CSS-only toggle) and a top bar. *@
+@* The frame of both apps. From lg up: a dark sidebar and a top bar. On phones: a slim top bar, an optional bottom tab
+   bar (TabBar) for the main sections, and the sidebar as a drawer (CSS-only toggle) that also holds the top bar's
+   content (organization, account). Safe-area insets keep everything clear of the notch and the home indicator. *@
 
-<div class="min-h-screen lg:flex">
+<div class="min-h-dvh lg:flex">
     <input id="nav-toggle" type="checkbox" class="peer sr-only" aria-hidden="true" tabindex="-1" />
 
-    <aside class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full overflow-y-auto bg-slate-900 transition-transform peer-checked:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0">
-        <div class="flex h-14 items-center justify-between px-4">
+    <aside class="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] -translate-x-full flex-col overflow-y-auto bg-slate-900 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] transition-transform duration-200 peer-checked:translate-x-0 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-64 lg:shrink-0 lg:translate-x-0"
+           aria-label="Menu">
+        <div class="flex h-14 shrink-0 items-center justify-between px-4">
             <a href="" class="text-base font-semibold tracking-tight text-white">@Brand</a>
-            <label for="nav-toggle" class="cursor-pointer rounded-md p-1 text-slate-400 hover:text-white lg:hidden" aria-label="Fechar menu">✕</label>
+            <label for="nav-toggle" class="inline-flex size-11 cursor-pointer items-center justify-center rounded-lg text-slate-400 hover:text-white lg:hidden" aria-label="Fechar menu">✕</label>
         </div>
+
+        @if (TopBar is not null)
+        {
+            @* On phones the organization and account controls live here, out of the cramped top bar. *@
+            <div class="mx-3 mb-2 flex flex-col items-stretch gap-3 rounded-xl bg-slate-800/60 p-3 lg:hidden [&_label]:text-slate-300 [&_span]:text-slate-300">
+                @TopBar
+            </div>
+        }
+
         @* Following a link closes the drawer on small screens. *@
-        <nav class="flex flex-col gap-0.5 px-2 pb-6" aria-label="Navegação principal" onclick="document.getElementById('nav-toggle').checked = false">
+        <nav class="flex flex-col gap-0.5 px-2 pb-6" aria-label="Navegação principal" onclick="if (event.target.closest('a')) document.getElementById('nav-toggle').checked = false">
             @Navigation
         </nav>
     </aside>
 
-    <label for="nav-toggle" class="fixed inset-0 z-30 hidden bg-slate-900/40 peer-checked:block lg:hidden" aria-hidden="true"></label>
+    <label for="nav-toggle" class="fixed inset-0 z-40 hidden bg-slate-900/50 peer-checked:block lg:hidden" aria-hidden="true"></label>
 
     <div class="flex min-w-0 flex-1 flex-col">
-        <header class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:px-6">
-            <label for="nav-toggle" class="cursor-pointer rounded-md p-1 text-xl leading-none text-slate-600 hover:bg-slate-100 lg:hidden" aria-label="Abrir menu">☰</label>
-            <div class="ml-auto flex flex-wrap items-center justify-end gap-3">
-                @TopBar
+        <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/90 pt-[env(safe-area-inset-top)] backdrop-blur">
+            <div class="flex h-14 items-center gap-2 px-2 sm:px-6">
+                <a href="" class="px-2 text-base font-semibold tracking-tight text-teal-800 lg:hidden">@Brand</a>
+                <div class="ml-auto hidden flex-wrap items-center justify-end gap-3 lg:flex">
+                    @TopBar
+                </div>
+                @if (TabBar is null)
+                {
+                    <label for="nav-toggle" class="ml-auto inline-flex size-11 cursor-pointer items-center justify-center rounded-lg text-2xl leading-none text-slate-600 hover:bg-slate-100 lg:hidden" aria-label="Abrir menu">☰</label>
+                }
             </div>
         </header>
 
-        <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main class="@($"flex-1 px-4 py-4 sm:px-6 sm:py-6 lg:px-8 {(TabBar is null ? "pb-[max(1rem,env(safe-area-inset-bottom))]" : "pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-6")}")">
             <div class="mx-auto max-w-7xl">
                 @ChildContent
             </div>
         </main>
     </div>
+
+    @if (TabBar is not null)
+    {
+        <nav class="fixed inset-x-0 bottom-0 z-30 flex border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Seções">
+            @TabBar
+        </nav>
+    }
 </div>
 
-@* Shown by Blazor (inline display) when the connection fails or an unhandled error happens. *@
-<div id="blazor-error-ui" class="fixed inset-x-0 bottom-0 z-50 hidden items-center gap-4 bg-amber-100 px-6 py-3 text-sm text-amber-900 shadow-lg" data-nosnippet>
+<ReconnectNotice />
+
+@* Shown by Blazor (inline display) after an unhandled error. *@
+<div id="blazor-error-ui" class="fixed inset-x-0 bottom-0 z-[60] hidden items-center gap-4 bg-amber-100 px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-sm text-amber-900 shadow-lg" data-nosnippet>
     Ocorreu um erro inesperado.
-    <a href="." class="reload font-medium underline">Recarregar</a>
-    <span class="dismiss ml-auto cursor-pointer" aria-label="Fechar">✕</span>
+    <a href="." class="reload inline-flex min-h-11 items-center font-medium underline">Recarregar</a>
+    <span class="dismiss ml-auto inline-flex size-11 cursor-pointer items-center justify-center" aria-label="Fechar">✕</span>
 </div>
 
 @code {
@@ -48,6 +75,10 @@
 
     [Parameter]
     public RenderFragment? TopBar { get; set; }
+
+    /// <summary>Main sections as a bottom tab bar on phones (hidden from lg up, where the sidebar shows).</summary>
+    [Parameter]
+    public RenderFragment? TabBar { get; set; }
 
     [Parameter]
     public RenderFragment? ChildContent { get; set; }

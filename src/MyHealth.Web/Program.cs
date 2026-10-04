@@ -8,7 +8,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    // Phones drop the connection whenever the app goes to the background: keep the session (and unsaved edits) on the
+    // server long enough for the trainer to come back from another app and continue where they were.
+    .AddInteractiveServerComponents(options =>
+    {
+        options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(20);
+        options.DisconnectedCircuitMaxRetained = 500;
+    });
 
 // Professionals and organization administrators. Platform operators use the back office (MyHealth.Backoffice).
 builder.Services.AddMyHealthPortal(builder.Configuration, new PortalOptions

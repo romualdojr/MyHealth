@@ -5,7 +5,7 @@
 
 <PageTitle>Auditoria · Organização</PageTitle>
 
-<h1 class="@($"{Ui.PageTitle} mb-4")">Auditoria — @(Workspace.Membership?.TenantName ?? "organização")</h1>
+<h1 class="@($"{Ui.PageTitle} mb-4 break-words")">Auditoria — @(Workspace.Membership?.TenantName ?? "organização")</h1>
 
 @if (!Workspace.IsTenantAdministrator)
 {

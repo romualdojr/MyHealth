@@ -149,6 +149,19 @@ public sealed record CoachAnalysisItem(
 
 public sealed record CoachOverview(bool SharingGranted, int DailyLimit, int UsedToday, IReadOnlyList<CoachAnalysisItem> Analyses);
 
+public sealed record StudentSummaryItem(
+    Guid ClientId, string Name, Guid RelationshipId, bool AiConsent, Guid? PlanId, string? PlanName, int PlanVersion, int CompletedLast28Days,
+    int ExpectedLast28Days, DateTimeOffset? LastWorkoutAt, double? AverageExertion14Days, bool RecentDiscomfort, int PendingFeedback);
+
+public sealed record TrainerAssistantOverviewItem(string Model, IReadOnlyList<StudentSummaryItem> Students);
+
+public sealed record TrainerChatSuggestionItem(Guid AnalysisId, Guid PlanId, Guid ClientId, string ClientName, string PlanName, CoachSuggestionItem Suggestion);
+
+public sealed record TrainerAssistantReply(string Reply, IReadOnlyList<TrainerChatSuggestionItem> Suggestions, int StudentsIncluded, int StudentsWithoutConsent);
+
+/// <summary>One turn sent back to the assistant as history (role "user" or "assistant").</summary>
+public sealed record ChatTurn(string Role, string Text);
+
 public sealed record WhatsAppLink(string PhoneNumber, string ChatUrl);
 
 public sealed record MotionCaptureTerms(int Version, string Text);

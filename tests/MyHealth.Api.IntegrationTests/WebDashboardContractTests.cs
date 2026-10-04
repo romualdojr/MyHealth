@@ -350,6 +350,19 @@ public sealed class WebDashboardContractTests(ApiFactory factory) : IntegrationT
         var coach = await Ok(api.GetAsync<CoachOverview>($"training-plans/{planId}/coach", ct: Ct));
         (coach.SharingGranted, coach.UsedToday, coach.Analyses[0].Focus).ShouldBe((true, 1, "joelho"));
 
+        // Assistant page: every student with summaries, and the chat (Ana allows AI analysis; Caio does not).
+        var students = await Ok(api.GetAsync<TrainerAssistantOverviewItem>("trainer/assistant", ct: Ct));
+        students.Students.Select(s => (s.ClientId, s.AiConsent)).ShouldBe([(ana.Id, true), (caio.Id, false)], ignoreOrder: true);
+        students.Students.Single(s => s.ClientId == ana.Id).PlanName.ShouldBe("Força — fase 1");
+        var chat = await Ok(api.PostAsync<TrainerAssistantReply>("trainer/assistant/messages", new
+        {
+            message = "Resumo da semana de todos", history = new[] { new ChatTurn("user", "Olá"), new ChatTurn("assistant", "Olá!") }, clientId = (Guid?)null,
+        }, ct: Ct));
+        (chat.StudentsIncluded, chat.StudentsWithoutConsent).ShouldBe((1, 1));
+        chat.Reply.ShouldNotBeNullOrWhiteSpace();
+        var focused = await Ok(api.PostAsync<TrainerAssistantReply>("trainer/assistant/messages", new { message = "Como evoluir os exercícios?", clientId = ana.Id }, ct: Ct));
+        focused.Suggestions.ShouldAllBe(s => s.ClientId == ana.Id && s.ClientName != null);
+
         // Client page: the WhatsApp button appears once the client confirms a number and allows professionals to contact them.
         (await api.GetAsync<WhatsAppLink>($"care-relationships/{relationships[ana.Id]}/whatsapp", ct: Ct)).Problem.ShouldNotBeNull().Status.ShouldBe(404);
         await Scenario.EnsureSuccess(await ana.Http.PutAsJsonAsync("/api/v1/me/whatsapp", new { phoneNumber = "(11) 97654-3219", allowProfessionalContact = true }, Ct));

@@ -78,7 +78,8 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] Web: dietitian workflow (assessments, meal plan editor, food diary with comments) and therapist workflow (services, schedule, session record, consent status, care plans).
 - [ ] Web: invitation flows (clients and organizations), professional profile and onboarding, QR code for 2FA setup.
 - [x] Web: end-to-end browser tests (Playwright + Edge, `tests/MyHealth.E2ETests`): sign-in, every page of both apps, plan editor, AI coach, feedback reply, exercise library.
-- [ ] Web: accessibility review (WCAG 2.2 AA); e2e for the 3D upload with a real video and for the organization billing (Pix) flow.
+- [x] Web: mobile first for iPhone and Android (tab bar, touch sizes, card lists, bottom sheets, PWA install, reconnection), with phone e2e tests.
+- [ ] Web: accessibility review (WCAG 2.2 AA); e2e for the 3D upload with a real video and for the organization billing (Pix) flow; test on real devices (Safari iOS, Chrome Android) and push notifications for the installed app.
 - [ ] iOS app integrating `docs/initial_requirements/ios` (needs a Mac with Xcode); Android app.
 - [ ] Accessibility (RNF-07), performance targets (RNF-06), on-device acceptance tests 10 and 12.
 
@@ -95,7 +96,9 @@ Forward-looking backlog. Details and reasoning live in [REQUIREMENTS_REVIEW_AND_
 - [ ] Production media storage: bucket + CDN implementation of `IMediaStorage`, signed uploads straight from the browser/phone (today the video passes through the web app and API), transcoding and thumbnails (RF-27).
 - [ ] Phone apps: render `Model3D` media (glTF; USDZ conversion for iOS Quick Look if wanted), WhatsApp opt-in screen, "Análise por IA" sharing toggle.
 - [ ] 3D for the curated library (operators' back office) and a notification to the trainer when a conversion finishes.
-- [ ] AI coach as a paid module and per-tenant cost reporting; first-draft plan generation from goal/level/equipment.
+- [x] Trainer chat ("Assistente IA"): all students with summaries, chat over the students who allow AI analysis (pseudonymised), suggestions to evolve exercises applied to each draft.
+- [ ] AI coach and chat as a paid module, per-tenant daily limit for chat messages and cost reporting; first-draft plan generation from goal/level/equipment.
+- [ ] Sign-in rate limit: the API limits logins per IP, and every dashboard sign-in comes from the web app's address — forward the user's IP (trusted proxy) or limit per account before production.
 
 ## Phase 5 — P1 features
 

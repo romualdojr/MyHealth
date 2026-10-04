@@ -30,6 +30,9 @@ public sealed class AppFixture : IAsyncLifetime
 
     public IBrowser Browser { get; private set; } = null!;
 
+    /// <summary>Playwright's device descriptors (viewport, touch, user agent), for the phone tests.</summary>
+    public IReadOnlyDictionary<string, BrowserNewContextOptions> Devices => _playwright!.Devices;
+
     public async ValueTask InitializeAsync()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -43,6 +46,12 @@ public sealed class AppFixture : IAsyncLifetime
             {
                 resource.Annotations.Remove(mount);
             }
+        }
+
+        // Every sign-in of the browser tests reaches the API from the web apps' single address: lift the per-IP limit.
+        foreach (var api in builder.Resources.Where(r => r.Name == "apiservice"))
+        {
+            api.Annotations.Add(new EnvironmentCallbackAnnotation("RateLimiting__AuthenticationPerMinute", () => "1000"));
         }
 
         _app = await builder.BuildAsync(ct).WaitAsync(StartTimeout, ct);

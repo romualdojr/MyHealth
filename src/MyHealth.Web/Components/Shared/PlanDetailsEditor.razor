@@ -1,11 +1,12 @@
-@* The plan's name, goal, level, dates and weekly frequency; used when creating a plan and in the plan editor. *@
+@* The plan's name, goal, level, dates and weekly frequency; used when creating a plan and in the plan editor.
+   On phones: name, goal and notes take the full width, the short fields go two per row. *@
 
 <div class="grid grid-cols-12 gap-3">
     <div class="col-span-12 md:col-span-6">
         <label class="@Ui.Label" for="@($"{Prefix}-name")">Nome do plano</label>
         <input id="@($"{Prefix}-name")" class="@Ui.Input" placeholder="Ex.: Hipertrofia — fase 1" @bind="Form.Name" @bind:event="oninput" @bind:after="Changed" />
     </div>
-    <div class="col-span-6 md:col-span-3">
+    <div class="col-span-6 min-w-0 md:col-span-3">
         <label class="@Ui.Label" for="@($"{Prefix}-level")">Nível</label>
         <select id="@($"{Prefix}-level")" class="@Ui.Select" @bind="Form.Level" @bind:after="Changed">
             @foreach (var level in TrainingLabels.Levels)
@@ -14,21 +15,21 @@
             }
         </select>
     </div>
-    <div class="col-span-6 md:col-span-3">
+    <div class="col-span-6 min-w-0 md:col-span-3">
         <label class="@Ui.Label" for="@($"{Prefix}-freq")">Treinos por semana</label>
-        <input id="@($"{Prefix}-freq")" type="number" min="1" max="14" class="@Ui.Input" @bind="Form.SuggestedSessionsPerWeek" @bind:after="Changed" />
+        <input id="@($"{Prefix}-freq")" type="number" inputmode="numeric" min="1" max="14" class="@Ui.Input" @bind="Form.SuggestedSessionsPerWeek" @bind:after="Changed" />
     </div>
     <div class="col-span-12 md:col-span-6">
         <label class="@Ui.Label" for="@($"{Prefix}-goal")">Objetivo</label>
         <input id="@($"{Prefix}-goal")" class="@Ui.Input" placeholder="Ex.: ganhar força nos membros inferiores" @bind="Form.Goal" @bind:event="oninput" @bind:after="Changed" />
     </div>
-    <div class="col-span-6 md:col-span-3">
+    <div class="col-span-6 min-w-0 md:col-span-3">
         <label class="@Ui.Label" for="@($"{Prefix}-start")">Início</label>
-        <input id="@($"{Prefix}-start")" type="date" class="@Ui.Input" @bind="Form.StartDate" @bind:after="Changed" />
+        <input id="@($"{Prefix}-start")" type="date" class="@($"{Ui.Input} min-w-0")" @bind="Form.StartDate" @bind:after="Changed" />
     </div>
-    <div class="col-span-6 md:col-span-3">
+    <div class="col-span-6 min-w-0 md:col-span-3">
         <label class="@Ui.Label" for="@($"{Prefix}-end")">Fim (opcional)</label>
-        <input id="@($"{Prefix}-end")" type="date" class="@Ui.Input" @bind="Form.EndDate" @bind:after="Changed" />
+        <input id="@($"{Prefix}-end")" type="date" class="@($"{Ui.Input} min-w-0")" @bind="Form.EndDate" @bind:after="Changed" />
     </div>
     @if (ShowNotes)
     {

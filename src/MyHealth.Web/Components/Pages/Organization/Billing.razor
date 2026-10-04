@@ -6,7 +6,7 @@
 
 <PageTitle>Plano e cobrança · Organização</PageTitle>
 
-<h1 class="@($"{Ui.PageTitle} mb-4")">Plano e cobrança — @(Workspace.Membership?.TenantName ?? "organização")</h1>
+<h1 class="@($"{Ui.PageTitle} mb-4 break-words")">Plano e cobrança — @(Workspace.Membership?.TenantName ?? "organização")</h1>
 
 @if (!Workspace.IsTenantAdministrator)
 {
@@ -68,7 +68,7 @@ else
         }
         else
         {
-            <div class="@Ui.TableWrap">
+            <div class="@($"{Ui.TableWrap} hidden md:block")">
                 <table class="@Ui.Table">
                     <thead class="@Ui.THead"><tr><th class="@Ui.Th">Período</th><th class="@Ui.Th">Itens</th><th class="@($"{Ui.Th} text-right")">Total</th><th class="@Ui.Th">Vencimento</th><th class="@Ui.Th">Situação</th><th class="@Ui.Th"></th></tr></thead>
                     <tbody class="@Ui.TBody">
@@ -94,13 +94,16 @@ else
                             @if (_charges.TryGetValue(i.Id, out var charge) && i.Status == "Open")
                             {
                                 <tr>
-                                    <td colspan="6" class="@($"{Ui.Td} bg-slate-50")">
+                                    <td colspan="6" class="@($"{Ui.Td} bg-slate-50")" data-pix>
                                         <label class="@Ui.Label" for="pix-@i.Id">Pix copia e cola (válido até @charge.ExpiresAt.ToLocalTime().ToString("dd/MM HH:mm"))</label>
-                                        <textarea id="pix-@i.Id" class="@($"{Ui.InputSm} mb-2 font-mono")" rows="2" readonly>@charge.PixCopyPaste</textarea>
-                                        @if (charge.CheckoutUrl is not null)
-                                        {
-                                            <a href="@charge.CheckoutUrl" target="_blank" rel="noopener noreferrer" class="@($"{Ui.Link} text-sm")">Abrir página de pagamento</a>
-                                        }
+                                        <textarea id="pix-@i.Id" class="@($"{Ui.InputSm} mb-2 break-all font-mono")" rows="2" readonly>@charge.PixCopyPaste</textarea>
+                                        <div class="flex flex-wrap items-center gap-3">
+                                            <button type="button" class="@($"{Ui.ButtonOutlineSm} group")" onclick="navigator.clipboard.writeText(this.closest('[data-pix]').querySelector('textarea').value).then(() => this.setAttribute('data-copied', ''))"><span class="group-data-copied:hidden">Copiar código Pix</span><span class="hidden group-data-copied:inline">Copiado!</span></button>
+                                            @if (charge.CheckoutUrl is not null)
+                                            {
+                                                <a href="@charge.CheckoutUrl" target="_blank" rel="noopener noreferrer" class="@($"{Ui.Link} text-sm")">Abrir página de pagamento</a>
+                                            }
+                                        </div>
                                         <span class="mt-1 block text-xs text-slate-500">A fatura é baixada automaticamente quando o pagamento é confirmado.</span>
                                     </td>
                                 </tr>
@@ -109,6 +112,49 @@ else
                     </tbody>
                 </table>
             </div>
+
+            @* Phones: one card per invoice; the Pix code opens under it with a large copy button. *@
+            <ul class="@($"{Ui.List} md:hidden")">
+                @foreach (var i in _detail.Invoices)
+                {
+                    <li class="@Ui.ListItem">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <div class="font-medium text-slate-900">@BillingLabels.Date(i.PeriodStart) – @BillingLabels.Date(i.PeriodEnd)</div>
+                                <div class="@($"text-sm {(i.IsOverdue ? "font-semibold text-red-700" : "text-slate-500")}")">Vence em @BillingLabels.Date(i.DueAt)</div>
+                            </div>
+                            <div class="shrink-0 text-right">
+                                <div class="text-base font-semibold whitespace-nowrap text-slate-900">@BillingLabels.Money(i.TotalCents)</div>
+                                <StatusBadge Status="@i.Status" />
+                            </div>
+                        </div>
+                        <div class="mt-1 text-xs text-slate-500">@string.Join(", ", i.Lines.Select(l => $"{BillingLabels.Module(l.Module)} {BillingLabels.Money(l.AmountCents)}"))</div>
+                        @if (i.Status == "Open")
+                        {
+                            <button class="@($"{Ui.ButtonSm} mt-3 w-full")" disabled="@(_paying == i.Id)" @onclick="() => PayAsync(i)">Pagar com Pix</button>
+                        }
+                        else if (i.PaidAt is { } paid)
+                        {
+                            <div class="mt-1 text-xs text-slate-500">pago em @BillingLabels.Date(paid)</div>
+                        }
+                        @if (_charges.TryGetValue(i.Id, out var charge) && i.Status == "Open")
+                        {
+                            <div class="mt-3 rounded-lg bg-slate-50 p-3" data-pix>
+                                <label class="block">
+                                    <span class="@Ui.Label">Pix copia e cola (válido até @charge.ExpiresAt.ToLocalTime().ToString("dd/MM HH:mm"))</span>
+                                    <textarea class="@($"{Ui.Textarea} break-all font-mono")" rows="4" readonly>@charge.PixCopyPaste</textarea>
+                                </label>
+                                <button type="button" class="@($"{Ui.Button} group mt-2 w-full")" onclick="navigator.clipboard.writeText(this.closest('[data-pix]').querySelector('textarea').value).then(() => this.setAttribute('data-copied', ''))"><span class="group-data-copied:hidden">Copiar código Pix</span><span class="hidden group-data-copied:inline">Copiado!</span></button>
+                                @if (charge.CheckoutUrl is not null)
+                                {
+                                    <a href="@charge.CheckoutUrl" target="_blank" rel="noopener noreferrer" class="@($"{Ui.ButtonSecondary} mt-2 w-full")">Abrir página de pagamento</a>
+                                }
+                                <span class="mt-2 block text-xs text-slate-500">A fatura é baixada automaticamente quando o pagamento é confirmado.</span>
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
         }
     }
 }

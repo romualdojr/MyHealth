@@ -1,13 +1,13 @@
 @* A performed workout as the trainer reviews it: logged sets, the client's feedback, body checks and the reply. *@
 
-<div class="space-y-4 p-2">
+<div class="space-y-4 sm:p-2">
     @if (Session.Sets.Count == 0)
     {
         <p class="@Ui.Help">Nenhuma série registrada.</p>
     }
     else
     {
-        <div class="@Ui.TableWrap">
+        <div class="@($"{Ui.TableWrap} hidden md:block")">
             <table class="@Ui.Table">
                 <thead class="@Ui.THead"><tr><th class="@Ui.Th">Série</th><th class="@Ui.Th">Repetições</th><th class="@Ui.Th">Carga</th><th class="@Ui.Th">Duração</th><th class="@Ui.Th">Dificuldade</th><th class="@Ui.Th">Nota</th></tr></thead>
                 <tbody class="@Ui.TBody">
@@ -25,6 +25,38 @@
                 </tbody>
             </table>
         </div>
+
+        @* Phones: one line per set instead of the table. *@
+        <ul class="@($"{Ui.List} md:hidden")" aria-label="Séries registradas">
+            @foreach (var set in Session.Sets.OrderBy(s => s.SetNumber))
+            {
+                <li class="@($"{Ui.ListItem} text-sm text-slate-700")">
+                    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                        <span class="font-semibold text-slate-900">Série @set.SetNumber</span>
+                        @if (set.Repetitions is { } reps)
+                        {
+                            <span>@reps rep.</span>
+                        }
+                        @if (set.LoadKg is { } kg)
+                        {
+                            <span>@($"{kg:0.#} kg")</span>
+                        }
+                        @if (set.DurationSeconds is { } d)
+                        {
+                            <span>@($"{d}s")</span>
+                        }
+                        @if (set.Difficulty is { } difficulty)
+                        {
+                            <span class="text-slate-500">dificuldade @difficulty</span>
+                        }
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(set.Notes))
+                    {
+                        <div class="mt-0.5 break-words text-slate-500">@set.Notes</div>
+                    }
+                </li>
+            }
+        </ul>
     }
 
     @if (Session.BodyChecks.Count > 0)
@@ -65,7 +97,7 @@
             {
                 <label class="@Ui.Label" for="reply-@Session.Id">Responder ao cliente</label>
                 <textarea id="reply-@Session.Id" class="@($"{Ui.Textarea} mb-2")" rows="2" @bind="_reply" @bind:event="oninput"></textarea>
-                <button class="@Ui.ButtonSm" disabled="@string.IsNullOrWhiteSpace(_reply)" @onclick="ReplyAsync">Enviar resposta</button>
+                <button class="@($"{Ui.ButtonSm} w-full sm:w-auto")" disabled="@string.IsNullOrWhiteSpace(_reply)" @onclick="ReplyAsync">Enviar resposta</button>
             }
         </div>
     }

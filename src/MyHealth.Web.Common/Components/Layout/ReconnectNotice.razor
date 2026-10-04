@@ -1,0 +1,24 @@
+@* Replaces Blazor's default reconnection dialog (the framework finds it by id and toggles the components-reconnect-*
+   classes on it). Phones drop the connection whenever the app goes to the background; when it comes back, Blazor
+   reconnects by itself and this shows a calm message meanwhile, or a button to reload when the session expired. *@
+
+<div id="components-reconnect-modal" data-nosnippet
+     class="group fixed inset-x-0 top-0 z-[70] hidden justify-center px-4 pt-[max(0.75rem,env(safe-area-inset-top))] [&.components-reconnect-show]:flex [&.components-reconnect-retrying]:flex [&.components-reconnect-failed]:flex [&.components-reconnect-rejected]:flex [&.components-reconnect-paused]:flex [&.components-reconnect-resume-failed]:flex"
+     role="status" aria-live="polite">
+    <div class="flex w-full max-w-md items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-sm text-white shadow-2xl">
+        <span class="size-4 shrink-0 animate-spin rounded-full border-2 border-slate-500 border-t-white group-[.components-reconnect-failed]:hidden group-[.components-reconnect-rejected]:hidden group-[.components-reconnect-resume-failed]:hidden" aria-hidden="true"></span>
+
+        <span class="flex-1 group-[.components-reconnect-failed]:hidden group-[.components-reconnect-rejected]:hidden group-[.components-reconnect-resume-failed]:hidden">
+            Reconectando…
+        </span>
+        <span class="hidden flex-1 group-[.components-reconnect-failed]:block">Sem conexão com o servidor.</span>
+        <span class="hidden flex-1 group-[.components-reconnect-rejected]:block group-[.components-reconnect-resume-failed]:block">
+            A sessão expirou. Recarregue para continuar.
+        </span>
+
+        <button type="button" class="hidden min-h-11 shrink-0 cursor-pointer rounded-lg bg-white px-3 font-medium text-slate-900 group-[.components-reconnect-failed]:inline-flex group-[.components-reconnect-failed]:items-center"
+                onclick="Blazor.reconnect()">Tentar de novo</button>
+        <button type="button" class="hidden min-h-11 shrink-0 cursor-pointer rounded-lg bg-white px-3 font-medium text-slate-900 group-[.components-reconnect-rejected]:inline-flex group-[.components-reconnect-resume-failed]:inline-flex group-[.components-reconnect-rejected]:items-center group-[.components-reconnect-resume-failed]:items-center"
+                onclick="location.reload()">Recarregar</button>
+    </div>
+</div>

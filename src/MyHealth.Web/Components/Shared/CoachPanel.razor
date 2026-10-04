@@ -42,7 +42,7 @@
                     <div class="mb-1 text-xs text-slate-500">
                         @latest.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm") · versão @latest.PlanVersionNumber@(latest.Focus is { } f ? $" · foco: {f}" : string.Empty)
                     </div>
-                    <p class="mb-3 text-sm text-slate-700">@latest.Summary</p>
+                    <p class="mb-3 text-sm break-words text-slate-700">@latest.Summary</p>
                     @foreach (var notice in latest.Notices)
                     {
                         <p class="mb-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-sm text-amber-900">@notice</p>
@@ -55,7 +55,7 @@
 
                     @foreach (var suggestion in latest.Suggestions)
                     {
-                        <div class="mb-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-700 @(suggestion.Status == "Pending" ? string.Empty : "opacity-75")">
+                        <div class="mb-2 rounded-lg border border-slate-200 p-3 text-sm break-words text-slate-700 @(suggestion.Status == "Pending" ? string.Empty : "opacity-75")">
                             <div class="font-semibold text-slate-900">@suggestion.Title</div>
                             @if (suggestion.Change is { } change)
                             {
@@ -66,8 +66,8 @@
                             {
                                 @if (!ReadOnly)
                                 {
-                                    <div class="mt-2 flex gap-2">
-                                        <button class="@Ui.ButtonOutlineSm" disabled="@(_busy || IsDirty)" @onclick="() => ResolveAsync(latest, suggestion, apply: true)">
+                                    <div class="mt-2 flex flex-wrap gap-2">
+                                        <button class="@($"{Ui.ButtonOutlineSm} flex-1 sm:flex-none")" disabled="@(_busy || IsDirty)" @onclick="() => ResolveAsync(latest, suggestion, apply: true)">
                                             @(suggestion.Kind == "TalkToClient" ? "Feito" : "Aplicar ao rascunho")
                                         </button>
                                         <button class="@Ui.ButtonLinkSm" disabled="@_busy" @onclick="() => ResolveAsync(latest, suggestion, apply: false)">Dispensar</button>
@@ -87,7 +87,7 @@
                 @if (_overview.Analyses.Count > 1)
                 {
                     <details class="mt-2 text-sm text-slate-700">
-                        <summary class="cursor-pointer py-1 font-medium text-slate-600 hover:text-slate-900">Análises anteriores</summary>
+                        <summary class="cursor-pointer py-3 font-medium sm:py-1 text-slate-600 hover:text-slate-900">Análises anteriores</summary>
                         @foreach (var older in _overview.Analyses.Skip(1))
                         {
                             <div class="mt-2">

@@ -1,7 +1,7 @@
 <div class="@($"{Ui.Card} h-full {(Warn && Value > 0 ? "border-amber-300 bg-amber-50" : string.Empty)}")">
-    <div class="@Ui.CardBody">
-        <div class="text-sm text-slate-500">@Label</div>
-        <div class="mt-1 text-3xl font-semibold tracking-tight text-slate-900">@(Text ?? Value.ToString(System.Globalization.CultureInfo.CurrentCulture))</div>
+    <div class="p-3 sm:p-5">
+        <div class="text-xs leading-snug text-slate-500 sm:text-sm">@Label</div>
+        <div class="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">@(Text ?? Value.ToString(System.Globalization.CultureInfo.CurrentCulture))</div>
     </div>
 </div>
 

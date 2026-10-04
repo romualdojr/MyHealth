@@ -4,9 +4,9 @@
 
 @if (Workspace.Me is { Memberships.Count: > 0 } me)
 {
-    <label class="m-0 flex items-center gap-2 text-sm">
+    <label class="m-0 flex flex-col items-stretch gap-1 text-sm lg:flex-row lg:items-center lg:gap-2">
         <span class="text-xs font-medium text-slate-500">Organização</span>
-        <select class="@($"{Ui.SelectSm} w-auto max-w-[14rem]")" value="@(Workspace.Membership?.TenantId.ToString() ?? string.Empty)" @onchange="OnSelected">
+        <select class="@($"{Ui.SelectSm} w-full lg:w-auto lg:max-w-[14rem]")" value="@(Workspace.Membership?.TenantId.ToString() ?? string.Empty)" @onchange="OnSelected">
             <option value="">Visão de cliente</option>
             @foreach (var membership in me.Memberships)
             {

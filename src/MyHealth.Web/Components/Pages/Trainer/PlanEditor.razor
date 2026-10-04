@@ -24,12 +24,14 @@ else if (_plan is null)
 else
 {
     <nav aria-label="Caminho" class="@Ui.Breadcrumb">
-        <a href="trainer" class="@Ui.Link">Clientes</a> / <a href="trainer/clients/@_plan.ClientId" class="@Ui.Link">@(_clientName ?? "Cliente")</a> / @_plan.Details.Name
+        <a href="trainer" class="@Ui.TapLink">Clientes</a> / <a href="trainer/clients/@_plan.ClientId" class="@Ui.TapLink">@(_clientName ?? "Cliente")</a> / @_plan.Details.Name
     </nav>
 
-    <div class="sticky top-14 z-10 -mx-4 mb-4 flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur">
-        <div class="min-w-0 grow">
-            <h1 class="@($"{Ui.PageTitle} flex flex-wrap items-center gap-2")">
+    @* From sm up the whole header sticks under the app bar. On phones only the action buttons stick (the title
+       scrolls away), so the sticky part stays one compact row of thumb-sized buttons. *@
+    <div class="contents sm:sticky sm:top-[calc(3.5rem+env(safe-area-inset-top))] sm:z-20 sm:-mx-6 sm:mb-4 sm:flex sm:flex-wrap sm:items-center sm:gap-2 sm:border-b sm:border-slate-200 sm:bg-slate-50/95 sm:px-6 sm:py-3 sm:backdrop-blur lg:-mx-8 lg:px-8">
+        <div class="mb-3 min-w-0 grow sm:mb-0">
+            <h1 class="@($"{Ui.PageTitle} flex flex-wrap items-center gap-2 break-words")">
                 @_plan.Details.Name
                 <span class="@TrainingLabels.PlanBadge(_plan.Status)">@TrainingLabels.PlanStatus(_plan.Status)</span>
             </h1>
@@ -47,9 +49,11 @@ else
         </div>
         @if (!IsEnded)
         {
-            <button class="@(IsDirty ? Ui.ButtonOutline : Ui.ButtonSecondary)" disabled="@(!IsDirty || _busy)" @onclick="SaveAsync">Salvar rascunho</button>
-            <button class="@Ui.Button" disabled="@(_busy || !(IsDirty || _plan.HasUnpublishedChanges || _plan.CurrentVersionNumber == 0))"
-                    @onclick="StartPublishing">Publicar…</button>
+            <div class="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 -mx-4 mb-4 grid grid-cols-2 gap-2 border-b border-slate-200 bg-slate-50/95 px-4 py-2 backdrop-blur sm:static sm:z-auto sm:mx-0 sm:mb-0 sm:flex sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+                <button class="@(IsDirty ? Ui.ButtonOutline : Ui.ButtonSecondary)" disabled="@(!IsDirty || _busy)" @onclick="SaveAsync">Salvar rascunho</button>
+                <button class="@Ui.Button" disabled="@(_busy || !(IsDirty || _plan.HasUnpublishedChanges || _plan.CurrentVersionNumber == 0))"
+                        @onclick="StartPublishing">Publicar…</button>
+            </div>
         }
     </div>
 
@@ -62,7 +66,7 @@ else
 
     @if (_pendingNavigation is not null)
     {
-        <div class="@($"{Ui.AlertWarning} mb-4 flex flex-wrap items-center gap-2")" role="alert">
+        <div class="@($"{Ui.AlertWarning} mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center")" role="alert">
             <span class="grow">Há alterações não salvas neste plano.</span>
             <button class="@Ui.ButtonSm" @onclick="SaveAndLeaveAsync">Salvar e sair</button>
             <button class="@Ui.ButtonDangerOutlineSm" @onclick="DiscardAndLeave">Descartar alterações</button>
@@ -72,7 +76,7 @@ else
 
     @if (_plan.ReviewRequestedAt is not null && !IsEnded)
     {
-        <div class="@($"{Ui.AlertInfo} mb-4 flex flex-wrap items-center gap-2")">
+        <div class="@($"{Ui.AlertInfo} mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center")">
             <span class="grow"><strong class="font-semibold">Revisão sugerida:</strong> @(_plan.ReviewReason ?? "houve uma mudança relevante no histórico do cliente.")</span>
             <button class="@Ui.ButtonOutlineSm" @onclick="AcknowledgeAsync">O plano continua adequado</button>
         </div>
@@ -102,7 +106,7 @@ else
                 }
                 <label class="@Ui.Label" for="change-description">O que mudou (o cliente vê este texto)</label>
                 <input id="change-description" class="@($"{Ui.Input} mb-3")" @bind="_changeDescription" @bind:event="oninput" />
-                <div class="flex flex-wrap gap-2">
+                <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <button class="@Ui.Button" disabled="@(issues.Count > 0 || string.IsNullOrWhiteSpace(_changeDescription) || _busy)" @onclick="PublishAsync">Publicar agora</button>
                     <button class="@Ui.ButtonLink" @onclick="() => _publishing = false">Cancelar</button>
                 </div>
@@ -113,11 +117,11 @@ else
     <div class="grid grid-cols-12 gap-6">
         <div class="col-span-12 min-w-0 lg:col-span-9">
             <details class="@($"{Ui.Card} mb-4")" open="@(_detailsOpen == true)">
-                <summary class="cursor-pointer px-4 py-3 font-medium text-slate-900">
+                <summary class="cursor-pointer px-3 py-3 font-medium text-slate-900 sm:px-4">
                     Dados do plano
-                    <span class="text-sm font-normal text-slate-500">— @TrainingLabels.Level(_details.Level) · @_details.SuggestedSessionsPerWeek por semana · @_details.Goal</span>
+                    <span class="text-sm font-normal break-words text-slate-500">— @TrainingLabels.Level(_details.Level) · @_details.SuggestedSessionsPerWeek por semana · @_details.Goal</span>
                 </summary>
-                <div class="@($"{Ui.CardBody} border-t border-slate-200")">
+                <div class="border-t border-slate-200 p-3 sm:p-5">
                     <fieldset class="min-w-0" disabled="@IsEnded">
                         <PlanDetailsEditor Form="_details" ShowNotes="true" Prefix="details" OnChanged="StateHasChanged" />
                     </fieldset>
@@ -128,7 +132,7 @@ else
             {
                 <div class="@($"{Ui.EmptyState} mb-4")">
                     <p class="mb-4">Monte os treinos do plano. Ex.: Treino A (superiores), Treino B (inferiores), um aeróbico.</p>
-                    <div class="flex flex-wrap justify-center gap-2">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center">
                         <button class="@Ui.Button" @onclick='() => AddSession("Strength")'>+ Treino de musculação</button>
                         <button class="@Ui.ButtonOutline" @onclick='() => AddSession("Aerobic")'>+ Treino aeróbico</button>
                     </div>
@@ -140,9 +144,9 @@ else
                 {
                     var index = _draft.Sessions.IndexOf(session);
                     <section class="@($"{Ui.Card} mb-4")" aria-label="@session.Name">
-                        <div class="@Ui.CardHeader">
+                        <div class="flex flex-wrap items-center gap-2 rounded-t-xl border-b border-slate-200 bg-slate-50 px-3 py-3 sm:px-4">
                             <label class="sr-only" for="session-name-@index">Nome do treino</label>
-                            <input id="session-name-@index" class="@($"{Ui.InputSm} max-w-xs font-semibold")" @bind="session.Name" @bind:event="oninput" />
+                            <input id="session-name-@index" class="@($"{Ui.InputSm} min-w-0 basis-full font-semibold sm:max-w-xs sm:basis-auto")" @bind="session.Name" @bind:event="oninput" />
                             <span class="@Ui.BadgeNeutral">@TrainingLabels.SessionKind(session.Kind)</span>
                             <span class="grow"></span>
                             <button class="@Ui.IconButton" title="Mover para cima" aria-label="Mover treino para cima" disabled="@(index == 0)"
@@ -151,7 +155,7 @@ else
                                     @onclick="() => _draft.Sessions.Move(session, 1)">↓</button>
                             <button class="@Ui.ButtonDangerOutlineSm" @onclick="() => _draft.Sessions.Remove(session)">Remover treino</button>
                         </div>
-                        <div class="@Ui.CardBody">
+                        <div class="p-3 sm:p-5">
                             @if (session.IsAerobic)
                             {
                                 var aerobic = session.Aerobic!;
@@ -162,11 +166,11 @@ else
                                     </div>
                                     <div class="col-span-6 md:col-span-2">
                                         <label class="@Ui.Label" for="aer-minutes-@index">Minutos</label>
-                                        <input id="aer-minutes-@index" type="number" min="1" class="@Ui.Input" @bind="aerobic.DurationMinutes" />
+                                        <input id="aer-minutes-@index" type="number" inputmode="numeric" min="1" class="@Ui.Input" @bind="aerobic.DurationMinutes" />
                                     </div>
                                     <div class="col-span-6 md:col-span-2">
                                         <label class="@Ui.Label" for="aer-km-@index">Distância (km)</label>
-                                        <input id="aer-km-@index" type="number" min="0" step="0.1" class="@Ui.Input" @bind="aerobic.DistanceKm" />
+                                        <input id="aer-km-@index" type="number" inputmode="decimal" min="0" step="0.1" class="@Ui.Input" @bind="aerobic.DistanceKm" />
                                     </div>
                                     <div class="col-span-12 md:col-span-4">
                                         <label class="@Ui.Label" for="aer-intensity-@index">Intensidade</label>
@@ -195,7 +199,7 @@ else
                                     var key = $"{index}-{position}";
                                     <div class="mb-3 rounded-lg border border-slate-200 p-3">
                                         <div class="mb-2 flex items-center gap-2">
-                                            <span class="grow font-semibold text-slate-900">@(position + 1). @exercise.ExerciseName</span>
+                                            <span class="min-w-0 grow font-semibold break-words text-slate-900">@(position + 1). @exercise.ExerciseName</span>
                                             <button class="@Ui.IconButton" aria-label="Mover exercício para cima" disabled="@(position == 0)"
                                                     @onclick="() => session.Exercises.Move(exercise, -1)">↑</button>
                                             <button class="@Ui.IconButton" aria-label="Mover exercício para baixo" disabled="@(position == session.Exercises.Count - 1)"
@@ -203,29 +207,35 @@ else
                                             <button class="@Ui.IconButtonDanger" aria-label="Remover @exercise.ExerciseName" @onclick="() => session.Exercises.Remove(exercise)">✕</button>
                                         </div>
 
-                                        <div class="mb-1 overflow-x-auto">
-                                            <table class="w-full text-sm">
-                                                <thead><tr><th class="w-14 px-2 py-1 text-left text-xs font-semibold text-slate-500">Série</th><th class="px-2 py-1 text-left text-xs font-semibold text-slate-500">Alvo</th><th class="px-2 py-1 text-left text-xs font-semibold text-slate-500">Repetições / segundos</th><th class="px-2 py-1 text-left text-xs font-semibold text-slate-500">Carga (kg)</th><th class="px-2 py-1"></th></tr></thead>
-                                                <tbody class="@Ui.TBody">
-                                                    @foreach (var set in exercise.Sets)
-                                                    {
-                                                        var setIndex = exercise.Sets.IndexOf(set);
-                                                        var setKey = $"{key}-{setIndex}";
-                                                        <tr>
-                                                            <td class="w-14 px-2 py-1 align-middle text-slate-700">@(setIndex + 1)</td>
-                                                            <td class="px-2 py-1 align-middle">
-                                                                <label class="sr-only" for="mode-@setKey">Tipo de alvo</label>
-                                                                <select id="mode-@setKey" class="@Ui.SelectSm" @bind="set.ByDuration">
-                                                                    <option value="False">Repetições</option>
-                                                                    <option value="True">Tempo</option>
-                                                                </select>
-                                                            </td>
-                                                            <td class="px-2 py-1 align-middle">
+                                        @* One row per set. On phones: "Série N", the target type and remove on the first line,
+                                           the repetitions (or seconds) and the load on the second. From md up: a single row
+                                           under column headings, like a table. *@
+                                        <div role="list" aria-label="Séries de @exercise.ExerciseName" class="mb-1 text-sm">
+                                            <div class="hidden gap-2 px-0.5 pb-1 text-xs font-semibold text-slate-500 md:grid md:grid-cols-[2.5rem_9rem_minmax(0,1fr)_8rem_2rem]" aria-hidden="true">
+                                                <span>Série</span><span>Alvo</span><span>Repetições / segundos</span><span>Carga (kg)</span><span></span>
+                                            </div>
+                                            <div class="divide-y divide-slate-100">
+                                                @foreach (var set in exercise.Sets)
+                                                {
+                                                    var setIndex = exercise.Sets.IndexOf(set);
+                                                    var setKey = $"{key}-{setIndex}";
+                                                    <div role="listitem" class="grid grid-cols-[auto_minmax(0,1fr)_2.75rem] items-center gap-2 py-2 md:grid-cols-[2.5rem_9rem_minmax(0,1fr)_8rem_2rem] md:py-1">
+                                                        <span class="font-medium text-slate-700"><span class="md:hidden">Série </span>@(setIndex + 1)</span>
+                                                        <div class="min-w-0">
+                                                            <label class="sr-only" for="mode-@setKey">Tipo de alvo</label>
+                                                            <select id="mode-@setKey" class="@Ui.SelectSm" @bind="set.ByDuration">
+                                                                <option value="False">Repetições</option>
+                                                                <option value="True">Tempo</option>
+                                                            </select>
+                                                        </div>
+                                                        <button class="@($"{Ui.IconButtonDanger} md:order-last")" aria-label="Remover série @(setIndex + 1)" @onclick="() => exercise.Sets.Remove(set)">✕</button>
+                                                        <div class="col-span-3 grid grid-cols-2 gap-2 md:col-span-2 md:grid-cols-subgrid">
+                                                            <div class="min-w-0">
                                                                 @if (set.ByDuration)
                                                                 {
                                                                     <label class="sr-only" for="dur-@setKey">Segundos</label>
                                                                     <div class="flex">
-                                                                        <input id="dur-@setKey" type="number" min="1" class="@($"{Ui.InputSm} rounded-r-none")" @bind="set.DurationSeconds" />
+                                                                        <input id="dur-@setKey" type="number" inputmode="numeric" min="1" class="@($"{Ui.InputSm} min-w-0 rounded-r-none")" @bind="set.DurationSeconds" />
                                                                         <span class="@($"{Ui.InputAddon} rounded-r-md border-l-0")">s</span>
                                                                     </div>
                                                                 }
@@ -233,24 +243,24 @@ else
                                                                 {
                                                                     <div class="flex">
                                                                         <label class="sr-only" for="min-@setKey">Mínimo de repetições</label>
-                                                                        <input id="min-@setKey" type="number" min="1" class="@($"{Ui.InputSm} rounded-r-none")" @bind="set.MinRepetitions" />
+                                                                        <input id="min-@setKey" type="number" inputmode="numeric" min="1" class="@($"{Ui.InputSm} min-w-0 rounded-r-none")" @bind="set.MinRepetitions" />
                                                                         <span class="@($"{Ui.InputAddon} border-x-0")">a</span>
                                                                         <label class="sr-only" for="max-@setKey">Máximo de repetições</label>
-                                                                        <input id="max-@setKey" type="number" min="1" class="@($"{Ui.InputSm} rounded-l-none")" @bind="set.MaxRepetitions" />
+                                                                        <input id="max-@setKey" type="number" inputmode="numeric" min="1" class="@($"{Ui.InputSm} min-w-0 rounded-l-none")" @bind="set.MaxRepetitions" />
                                                                     </div>
                                                                 }
-                                                            </td>
-                                                            <td class="px-2 py-1 align-middle">
+                                                            </div>
+                                                            <div class="min-w-0">
                                                                 <label class="sr-only" for="load-@setKey">Carga sugerida em kg</label>
-                                                                <input id="load-@setKey" type="number" min="0" step="0.5" class="@Ui.InputSm" @bind="set.SuggestedLoadKg" />
-                                                            </td>
-                                                            <td class="px-2 py-1 text-right align-middle">
-                                                                <button class="cursor-pointer rounded-md px-1.5 py-1 text-xs text-red-600 hover:bg-red-50 hover:text-red-800 disabled:pointer-events-none disabled:opacity-50" aria-label="Remover série @(setIndex + 1)" @onclick="() => exercise.Sets.Remove(set)">✕</button>
-                                                            </td>
-                                                        </tr>
-                                                    }
-                                                </tbody>
-                                            </table>
+                                                                <div class="flex">
+                                                                    <input id="load-@setKey" type="number" inputmode="decimal" min="0" step="0.5" class="@($"{Ui.InputSm} min-w-0 rounded-r-none md:rounded-r-md")" @bind="set.SuggestedLoadKg" />
+                                                                    <span class="@($"{Ui.InputAddon} rounded-r-md border-l-0 md:hidden")">kg</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
                                         </div>
                                         <button class="@($"{Ui.ButtonLinkSm} mb-2")" @onclick="exercise.AddSet">+ Adicionar série</button>
 
@@ -258,7 +268,7 @@ else
                                             <div class="col-span-12 md:col-span-3">
                                                 <label class="@Ui.Label" for="rest-@key">Descanso entre séries</label>
                                                 <div class="flex">
-                                                    <input id="rest-@key" type="number" min="0" max="3600" step="15" class="@($"{Ui.InputSm} rounded-r-none")" @bind="exercise.RestSeconds" />
+                                                    <input id="rest-@key" type="number" inputmode="numeric" min="0" max="3600" step="15" class="@($"{Ui.InputSm} min-w-0 rounded-r-none")" @bind="exercise.RestSeconds" />
                                                     <span class="@($"{Ui.InputAddon} rounded-r-md border-l-0")">s</span>
                                                 </div>
                                             </div>
@@ -276,12 +286,12 @@ else
                                 }
                                 else
                                 {
-                                    <button class="@Ui.ButtonOutlineSm" @onclick="() => _pickerFor = session">+ Adicionar exercício</button>
+                                    <button class="@($"{Ui.ButtonOutlineSm} w-full sm:w-auto")" @onclick="() => _pickerFor = session">+ Adicionar exercício</button>
                                 }
                             }
 
-                            <details class="mt-4">
-                                <summary class="cursor-pointer text-sm text-slate-600 hover:text-slate-900">Observações do treino@(string.IsNullOrWhiteSpace(session.Notes) ? string.Empty : " ✓")</summary>
+                            <details class="mt-2 sm:mt-4">
+                                <summary class="cursor-pointer py-3 text-sm text-slate-600 hover:text-slate-900 sm:py-1">Observações do treino@(string.IsNullOrWhiteSpace(session.Notes) ? string.Empty : " ✓")</summary>
                                 <label class="sr-only" for="session-notes-@index">Observações do treino</label>
                                 <textarea id="session-notes-@index" class="@($"{Ui.InputSm} mt-2")" rows="2" @bind="session.Notes"></textarea>
                             </details>
@@ -292,7 +302,7 @@ else
 
             @if (_draft.Sessions.Count > 0 && !IsEnded)
             {
-                <div class="mb-6 flex flex-wrap gap-2">
+                <div class="mb-6 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
                     <button class="@Ui.ButtonOutline" @onclick='() => AddSession("Strength")'>+ Treino de musculação</button>
                     <button class="@Ui.ButtonOutline" @onclick='() => AddSession("Aerobic")'>+ Treino aeróbico</button>
                 </div>

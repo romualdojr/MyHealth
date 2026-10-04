@@ -84,6 +84,7 @@ authenticated.MapTrainingPlanEndpoints();
 authenticated.MapWorkoutEndpoints();
 authenticated.MapTrainerEndpoints();
 authenticated.MapCoachEndpoints();
+authenticated.MapTrainerAssistantEndpoints();
 authenticated.MapWhatsAppEndpoints(api);
 authenticated.MapMotionCaptureEndpoints();
 authenticated.MapMyRecordsEndpoints();

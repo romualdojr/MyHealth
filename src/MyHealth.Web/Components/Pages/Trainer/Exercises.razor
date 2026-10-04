@@ -6,7 +6,7 @@
 
 <PageTitle>Biblioteca de exercícios · MyHealth</PageTitle>
 
-<nav aria-label="Caminho" class="@Ui.Breadcrumb"><a href="trainer" class="@Ui.Link">Clientes</a> / Biblioteca de exercícios</nav>
+<nav aria-label="Caminho" class="@Ui.Breadcrumb"><a href="trainer" class="@Ui.TapLink">Clientes</a> / Biblioteca de exercícios</nav>
 
 <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
     <h1 class="@Ui.PageTitle">Biblioteca de exercícios</h1>
@@ -30,17 +30,22 @@ else
 
     @if (_editing is not null)
     {
-        <div class="@($"{Ui.CardHighlight} mb-6")">
-            <div class="@Ui.CardBody">
-                <h2 class="@($"{Ui.CardTitle} mb-3")">@(_editingId is null ? "Novo exercício da organização" : $"Editar {_editing.Name}")</h2>
+        @* A bottom sheet on phones (opened from anywhere in the list), an inline card from sm up. *@
+        <div class="@Ui.SheetBackdrop" aria-hidden="true" @onclick="() => _editing = null"></div>
+        <div class="@($"{Ui.Sheet} sm:mb-6")">
+            <div>
+                <div class="mb-3 flex items-center justify-between gap-2">
+                    <h2 class="@Ui.CardTitle">@(_editingId is null ? "Novo exercício da organização" : $"Editar {_editing.Name}")</h2>
+                    <button class="@($"{Ui.CloseButton} sm:hidden")" aria-label="Fechar" @onclick="() => _editing = null">✕</button>
+                </div>
                 <div class="grid grid-cols-12 gap-3">
                     <div class="col-span-12 md:col-span-6">
                         <label class="@Ui.Label" for="ex-name">Nome</label>
-                        <input id="ex-name" class="@Ui.Input" @bind="_editing.Name" @bind:event="oninput" />
+                        <input id="ex-name" autocomplete="off" autocapitalize="sentences" class="@Ui.Input" @bind="_editing.Name" @bind:event="oninput" />
                     </div>
                     <div class="col-span-12 md:col-span-6">
                         <label class="@Ui.Label" for="ex-purpose">Finalidade (opcional)</label>
-                        <input id="ex-purpose" class="@Ui.Input" placeholder="Ex.: força, mobilidade" @bind="_editing.Purpose" />
+                        <input id="ex-purpose" autocomplete="off" class="@Ui.Input" placeholder="Ex.: força, mobilidade" @bind="_editing.Purpose" />
                     </div>
                     <div class="col-span-12">
                         <label class="@Ui.Label" for="ex-description">Como executar</label>
@@ -48,11 +53,11 @@ else
                     </div>
                     <div class="col-span-12 md:col-span-6">
                         <label class="@Ui.Label" for="ex-muscles">Grupos musculares (separados por vírgula)</label>
-                        <input id="ex-muscles" class="@Ui.Input" placeholder="quadríceps, glúteos" @bind="_editing.MuscleGroups" />
+                        <input id="ex-muscles" autocomplete="off" autocapitalize="off" class="@Ui.Input" placeholder="quadríceps, glúteos" @bind="_editing.MuscleGroups" />
                     </div>
                     <div class="col-span-12 md:col-span-6">
                         <label class="@Ui.Label" for="ex-equipment">Equipamentos (separados por vírgula)</label>
-                        <input id="ex-equipment" class="@Ui.Input" placeholder="halter, banco" @bind="_editing.Equipment" />
+                        <input id="ex-equipment" autocomplete="off" autocapitalize="off" class="@Ui.Input" placeholder="halter, banco" @bind="_editing.Equipment" />
                     </div>
                     <div class="col-span-12">
                         <label class="@Ui.Label" for="ex-precautions">Cuidados (opcional)</label>
@@ -64,7 +69,7 @@ else
                     </div>
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2">
-                    <button class="@Ui.Button" disabled="@(string.IsNullOrWhiteSpace(_editing.Name) || string.IsNullOrWhiteSpace(_editing.Description))"
+                    <button class="@($"{Ui.Button} flex-1 sm:flex-none")" disabled="@(string.IsNullOrWhiteSpace(_editing.Name) || string.IsNullOrWhiteSpace(_editing.Description))"
                             @onclick="SaveAsync">Salvar</button>
                     <button class="@Ui.ButtonLink" @onclick="() => _editing = null">Cancelar</button>
                 </div>
@@ -80,7 +85,7 @@ else
     <div class="mb-4 grid grid-cols-12 gap-3">
         <div class="col-span-12 md:col-span-6">
             <label class="sr-only" for="library-search">Buscar</label>
-            <input id="library-search" class="@Ui.Input" placeholder="Buscar por nome ou descrição" @bind="_search" @bind:event="oninput" @bind:after="SearchSoonAsync" />
+            <input id="library-search" type="search" enterkeyhint="search" autocomplete="off" class="@Ui.Input" placeholder="Buscar por nome ou descrição" @bind="_search" @bind:event="oninput" @bind:after="SearchSoonAsync" />
         </div>
     </div>
 
@@ -90,7 +95,7 @@ else
     }
     else
     {
-        <div class="@($"{Ui.TableWrap} mb-4")">
+        <div class="@($"{Ui.TableWrap} mb-4 hidden md:block")">
             <table class="@Ui.Table">
                 <thead class="@Ui.THead"><tr><th class="@Ui.Th">Exercício</th><th class="@Ui.Th">Músculos</th><th class="@Ui.Th">Equipamento</th><th class="@Ui.Th">Mídia</th><th class="@Ui.Th"></th></tr></thead>
                 <tbody class="@Ui.TBody">
@@ -126,7 +131,52 @@ else
             </table>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
+        @* Phones: one card per exercise, with its actions. *@
+        @if (_results.Items.Count == 0)
+        {
+            <p class="@($"{Ui.EmptyState} mb-4 md:hidden")">Nenhum exercício encontrado.</p>
+        }
+        else
+        {
+            <ul class="@($"{Ui.List} mb-4 md:hidden")">
+                @foreach (var e in _results.Items)
+                {
+                    <li class="@Ui.ListItem">
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span class="font-semibold text-slate-900">@e.Name</span>
+                            @if (e.IsCustom)
+                            {
+                                <span class="@Ui.BadgeNeutral">da organização</span>
+                            }
+                            @if (e.Media.Any(m => m.Kind == "Model3D"))
+                            {
+                                <span class="@Ui.BadgePrimary">3D</span>
+                            }
+                        </div>
+                        <p class="mt-1 line-clamp-2 text-sm text-slate-500">@e.Description</p>
+                        @if (e.MuscleGroups.Count > 0 || e.Equipment.Count > 0)
+                        {
+                            <p class="mt-1 text-sm text-slate-700">
+                                @string.Join(", ", e.MuscleGroups)@(e.MuscleGroups.Count > 0 && e.Equipment.Count > 0 ? " · " : string.Empty)<span class="text-slate-500">@string.Join(", ", e.Equipment)</span>
+                            </p>
+                        }
+                        @if (e.Media.Count > 0)
+                        {
+                            <p class="mt-1 text-xs text-slate-500">Mídia: @e.Media.Count item(ns)</p>
+                        }
+                        @if (e.IsCustom)
+                        {
+                            <div class="mt-3 grid grid-cols-2 gap-2">
+                                <button class="@Ui.ButtonSecondarySm" @onclick="() => StartEdit(e)">Editar</button>
+                                <button class="@Ui.ButtonOutlineSm" @onclick="() => { _motionFor = e; _editing = null; }">Vídeo 3D</button>
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+
+        <div class="flex flex-wrap items-center justify-between gap-2 sm:justify-start">
             <button class="@Ui.ButtonSecondarySm" disabled="@(_page <= 1)" @onclick="() => GoToAsync(_page - 1)">Anterior</button>
             <span class="text-sm text-slate-500">Página @_page de @Math.Max(1, (int)Math.Ceiling(_results.TotalCount / (double)PageSize)) · @_results.TotalCount exercícios</span>
             <button class="@Ui.ButtonSecondarySm" disabled="@(_page * PageSize >= _results.TotalCount)" @onclick="() => GoToAsync(_page + 1)">Próxima</button>
@@ -231,12 +281,14 @@ else
 
     private void StartNew()
     {
+        _motionFor = null;
         _editingId = null;
         _editing = new ExerciseForm();
     }
 
     private void StartEdit(ExerciseItem exercise)
     {
+        _motionFor = null;
         _editingId = exercise.Id;
         _editing = new ExerciseForm
         {

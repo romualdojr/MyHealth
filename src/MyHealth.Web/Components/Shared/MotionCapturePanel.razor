@@ -3,10 +3,12 @@
 @inject MyHealthApiClient Api
 @inject IJSRuntime JS
 
-<div class="@($"{Ui.CardHighlight} mb-6")">
-    <div class="@Ui.CardBody">
+@* A bottom sheet on phones (opened from anywhere in the list), an inline card from sm up. *@
+<div class="@Ui.SheetBackdrop" aria-hidden="true" @onclick="OnClose"></div>
+<div class="@($"{Ui.Sheet} sm:mb-6")">
+    <div>
         <div class="mb-3 flex items-center justify-between gap-2">
-            <h2 class="@Ui.CardTitle">Vídeo 3D — @ExerciseName</h2>
+            <h2 class="@($"{Ui.CardTitle} min-w-0 break-words")">Vídeo 3D — @ExerciseName</h2>
             <button class="@Ui.CloseButton" aria-label="Fechar" @onclick="OnClose">✕</button>
         </div>
 
@@ -32,10 +34,10 @@
         <div class="mb-4 grid grid-cols-12 items-end gap-2">
             <div class="col-span-12 md:col-span-8">
                 <label class="@Ui.Label" for="mc-file">Vídeo (MP4 ou MOV, até @MaxMegabytes MB)</label>
-                <InputFile id="mc-file" class="@($"{Ui.Input} file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:text-slate-700")" accept="video/mp4,video/quicktime,video/webm" OnChange="ChooseAsync" disabled="@(!_consent || _uploading)" />
+                <InputFile id="mc-file" class="@($"{Ui.Input} file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:text-slate-700 min-w-0 max-w-full")" accept="video/mp4,video/quicktime,video/webm" OnChange="ChooseAsync" disabled="@(!_consent || _uploading)" />
                 @if (_file is not null)
                 {
-                    <div class="mt-1 text-xs text-slate-500">@_file.Name · @(_file.Size / 1024 / 1024) MB · @(_duration > 0 ? $"{_duration} s" : "duração desconhecida")</div>
+                    <div class="mt-1 break-all text-xs text-slate-500">@_file.Name · @(_file.Size / 1024 / 1024) MB · @(_duration > 0 ? $"{_duration} s" : "duração desconhecida")</div>
                 }
             </div>
             <div class="col-span-12 md:col-span-4">
@@ -51,7 +53,7 @@
             {
                 <div class="mb-2 rounded-lg border border-slate-200 p-3">
                     <div class="flex flex-wrap items-center gap-2 text-sm">
-                        <strong class="text-slate-900">@job.SourceFileName</strong>
+                        <strong class="break-all text-slate-900">@job.SourceFileName</strong>
                         <span class="text-slate-500">@job.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm") · @job.DurationSeconds s</span>
                         <span class="@Badge(job)">@Label(job)</span>
                         @if (job.AcceptedAt is not null)
@@ -76,7 +78,7 @@
                             @if (job.Outputs.FirstOrDefault(o => o.Format == "glb") is { } model)
                             {
                                 <div class="col-span-12 md:col-span-6">
-                                    <model-viewer src="@model.Url" camera-controls auto-rotate shadow-intensity="1" class="block h-64 w-full rounded-lg bg-slate-100"
+                                    <model-viewer src="@model.Url" camera-controls auto-rotate shadow-intensity="1" class="block h-56 w-full rounded-lg bg-slate-100 sm:h-64"
                                                   alt="@($"Modelo 3D do exercício {ExerciseName}")"></model-viewer>
                                     <div class="mt-1 text-xs text-slate-500">Modelo 3D — arraste para girar</div>
                                 </div>
@@ -91,7 +93,7 @@
                         </div>
                         @if (job.AcceptedAt is null)
                         {
-                            <button class="@($"{Ui.ButtonSuccessSm} mt-3")" disabled="@_busy" @onclick="() => AcceptAsync(job)">Usar no exercício</button>
+                            <button class="@($"{Ui.ButtonSuccessSm} mt-3 w-full sm:w-auto")" disabled="@_busy" @onclick="() => AcceptAsync(job)">Usar no exercício</button>
                         }
                     }
                 </div>

@@ -11,8 +11,11 @@
     @if (Workspace.Practices("PersonalTrainer"))
     {
         <div class="flex flex-wrap gap-2">
-            <a class="@Ui.ButtonSecondary" href="trainer/exercises">Biblioteca de exercícios</a>
-            <button class="@Ui.Button" @onclick="() => _inviting = !_inviting">Convidar cliente</button>
+            @* On phones the library is a tab of the bottom bar. *@
+            <div class="hidden sm:block">
+                <a class="@Ui.ButtonSecondary" href="trainer/exercises">Biblioteca de exercícios</a>
+            </div>
+            <button class="@Ui.Button" aria-expanded="@(_inviting ? "true" : "false")" @onclick="() => _inviting = !_inviting">Convidar cliente</button>
         </div>
     }
 </div>
@@ -41,7 +44,8 @@ else
                 <div class="grid grid-cols-12 items-end gap-3">
                     <div class="col-span-12 md:col-span-6">
                         <label class="@Ui.Label" for="client-email">E-mail do cliente</label>
-                        <input id="client-email" type="email" class="@Ui.Input" @bind="_inviteEmail" @bind:event="oninput" />
+                        <input id="client-email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false"
+                               class="@Ui.Input" @bind="_inviteEmail" @bind:event="oninput" />
                     </div>
                     <div class="col-span-12 md:col-span-3">
                         <button class="@($"{Ui.Button} w-full")" disabled="@string.IsNullOrWhiteSpace(_inviteEmail)" @onclick="InviteAsync">Enviar convite</button>
@@ -64,7 +68,7 @@ else
     }
     else
     {
-        <div class="mb-6 grid gap-4 sm:grid-cols-3">
+        <div class="mb-6 grid grid-cols-3 gap-2 sm:gap-4">
             <div><Metric Label="Feedbacks sem resposta" Value="@_dashboard.TotalPendingFeedback" /></div>
             <div><Metric Label="Relatos de desconforto" Value="@_dashboard.TotalDiscomfortReports" Warn="true" /></div>
             <div><Metric Label="Planos para revisar" Value="@_dashboard.TotalPlansNeedingReview" Warn="true" /></div>
@@ -79,17 +83,22 @@ else
         }
         else
         {
-            <div class="@Ui.TableWrap">
-                <table class="@Ui.Table">
-                    <thead class="@Ui.THead">
+            @* One table for every screen size, so each client keeps a single link (and a single text match): from md up a
+               regular table; on phones each row is a card tapped as a whole (the name link stretches over it) showing name,
+               plan, adherence and pending items. *@
+            <div class="md:overflow-x-auto md:rounded-xl md:border md:border-slate-200 md:bg-white md:shadow-sm">
+                <table class="w-full text-sm max-md:block md:min-w-full">
+                    <thead class="bg-slate-50 max-md:hidden">
                         <tr><th class="@Ui.Th">Cliente</th><th class="@Ui.Th">Plano ativo</th><th class="@Ui.Th">Últimos 7 dias</th><th class="@Ui.Th">Adesão</th><th class="@Ui.Th">Pendências</th><th class="@Ui.Th">Último treino</th></tr>
                     </thead>
-                    <tbody class="@Ui.TBody">
+                    <tbody class="divide-y divide-slate-100 max-md:block max-md:divide-slate-200 max-md:overflow-hidden max-md:rounded-xl max-md:border max-md:border-slate-200 max-md:bg-white max-md:shadow-sm">
                         @foreach (var c in _dashboard.Clients)
                         {
-                            <tr class="@(c.UnrepliedDiscomfortReports > 0 ? Ui.RowWarning : string.Empty)">
-                                <td class="@Ui.Td"><a href="trainer/clients/@c.ClientId" class="@($"{Ui.Link} font-semibold")">@c.ClientName</a></td>
-                                <td class="@Ui.Td">
+                            <tr class="@($"relative max-md:grid max-md:min-h-14 max-md:grid-cols-[minmax(0,1fr)_auto] max-md:items-center max-md:gap-x-3 max-md:gap-y-1 max-md:px-4 max-md:py-3 max-md:active:bg-slate-100 {(c.UnrepliedDiscomfortReports > 0 ? Ui.RowWarning : string.Empty)}")">
+                                <td class="@($"{Cell} col-start-1 row-start-1 min-w-0 max-md:block")">
+                                    <a href="trainer/clients/@c.ClientId" class="@($"{Ui.Link} font-semibold max-md:block max-md:truncate max-md:text-base max-md:after:absolute max-md:after:inset-0")">@c.ClientName</a>
+                                </td>
+                                <td class="@($"{Cell} col-start-1 row-start-2 min-w-0 max-md:block max-md:truncate max-md:text-slate-500")">
                                     @if (c.ActivePlanName is { } plan)
                                     {
                                         @plan
@@ -99,9 +108,12 @@ else
                                         <a href="trainer/clients/@c.ClientId" class="@($"{Ui.Link} text-sm")">Criar plano</a>
                                     }
                                 </td>
-                                <td class="@Ui.Td">@c.CompletedLast7Days@(c.SuggestedSessionsPerWeek is { } s ? $" de {s}" : string.Empty)</td>
-                                <td class="@Ui.Td">@(c.AdherenceLast7Days is { } a ? a.ToString("P0") : "—")</td>
-                                <td class="@Ui.Td">
+                                <td class="@($"{Cell} max-md:hidden")">@c.CompletedLast7Days@(c.SuggestedSessionsPerWeek is { } s ? $" de {s}" : string.Empty)</td>
+                                <td class="@($"{Cell} col-start-2 row-span-2 row-start-1 max-md:block max-md:text-right")">
+                                    <span class="max-md:block max-md:text-base max-md:font-semibold max-md:text-slate-900">@(c.AdherenceLast7Days is { } a ? a.ToString("P0") : "—")</span>
+                                    <span class="block text-xs text-slate-500 md:hidden">adesão 7 dias</span>
+                                </td>
+                                <td class="@($"{Cell} col-span-2 row-start-3 {(HasPending(c) ? "max-md:block" : "max-md:hidden")}")">
                                     <div class="flex flex-wrap gap-1">
                                         @if (c.UnrepliedDiscomfortReports > 0)
                                         {
@@ -117,7 +129,7 @@ else
                                         }
                                     </div>
                                 </td>
-                                <td class="@Ui.Td">@(c.LastCompletedAt?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</td>
+                                <td class="@($"{Cell} max-md:hidden")">@(c.LastCompletedAt?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</td>
                             </tr>
                         }
                     </tbody>
@@ -133,6 +145,12 @@ else
     private bool _inviting;
     private string? _inviteEmail;
     private string? _invited;
+
+    /// <summary>A table cell from md up; on phones a piece of the client's card (each cell adds max-md:block or max-md:hidden).</summary>
+    private const string Cell = "align-middle text-slate-700 md:px-3 md:py-2";
+
+    private static bool HasPending(TrainerClientSummary c) =>
+        c.UnrepliedDiscomfortReports > 0 || c.PendingFeedbackReplies > 0 || c.PlansNeedingReview > 0;
 
     protected override async Task OnInitializedAsync()
     {

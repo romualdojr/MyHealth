@@ -2,10 +2,12 @@
 @implements IDisposable
 @inject MyHealthApiClient Api
 
-<div class="@Ui.CardHighlight">
-    <div class="@Ui.CardBody">
-        <div class="mb-3 flex items-center justify-between gap-2">
-            <h3 class="@Ui.CardTitle">Adicionar exercício@(Target is null ? string.Empty : $" em {Target}")</h3>
+@* A bottom sheet over the page on phones (tap outside or ✕ to close); an inline card from sm up. *@
+<div class="@Ui.SheetBackdrop" @onclick="OnClose"></div>
+<section class="@Ui.Sheet" aria-labelledby="picker-title">
+    <div>
+        <div class="sticky top-0 z-10 -mx-4 -mt-4 mb-3 flex items-center justify-between gap-2 rounded-t-2xl border-b border-slate-200 bg-white py-2 pr-2 pl-4 sm:static sm:mx-0 sm:mt-0 sm:rounded-none sm:border-0 sm:p-0">
+            <h3 id="picker-title" class="@($"{Ui.CardTitle} min-w-0 break-words")">Adicionar exercício@(Target is null ? string.Empty : $" em {Target}")</h3>
             <button class="@Ui.CloseButton" aria-label="Fechar" @onclick="OnClose">✕</button>
         </div>
         <div class="mb-3 grid grid-cols-12 gap-2">
@@ -14,7 +16,7 @@
                 <input id="picker-search" class="@Ui.Input" placeholder="Buscar por nome (ex.: agachamento)" autofocus
                        @bind="_search" @bind:event="oninput" @bind:after="SearchSoonAsync" />
             </div>
-            <div class="col-span-12 sm:col-span-6 md:col-span-3">
+            <div class="col-span-6 md:col-span-3">
                 <label class="sr-only" for="picker-muscle">Grupo muscular</label>
                 <select id="picker-muscle" class="@Ui.Select" @bind="_muscle" @bind:after="SearchSoonAsync">
                     <option value="">Todos os grupos musculares</option>
@@ -24,7 +26,7 @@
                     }
                 </select>
             </div>
-            <div class="col-span-12 sm:col-span-6 md:col-span-3">
+            <div class="col-span-6 md:col-span-3">
                 <label class="sr-only" for="picker-equipment">Equipamento</label>
                 <select id="picker-equipment" class="@Ui.Select" @bind="_equipment" @bind:after="SearchSoonAsync">
                     <option value="">Qualquer equipamento</option>
@@ -50,12 +52,13 @@
         }
         else
         {
-            <div class="max-h-80 divide-y divide-slate-200 overflow-y-auto">
+            @* The sheet scrolls as a whole on phones; from sm up the list scrolls inside the card. *@
+            <div class="divide-y divide-slate-200 sm:max-h-80 sm:overflow-y-auto">
                 @foreach (var exercise in _results.Items)
                 {
                     <div class="flex items-center gap-2 py-2">
                         <div class="min-w-0 flex-grow">
-                            <div class="font-semibold text-slate-900">
+                            <div class="font-semibold break-words text-slate-900">
                                 @exercise.Name
                                 @if (exercise.IsCustom)
                                 {
@@ -78,7 +81,7 @@
             }
         }
     </div>
-</div>
+</section>
 
 @code {
     [Parameter]

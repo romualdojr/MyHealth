@@ -115,6 +115,7 @@ public static class CoachTools
               "type": "object",
               "properties": {
                 "planned_exercise_id": { "type": "string", "description": "Optional: the exercise the conversation is about." },
+                "student": { "type": "string", "description": "In the trainer chat: the alias of the student (e.g. Aluno 2)." },
                 "reason": { "type": "string" }
               },
               "required": ["reason"]

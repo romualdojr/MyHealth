@@ -4,6 +4,8 @@ using MyHealth.Application.Coaching;
 using MyHealth.Application.Common;
 using MyHealth.Application.Exercises;
 using MyHealth.Application.MotionCapture;
+using MyHealth.Application.TrainerAssistant;
+using MyHealth.Application.Abstractions.Assistant;
 using Microsoft.AspNetCore.Http.Features;
 using MyHealth.Application.TrainingPlans;
 using MyHealth.Application.Workouts;
@@ -169,5 +171,25 @@ internal static class MotionCaptureEndpoints
                 Guid jobId, ICommandHandler<AcceptMotionCaptureCommand, MotionCaptureJobResponse> handler, CancellationToken ct) =>
             (await handler.Handle(new AcceptMotionCaptureCommand(jobId), ct)).ToHttp())
             .WithTags("3D exercise videos");
+    }
+}
+
+/// <summary>The trainer's chat: summaries of all students and suggestions to evolve their exercises.</summary>
+internal static class TrainerAssistantEndpoints
+{
+    public sealed record MessageRequest(string Message, IReadOnlyList<AssistantTurn>? History, Guid? ClientId);
+
+    public static void MapTrainerAssistantEndpoints(this IEndpointRouteBuilder routes)
+    {
+        var group = routes.MapGroup("/trainer/assistant").WithTags("Trainer assistant");
+
+        group.MapGet("/", async (IQueryHandler<GetTrainerAssistantOverviewQuery, TrainerAssistantOverview> handler, CancellationToken ct) =>
+            (await handler.Handle(new GetTrainerAssistantOverviewQuery(), ct)).ToHttp());
+
+        // Each message calls the AI provider: limited per user, like the other assistants.
+        group.MapPost("/messages", async (
+                MessageRequest request, ICommandHandler<SendTrainerAssistantMessageCommand, TrainerAssistantReplyResponse> handler, CancellationToken ct) =>
+            (await handler.Handle(new SendTrainerAssistantMessageCommand(request.Message, request.History, request.ClientId), ct)).ToHttp())
+            .RequireRateLimiting(RateLimitPolicies.Assistant);
     }
 }

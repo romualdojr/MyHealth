@@ -20,7 +20,10 @@ public abstract class BrowserTest(AppFixture app) : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        _context = await app.Browser.NewContextAsync(new BrowserNewContextOptions { IgnoreHTTPSErrors = true, Locale = "pt-BR" });
+        var options = ContextOptions(app);
+        options.IgnoreHTTPSErrors = true;
+        options.Locale = "pt-BR";
+        _context = await app.Browser.NewContextAsync(options);
         _context.SetDefaultTimeout((float)Timeout.TotalMilliseconds);
         Page = await _context.NewPageAsync();
         Page.Console += (_, message) =>
@@ -32,6 +35,9 @@ public abstract class BrowserTest(AppFixture app) : IAsyncLifetime
         };
         Page.PageError += (_, error) => _consoleErrors.Add(error);
     }
+
+    /// <summary>The browser context: a desktop browser by default; phone tests use a device descriptor.</summary>
+    protected virtual BrowserNewContextOptions ContextOptions(AppFixture app) => new();
 
     public async ValueTask DisposeAsync()
     {
@@ -68,7 +74,8 @@ public abstract class BrowserTest(AppFixture app) : IAsyncLifetime
         await AssertHealthyAsync();
     }
 
-    protected async Task ExpectTextAsync(string text) => await Assertions.Expect(Page.GetByText(text).First).ToBeVisibleAsync();
+    // Only visible matches count: phone-only copies (drawer, card lists) exist hidden on the desktop and vice versa.
+    protected async Task ExpectTextAsync(string text) => await Assertions.Expect(Page.GetByText(text).Filter(new() { Visible = true }).First).ToBeVisibleAsync();
 
     protected ILocator Button(string name) => Page.GetByRole(AriaRole.Button, new() { Name = name, Exact = true });
 

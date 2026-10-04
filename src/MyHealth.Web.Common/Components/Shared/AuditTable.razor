@@ -8,7 +8,7 @@
     {
         <input class="@($"{Ui.InputSm} w-full sm:w-56")" placeholder="Organização (id)" @bind="_tenant" aria-label="Organização" />
     }
-    <button class="@Ui.ButtonSm" @onclick="() => LoadAsync(1)">Filtrar</button>
+    <button class="@($"{Ui.ButtonSm} w-full sm:w-auto")" @onclick="() => LoadAsync(1)">Filtrar</button>
 </div>
 
 <ProblemAlert Problem="_problem" />
@@ -19,7 +19,32 @@
 }
 else
 {
-    <div class="@Ui.TableWrap">
+    @* Phones: one card per entry. *@
+    <div class="@($"{Ui.List} md:hidden")">
+        @foreach (var e in _page.Items)
+        {
+            <div class="@($"{Ui.ListItem} {(e.Action == "deny" ? "bg-red-50" : string.Empty)}")">
+                <div class="flex items-center justify-between gap-2">
+                    <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm">@e.Action</code>
+                    <span class="text-xs text-slate-500">@e.OccurredAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                </div>
+                <div class="mt-1 text-sm text-slate-700">@e.ResourceType <span class="text-slate-500">@Short(e.ResourceId)</span></div>
+                <div class="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-slate-500">
+                    <span>Autor</span><button class="@Ui.ButtonLinkSm" @onclick="() => FilterActor(e.ActorUserId)">@Short(e.ActorUserId)</button>
+                    @if (e.SubjectUserId is { } subject)
+                    {
+                        <span>Titular</span><button class="@Ui.ButtonLinkSm" @onclick="() => FilterSubject(subject)">@Short(subject)</button>
+                    }
+                    @if (AllowTenantFilter && e.TenantId is { } tenant)
+                    {
+                        <span>Org. @Short(tenant)</span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="@($"{Ui.TableWrap} hidden md:block")">
         <table class="@Ui.Table">
             <thead class="@Ui.THead">
                 <tr>
@@ -54,7 +79,7 @@ else
         </table>
     </div>
 
-    <div class="mt-4 flex items-center gap-3">
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-3 sm:justify-start">
         <button class="@Ui.ButtonSecondarySm" disabled="@(_page.Page <= 1)" @onclick="() => LoadAsync(_page.Page - 1)">Anterior</button>
         <span class="text-sm text-slate-500">Página @_page.Page de @Pages · @_page.TotalCount registros</span>
         <button class="@Ui.ButtonSecondarySm" disabled="@(_page.Page >= Pages)" @onclick="() => LoadAsync(_page.Page + 1)">Próxima</button>
