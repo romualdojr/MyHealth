@@ -10,6 +10,7 @@
         <NavLink class="@Ui.NavLink" href="trainer" Match="NavLinkMatch.All">Clientes</NavLink>
         <NavLink class="@Ui.NavLink" href="trainer/assistant">Assistente IA</NavLink>
         <NavLink class="@Ui.NavLink" href="trainer/exercises">Biblioteca de exercícios</NavLink>
+        <NavLink class="@Ui.NavLink" href="client-view">Visão do cliente</NavLink>
     }
 
     @if (Workspace.Practices("Dietitian"))
@@ -17,6 +18,11 @@
         <div class="@Ui.NavSection">Nutrição</div>
         <NavLink class="@Ui.NavLink" href="dietitian" Match="NavLinkMatch.All">Pacientes</NavLink>
         <NavLink class="@Ui.NavLink" href="dietitian/assistant">Assistente IA</NavLink>
+        @if (!Workspace.Practices("PersonalTrainer"))
+        {
+            @* One link is enough for someone in both disciplines: the page shows training and nutrition together. *@
+            <NavLink class="@Ui.NavLink" href="client-view">Visão do cliente</NavLink>
+        }
     }
 
     @if (Workspace.Practices("TherapyPractitioner"))

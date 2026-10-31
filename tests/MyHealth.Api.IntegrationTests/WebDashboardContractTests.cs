@@ -332,6 +332,11 @@ public sealed class WebDashboardContractTests(ApiFactory factory) : IntegrationT
         (item.Status, item.CurrentVersionNumber, item.HasUnpublishedChanges).ShouldBe(("Published", 1, false));
         (await Ok(api.GetAsync<TrainerPlan>($"training-plans/{planId}", ct: Ct))).Versions.ShouldHaveSingleItem().ChangeDescription.ShouldBe("Primeira versão do plano");
 
+        // "Visão do cliente" shows the published version, exactly as the client receives it.
+        var version = await Ok(api.GetAsync<PlanVersionDetail>($"training-plans/{planId}/versions/1", ct: Ct));
+        (version.VersionNumber, version.ChangeDescription).ShouldBe((1, "Primeira versão do plano"));
+        PlanDraft.From(version.Content).Snapshot().ShouldBe(saved.Snapshot());
+
         // The client works out and reports discomfort; the trainer reads the workout and replies.
         var (workoutId, _) = await Scenario.StartAsync(ana, planId);
         await Scenario.CompleteAsync(ana, workoutId, discomfort: true);

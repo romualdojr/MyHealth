@@ -126,6 +126,9 @@ public sealed record TrainerPlan(
 
 public sealed record PublishedVersion(Guid VersionId, int VersionNumber, DateTimeOffset PublishedAt);
 
+public sealed record PlanVersionDetail(
+    Guid PlanId, Guid VersionId, int VersionNumber, PlanDetails Details, PlanContent Content, string ChangeDescription, DateTimeOffset PublishedAt);
+
 public sealed record WorkoutSessionItem(
     Guid Id, Guid TrainingPlanId, int PlanVersionNumber, string PlannedSessionName, string Kind, string Status, DateTimeOffset StartedAt,
     DateTimeOffset? CompletedAt, DateOnly? LocalDate, int? PerceivedExertion, bool ReportedDiscomfort, bool HasReply);

@@ -1,0 +1,441 @@
+@page "/client-view"
+@page "/client-view/{ClientId:guid}"
+@attribute [Authorize]
+@implements IDisposable
+@inject WorkspaceState Workspace
+@inject MyHealthApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Visão do cliente · MyHealth</PageTitle>
+<HeadContent>
+    <link rel="stylesheet" href="css/client-view.css" />
+</HeadContent>
+
+@if (!Workspace.Practices(Trainer) && !Workspace.Practices(Dietitian))
+{
+    <p class="@Ui.AlertInfo">Selecione uma organização em que você atua como personal trainer ou nutricionista.</p>
+}
+else
+{
+    <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-center lg:gap-10">
+        <div class="min-w-0 lg:max-w-xl lg:flex-1">
+            <h1 class="@($"{Ui.PageTitle} mb-1")">Visão do cliente</h1>
+            <p class="@($"{Ui.Help} mb-4")">
+                O plano publicado como ele aparece no aplicativo do cliente, com os treinos e registros reais. Rascunhos só aparecem
+                aqui depois de publicados. É uma prévia: nada do que você tocar no celular muda os dados.
+            </p>
+
+            <ProblemAlert Problem="_problem" />
+
+            @if (_clients is null)
+            {
+                @if (_problem is null)
+                {
+                    <Loading />
+                }
+            }
+            else if (_clients.Count == 0)
+            {
+                <div class="@Ui.EmptyState">Você ainda não tem clientes nesta organização.</div>
+            }
+            else
+            {
+                <div class="mb-5">
+                    <label class="@Ui.Label" for="client-view-client">Cliente</label>
+                    <select id="client-view-client" class="@Ui.Select" value="@ClientId" @onchange="SelectClient">
+                        @if (ClientId is null)
+                        {
+                            <option value="">Escolha…</option>
+                        }
+                        @foreach (var c in _clients)
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
+                </div>
+
+                @if (ClientId is not null && _loadingClient)
+                {
+                    <Loading />
+                }
+                else if (ClientId is { } selected)
+                {
+                    @if (Workspace.Practices(Trainer))
+                    {
+                        <section class="@($"{Ui.Card} mb-4")" aria-labelledby="client-view-training">
+                            <div class="@Ui.CardBody">
+                                <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                    <h2 id="client-view-training" class="@Ui.CardTitle">Treino</h2>
+                                    <a class="@Ui.TapLink text-sm" href="trainer/clients/@selected">Ficha do cliente</a>
+                                </div>
+                                @if (_trainingPlans.Count == 0)
+                                {
+                                    <p class="@Ui.Help">Nenhum plano de treino publicado para este cliente. O aplicativo mostra a tela vazia.</p>
+                                }
+                                else
+                                {
+                                    @if (_trainingPlans.Count > 1)
+                                    {
+                                        <label class="@Ui.Label" for="client-view-training-plan">Plano</label>
+                                        <select id="client-view-training-plan" class="@($"{Ui.Select} mb-3")" value="@_trainingPlanId" @onchange="SelectTrainingPlanAsync">
+                                            @foreach (var p in _trainingPlans)
+                                            {
+                                                <option value="@p.Id">@p.Name</option>
+                                            }
+                                        </select>
+                                    }
+                                    @if (_trainingPlans.FirstOrDefault(p => p.Id == _trainingPlanId) is { } plan)
+                                    {
+                                        <p class="mb-3 text-sm text-slate-700">
+                                            <a class="font-semibold text-teal-700 hover:underline" href="trainer/plans/@plan.Id">@plan.Name</a>
+                                            · versão @plan.CurrentVersionNumber@(_training is { } t ? $", publicada em {t.Version.PublishedAt.ToLocalTime():dd/MM/yyyy}" : string.Empty)
+                                            @if (plan.HasUnpublishedChanges)
+                                            {
+                                                <span class="@($"{Ui.BadgeWarning} ml-1")" title="O cliente só vê as alterações depois que você publicar.">alterações não publicadas</span>
+                                            }
+                                        </p>
+                                    }
+                                    @if (_training is { } training)
+                                    {
+                                        <div class="flex flex-wrap gap-2" role="group" aria-label="Telas de treino">
+                                            <button class="@ScreenButton(_screen.Kind == "treino")" @onclick="() => _screen = PhoneScreen.Path">Caminho</button>
+                                            @foreach (var s in training.Sessions)
+                                            {
+                                                <button class="@ScreenButton(_screen.SessionId == s.Id && _screen.Kind == "sessao")" @onclick="() => _screen = new PhoneScreen(SessaoKind, s.Id)">@s.Name</button>
+                                                @if (s.Exercises.Count > 0)
+                                                {
+                                                    <button class="@ScreenButton(_screen.SessionId == s.Id && _screen.Kind == "ativo")" title="A tela de cada exercício durante o treino"
+                                                            @onclick="() => _screen = new PhoneScreen(AtivoKind, s.Id)">@s.Name em andamento</button>
+                                                }
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </section>
+                    }
+
+                    @if (Workspace.Practices(Dietitian))
+                    {
+                        <section class="@($"{Ui.Card} mb-4")" aria-labelledby="client-view-nutrition">
+                            <div class="@Ui.CardBody">
+                                <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                    <h2 id="client-view-nutrition" class="@Ui.CardTitle">Alimentação</h2>
+                                    <a class="@Ui.TapLink text-sm" href="dietitian/clients/@selected">Ficha do paciente</a>
+                                </div>
+                                @if (_mealPlans.Count == 0)
+                                {
+                                    <p class="@Ui.Help">Nenhum plano alimentar publicado para este paciente. O aplicativo mostra a tela vazia.</p>
+                                }
+                                else
+                                {
+                                    @if (_mealPlans.Count > 1)
+                                    {
+                                        <label class="@Ui.Label" for="client-view-meal-plan">Plano</label>
+                                        <select id="client-view-meal-plan" class="@($"{Ui.Select} mb-3")" value="@_mealPlanId" @onchange="SelectMealPlanAsync">
+                                            @foreach (var p in _mealPlans)
+                                            {
+                                                <option value="@p.Id">@p.Name</option>
+                                            }
+                                        </select>
+                                    }
+                                    @if (_mealPlans.FirstOrDefault(p => p.Id == _mealPlanId) is { } mealPlan)
+                                    {
+                                        <p class="mb-3 text-sm text-slate-700">
+                                            <a class="font-semibold text-teal-700 hover:underline" href="dietitian/plans/@mealPlan.Id">@mealPlan.Name</a>
+                                            · versão @mealPlan.CurrentVersionNumber@(_nutrition is { } n ? $", publicada em {n.Version.PublishedAt.ToLocalTime():dd/MM/yyyy}" : string.Empty)
+                                            @if (mealPlan.HasUnpublishedChanges)
+                                            {
+                                                <span class="@($"{Ui.BadgeWarning} ml-1")" title="O paciente só vê as alterações depois que você publicar.">alterações não publicadas</span>
+                                            }
+                                        </p>
+                                    }
+                                }
+                                <div class="flex flex-wrap gap-2" role="group" aria-label="Telas de alimentação">
+                                    <button class="@ScreenButton(_screen.Kind == "nutri")" @onclick="() => _screen = PhoneScreen.Meals">Refeições de hoje</button>
+                                </div>
+                            </div>
+                        </section>
+                    }
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-sm font-medium text-slate-700">Celular</span>
+                        <div class="inline-flex rounded-full border border-slate-300 bg-white p-1" role="group" aria-label="Plataforma">
+                            <button class="@PlatformButton(_platform == "ios")" aria-pressed="@(_platform == "ios")" @onclick="@(() => _platform = "ios")">iPhone</button>
+                            <button class="@PlatformButton(_platform == "android")" aria-pressed="@(_platform == "android")" @onclick="@(() => _platform = "android")">Android</button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        @if (ClientId is not null && !_loadingClient && _clients is { Count: > 0 })
+        {
+            <div class="flex w-full justify-center lg:sticky lg:top-6 lg:w-[390px] lg:flex-none">
+                <ClientAppPhone Training="_training" TrainingUnavailable="@_trainingUnavailable" Nutrition="_nutrition" NutritionUnavailable="@_nutritionUnavailable"
+                                @bind-Screen="_screen" Platform="@_platform" Clock="@Now.ToString("H:mm")" />
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private const string Trainer = "PersonalTrainer";
+    private const string Dietitian = "Dietitian";
+    private const string SessaoKind = "sessao";
+    private const string AtivoKind = "ativo";
+
+    [Parameter]
+    public Guid? ClientId { get; set; }
+
+    private sealed record ViewClient(Guid Id, string Name);
+
+    private List<ViewClient>? _clients;
+    private ApiProblem? _problem;
+    private bool _loadingClient;
+    private Guid? _loadedClientId;
+
+    private List<TrainerPlanItem> _trainingPlans = [];
+    private Guid? _trainingPlanId;
+    private TrainingPreview? _training;
+    private string? _trainingUnavailable;
+
+    private List<MealPlanItem> _mealPlans = [];
+    private Guid? _mealPlanId;
+    private NutritionPreview? _nutrition;
+    private string? _nutritionUnavailable;
+
+    private PhoneScreen _screen = PhoneScreen.Path;
+    private string _platform = "ios";
+
+    /// <summary>Now in the professional's time zone: "today" for the plan's week and the meals of the day.</summary>
+    private DateTime Now
+    {
+        get
+        {
+            try
+            {
+                return Workspace.Me?.TimeZoneId is { Length: > 0 } zone
+                    ? TimeZoneInfo.ConvertTime(DateTime.UtcNow, TimeZoneInfo.FindSystemTimeZoneById(zone))
+                    : DateTime.Now;
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                return DateTime.Now;
+            }
+        }
+    }
+
+    private static string ScreenButton(bool active) => active ? Ui.ButtonSm : Ui.ButtonSecondarySm;
+
+    private static string PlatformButton(bool active) =>
+        $"min-h-11 rounded-full px-4 text-sm font-semibold sm:min-h-8 {(active ? "bg-teal-700 text-white" : "text-slate-700 hover:bg-slate-50")}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Workspace.Changed += OnChanged;
+        await LoadClientsAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ClientId != _loadedClientId)
+        {
+            await LoadClientAsync();
+        }
+    }
+
+    private void OnChanged() => InvokeAsync(async () =>
+    {
+        await LoadClientsAsync();
+        await LoadClientAsync();
+        StateHasChanged();
+    });
+
+    /// <summary>The clients of every discipline the professional practices here, once each.</summary>
+    private async Task LoadClientsAsync()
+    {
+        _problem = null;
+        var clients = new Dictionary<Guid, string>();
+        if (Workspace.Practices(Trainer))
+        {
+            var trainer = await Api.GetAsync<TrainerDashboard>("trainer/dashboard");
+            _problem ??= trainer.Problem;
+            foreach (var c in trainer.Value?.Clients ?? [])
+            {
+                clients.TryAdd(c.ClientId, c.ClientName);
+            }
+        }
+
+        if (Workspace.Practices(Dietitian))
+        {
+            var dietitian = await Api.GetAsync<DietitianDashboard>("dietitian/dashboard");
+            _problem ??= dietitian.Problem;
+            foreach (var c in dietitian.Value?.Clients ?? [])
+            {
+                clients.TryAdd(c.ClientId, c.ClientName);
+            }
+        }
+
+        _clients = [.. clients.Select(c => new ViewClient(c.Key, c.Value)).OrderBy(c => c.Name, StringComparer.Create(ClientAppText.Brazil, true))];
+
+        // Opened from the menu: start with the first client instead of an empty page.
+        if (ClientId is null && _clients.Count > 0)
+        {
+            Navigation.NavigateTo($"client-view/{_clients[0].Id}", replace: true);
+        }
+    }
+
+    private void SelectClient(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var id))
+        {
+            Navigation.NavigateTo($"client-view/{id}");
+        }
+    }
+
+    private async Task LoadClientAsync()
+    {
+        _loadedClientId = ClientId;
+        _trainingUnavailable = null;
+        _nutritionUnavailable = null;
+        _training = null;
+        _nutrition = null;
+        _trainingPlans = [];
+        _mealPlans = [];
+        if (ClientId is not { } clientId)
+        {
+            return;
+        }
+
+        _loadingClient = true;
+        try
+        {
+            if (Workspace.Practices(Trainer))
+            {
+                var plans = await Api.GetAsync<List<TrainerPlanItem>>($"training-plans?clientId={clientId}");
+                _problem ??= plans.Problem;
+                _trainingPlans = [.. (plans.Value ?? []).Where(p => p is { Status: "Published", CurrentVersionNumber: > 0 }).OrderByDescending(p => p.UpdatedAt)];
+                _trainingPlanId = _trainingPlans.FirstOrDefault()?.Id;
+                await LoadTrainingAsync();
+            }
+            else
+            {
+                _trainingUnavailable = "Só quem prescreveu o treino vê como ele aparece para o cliente.";
+            }
+
+            if (Workspace.Practices(Dietitian))
+            {
+                var plans = await Api.GetAsync<List<MealPlanItem>>($"meal-plans?clientId={clientId}");
+                _problem ??= plans.Problem;
+                _mealPlans = [.. (plans.Value ?? []).Where(p => p is { Status: "Published", CurrentVersionNumber: > 0 }).OrderByDescending(p => p.UpdatedAt)];
+                _mealPlanId = _mealPlans.FirstOrDefault()?.Id;
+                await LoadNutritionAsync();
+            }
+            else
+            {
+                _nutritionUnavailable = "Só quem prescreveu o plano alimentar vê como ele aparece para o paciente.";
+            }
+
+            _screen = Workspace.Practices(Trainer) ? PhoneScreen.Path : PhoneScreen.Meals;
+        }
+        finally
+        {
+            _loadingClient = false;
+        }
+    }
+
+    private async Task SelectTrainingPlanAsync(ChangeEventArgs e)
+    {
+        _trainingPlanId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _screen = PhoneScreen.Path;
+        await LoadTrainingAsync();
+    }
+
+    private async Task SelectMealPlanAsync(ChangeEventArgs e)
+    {
+        _mealPlanId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        _screen = PhoneScreen.Meals;
+        await LoadNutritionAsync();
+    }
+
+    /// <summary>The plan's current published version (what the app shows), its workouts and the exercises' library entries.</summary>
+    private async Task LoadTrainingAsync()
+    {
+        _training = null;
+        _trainingUnavailable = null;
+        if (_trainingPlans.FirstOrDefault(p => p.Id == _trainingPlanId) is not { } plan || ClientId is not { } clientId)
+        {
+            return;
+        }
+
+        var version = await Api.GetAsync<PlanVersionDetail>($"training-plans/{plan.Id}/versions/{plan.CurrentVersionNumber}");
+        _problem ??= version.Problem;
+        if (version.Value is not { } current)
+        {
+            return;
+        }
+
+        var previous = plan.CurrentVersionNumber > 1
+            ? (await Api.GetAsync<PlanVersionDetail>($"training-plans/{plan.Id}/versions/{plan.CurrentVersionNumber - 1}")).Value
+            : null;
+
+        var sessions = await Api.GetAsync<List<WorkoutSessionItem>>($"trainer/clients/{clientId}/workout-sessions");
+        _problem ??= sessions.Problem;
+        var workouts = (sessions.Value ?? []).Where(w => w.TrainingPlanId == plan.Id).ToList();
+
+        var last = workouts.Where(w => w.Status == "Completed").MaxBy(w => w.CompletedAt ?? w.StartedAt);
+        var lastDetail = last is null ? null : (await Api.GetAsync<WorkoutSessionDetail>($"workout-sessions/{last.Id}")).Value;
+
+        // Precautions and videos come from the library; the plan only keeps the exercise's id and name.
+        var exerciseIds = current.Content.Sessions.SelectMany(s => s.Exercises).Select(e => e.ExerciseId).Distinct();
+        var exercises = await Task.WhenAll(exerciseIds.Select(id => Api.GetAsync<ExerciseItem>($"exercises/{id}")));
+
+        _training = new TrainingPreview
+        {
+            Version = current,
+            Previous = previous,
+            TrainerName = Profile(Trainer),
+            OrganizationName = Workspace.Membership?.TenantName ?? string.Empty,
+            Workouts = workouts,
+            LastWorkout = lastDetail,
+            Exercises = exercises.Select(r => r.Value).OfType<ExerciseItem>().ToDictionary(e => e.Id),
+            Today = DateOnly.FromDateTime(Now),
+        };
+    }
+
+    /// <summary>The meal plan's current published version and today's diary, so logged meals and comments show as on the phone.</summary>
+    private async Task LoadNutritionAsync()
+    {
+        _nutrition = null;
+        _nutritionUnavailable = null;
+        if (_mealPlans.FirstOrDefault(p => p.Id == _mealPlanId) is not { } plan || ClientId is not { } clientId)
+        {
+            return;
+        }
+
+        var version = await Api.GetAsync<MealPlanVersionDetail>($"meal-plans/{plan.Id}/versions/{plan.CurrentVersionNumber}");
+        _problem ??= version.Problem;
+        if (version.Value is not { } current)
+        {
+            return;
+        }
+
+        var now = Now;
+        var today = DateOnly.FromDateTime(now);
+        var diary = await Api.GetAsync<DietitianFoodDiary>($"dietitian/clients/{clientId}/food-diary?from={today:yyyy-MM-dd}&to={today:yyyy-MM-dd}");
+        _nutrition = new NutritionPreview
+        {
+            Version = current,
+            DietitianName = Profile(Dietitian),
+            OrganizationName = Workspace.Membership?.TenantName ?? string.Empty,
+            Diary = diary.Value is { } d ? [.. d.Entries.Where(e => e.LocalDate == today)] : null,
+            Now = TimeOnly.FromDateTime(now),
+        };
+    }
+
+    private string Profile(string discipline) =>
+        Workspace.Me?.ProfessionalProfiles.FirstOrDefault(p => p.Discipline == discipline)?.DisplayName ?? Workspace.Me?.FullName ?? string.Empty;
+
+    public void Dispose() => Workspace.Changed -= OnChanged;
+}

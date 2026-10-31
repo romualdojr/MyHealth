@@ -17,7 +17,10 @@ else
 {
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 class="@($"{Ui.PageTitle} min-w-0 break-words")">@(_client?.ClientName ?? "Paciente")</h1>
-        <a class="@Ui.ButtonSecondarySm" href="dietitian/assistant?clientId=@ClientId">Perguntar ao assistente</a>
+        <div class="flex flex-wrap gap-2">
+            <a class="@Ui.ButtonSecondarySm" href="client-view/@ClientId">Ver como o paciente</a>
+            <a class="@Ui.ButtonSecondarySm" href="dietitian/assistant?clientId=@ClientId">Perguntar ao assistente</a>
+        </div>
     </div>
 
     <ProblemAlert Problem="_problem" />

@@ -1,0 +1,626 @@
+@* The client app on a phone, as in docs/MyHealth Client App (standalone).html: the same screens and styles, filled with
+   the client's published plans. It is a preview: whatever only the client does (log a set, answer a meal) shows a
+   note instead of changing anything. *@
+@implements IDisposable
+
+<div class="mh-app" style="position:relative;width:min(390px,100%);height:800px;border-radius:@(IsIos ? "54px" : "40px");overflow:hidden;background:var(--color-bg);border:11px solid var(--color-neutral-900);box-shadow:var(--shadow-lg);box-sizing:border-box" lang="pt-BR">
+
+    <div aria-hidden="true" style="position:absolute;left:0;right:0;top:0;height:44px;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font:700 14px/1 var(--font-body);background:var(--color-bg)">
+        <span>@Clock</span>
+        @if (IsIos)
+        {
+            <span style="position:absolute;left:50%;top:9px;transform:translateX(-50%);width:104px;height:28px;border-radius:20px;background:var(--color-neutral-900)"></span>
+        }
+        else
+        {
+            <span style="position:absolute;left:50%;top:13px;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;background:var(--color-neutral-900)"></span>
+        }
+        <span style="display:flex;gap:6px;align-items:center">
+            <span style="display:flex;gap:2px;align-items:flex-end;height:11px"><i style="width:3px;height:4px;background:var(--color-text);border-radius:1px"></i><i style="width:3px;height:6px;background:var(--color-text);border-radius:1px"></i><i style="width:3px;height:8px;background:var(--color-text);border-radius:1px"></i><i style="width:3px;height:11px;background:var(--color-text);border-radius:1px"></i></span>
+            <span style="width:24px;height:12px;border:1.5px solid var(--color-text);border-radius:4px;padding:1.5px"><i style="display:block;height:100%;width:72%;background:var(--color-text);border-radius:1px"></i></span>
+        </span>
+    </div>
+
+    @* A new scroll area per screen, so every screen opens at the top. *@
+    <div @key="Screen" class="mh-scroll" style="position:absolute;left:0;right:0;top:44px;bottom:@(HasTab ? "84px" : "0px");overflow-y:auto">
+        @switch (Screen.Kind)
+        {
+            case "sessao" when SelectedSession is { } session && Training is { } training:
+                @SessionScreen(training, session)
+                break;
+            case "ativo" when SelectedSession is { } session && Training is { } training && session.Exercises.Count > 0:
+                @ExerciseScreen(training, session)
+                break;
+            case "nutri":
+                @MealsScreen()
+                break;
+            default:
+                @PathScreen()
+                break;
+        }
+    </div>
+
+    @if (HasTab)
+    {
+        <nav aria-label="Navegação principal" style="position:absolute;left:0;right:0;bottom:0;height:84px;z-index:5;display:grid;grid-template-columns:repeat(5,1fr);padding:8px 4px 24px;background:var(--color-neutral-100);border-top:1px solid var(--color-divider)">
+            <button @onclick="@(() => Toast("A tela Início não faz parte desta prévia"))" style="@TabStyle(false, "")"><span style="font-size:23px"><ClientAppIcon Name="home" /></span>Início</button>
+            <button @onclick="() => GoAsync(PhoneScreen.Path)" style="@TabStyle(Screen.IsTraining, "var(--color-accent-700)")"><span style="font-size:23px"><ClientAppIcon Name="dumbbell" /></span>Treino</button>
+            <button @onclick="@(() => Toast("O assistente conversa só com o cliente"))" style="@TabStyle(false, "")"><span style="width:54px;height:54px;margin-top:-26px;border-radius:50%;display:grid;place-items:center;background:var(--color-text);color:var(--color-bg);border:4px solid var(--color-neutral-100);font-size:24px;box-shadow:0 4px 0 var(--color-neutral-900)"><ClientAppIcon Name="sparkles" Filled="true" /></span>Assistente</button>
+            <button @onclick="() => GoAsync(PhoneScreen.Meals)" style="@TabStyle(Screen.Kind == "nutri", "var(--color-accent-2-600)")"><span style="font-size:23px"><ClientAppIcon Name="apple" /></span>Alimentação</button>
+            <button @onclick="@(() => Toast("As terapias não fazem parte desta prévia"))" style="@TabStyle(false, "")"><span style="font-size:23px"><ClientAppIcon Name="sprout" /></span>Terapias</button>
+        </nav>
+    }
+
+    @if (IsIos)
+    {
+        <span aria-hidden="true" style="position:absolute;left:50%;bottom:7px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--color-text);z-index:6"></span>
+    }
+    else
+    {
+        <span aria-hidden="true" style="position:absolute;left:50%;bottom:7px;transform:translateX(-50%);width:110px;height:4px;border-radius:2px;background:var(--color-neutral-700);z-index:6"></span>
+    }
+
+    @if (_toast is { } toast)
+    {
+        <div role="status" style="position:absolute;left:50%;bottom:104px;transform:translateX(-50%);z-index:20;max-width:320px;width:max-content;padding:12px 18px;border-radius:999px;background:var(--color-text);color:var(--color-bg);font:600 13.5px/1.3 var(--font-body);text-align:center;box-shadow:var(--shadow-lg);animation:mh-toastin .25s ease-out">@toast</div>
+    }
+</div>
+
+@code {
+    private const string Section = "display:flex;flex-direction:column;gap:14px;padding:8px 18px 28px;min-height:100%";
+    private const string Kicker = "font:800 11px/1 var(--font-body);letter-spacing:.08em;text-transform:uppercase";
+    private const string Muted = "font:600 13px/1.2 var(--font-body);color:var(--color-neutral-700)";
+    private const string PrimaryButton = "width:100%;min-height:52px;font-size:17px;box-shadow:0 5px 0 var(--color-accent-700)";
+    private const string ClientOnly = "Na prévia, só o cliente registra o treino";
+
+    /// <summary>The published training plan, or null when there is none to show (see <see cref="TrainingUnavailable"/>).</summary>
+    [Parameter]
+    public TrainingPreview? Training { get; set; }
+
+    /// <summary>Why the training screens are empty: no published plan, or a plan this professional cannot read.</summary>
+    [Parameter]
+    public string? TrainingUnavailable { get; set; }
+
+    [Parameter]
+    public NutritionPreview? Nutrition { get; set; }
+
+    [Parameter]
+    public string? NutritionUnavailable { get; set; }
+
+    [Parameter, EditorRequired]
+    public PhoneScreen Screen { get; set; } = PhoneScreen.Path;
+
+    [Parameter]
+    public EventCallback<PhoneScreen> ScreenChanged { get; set; }
+
+    /// <summary><c>ios</c> or <c>android</c>: the frame's corners, camera and home indicator.</summary>
+    [Parameter]
+    public string Platform { get; set; } = "ios";
+
+    [Parameter]
+    public string Clock { get; set; } = "9:41";
+
+    private string? _toast;
+    private CancellationTokenSource? _toastTimer;
+
+    private bool IsIos => Platform != "android";
+
+    private bool HasTab => Screen.Kind != "ativo";
+
+    private PlannedSession? SelectedSession => Training?.Sessions.FirstOrDefault(s => s.Id == Screen.SessionId);
+
+    private static string TabStyle(bool active, string color) =>
+        $"border:0;background:none;cursor:pointer;display:grid;justify-items:center;gap:4px;font:600 10.5px/1 var(--font-body);color:{(active ? color : "var(--color-neutral-600)")}";
+
+    private Task GoAsync(PhoneScreen screen) => ScreenChanged.InvokeAsync(screen);
+
+    private static PhoneScreen Sessao(Guid sessionId) => new("sessao", sessionId);
+
+    private static PhoneScreen Ativo(Guid sessionId, int exercise = 0) => new("ativo", sessionId, exercise);
+
+    private void Toast(string message)
+    {
+        _toastTimer?.Cancel();
+        _toastTimer = new CancellationTokenSource();
+        var token = _toastTimer.Token;
+        _toast = message;
+        _ = Task.Delay(2200, token).ContinueWith(_ => InvokeAsync(() =>
+        {
+            _toast = null;
+            StateHasChanged();
+        }), TaskContinuationOptions.OnlyOnRanToCompletion);
+    }
+
+    public void Dispose() => _toastTimer?.Cancel();
+
+    private RenderFragment Back(string label, PhoneScreen to) =>
+        @<button @onclick="() => GoAsync(to)" style="align-self:flex-start;display:inline-flex;align-items:center;gap:2px;border:0;background:none;padding:8px 0;font:700 15px/1 var(--font-body);color:var(--color-accent-700);cursor:pointer"><ClientAppIcon Name="chevL" /> @label</button>;
+
+    /// <summary>The app's own empty state, for a module without a published plan (or one this professional cannot read).</summary>
+    private static RenderFragment Empty(string title, string message, string background) =>
+        @<div class="card" style="@($"padding:20px;gap:8px;background:{background}")">
+            <h3 style="margin:0;font-size:21px">@title</h3>
+            <p style="margin:0;font-size:14px;color:var(--color-neutral-800)">@message</p>
+        </div>;
+
+    private RenderFragment Bubble(string author, string message, string background = "var(--color-accent-200)", string color = "var(--color-accent-800)") =>
+        @<div style="@($"display:grid;gap:4px;padding:12px 14px;border-radius:22px 22px 22px 6px;background:{background};font-size:13.5px")"><b style="@($"font-size:12.5px;color:{color}")">@author</b>@message</div>;
+
+    // ── Treino · caminho ─────────────────────────────────────────────────────────────────────────────────────────────
+
+    private RenderFragment PathScreen() => __builder =>
+    {
+        <section data-screen-label="Treino · caminho" style="@Section">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:6px">
+                <h2 style="margin:0;font-size:30px">Treino</h2>
+                @if (Training is { } t)
+                {
+                    <div style="display:flex;gap:14px">
+                        <span aria-label="@($"Ofensiva de {t.Streak} semanas")" title="Semanas seguidas com todos os treinos" style="display:inline-flex;align-items:center;gap:4px;font:800 15px/1 var(--font-body)"><span style="color:var(--color-accent);font-size:22px"><ClientAppIcon Name="flame" Filled="true" /></span>@t.Streak</span>
+                        <span aria-label="@($"{t.DoneThisWeek} de {t.PerWeek} treinos nesta semana")" title="Treinos nesta semana" style="display:inline-flex;align-items:center;gap:4px;font:800 15px/1 var(--font-body)"><span style="color:var(--color-accent-2-600);font-size:22px"><ClientAppIcon Name="target" /></span>@t.DoneThisWeek/@t.PerWeek</span>
+                    </div>
+                }
+            </div>
+
+            @if (Training is not { } training)
+            {
+                @Empty("Nenhum treino por aqui", TrainingUnavailable ?? "Seu treinador ainda não publicou um plano.", "var(--color-accent-100)")
+            }
+            else
+            {
+                var details = training.Details;
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-radius:30px;background:var(--color-accent);color:var(--color-bg);box-shadow:0 6px 0 var(--color-accent-700)">
+                    <div>
+                        <span style="@($"{Kicker};opacity:.9")">@(training.TotalWeeks is { } total ? $"Semana {training.CurrentWeek} de {total}" : $"Semana {training.CurrentWeek}")</span>
+                        <h3 style="margin:6px 0 3px;font-size:24px;color:var(--color-bg)">@details.Name</h3>
+                        <p style="margin:0;font-size:13px">@training.TrainerName · @training.OrganizationName · @details.SuggestedSessionsPerWeek @(details.SuggestedSessionsPerWeek == 1 ? "treino" : "treinos") por semana</p>
+                    </div>
+                    <span style="flex:none;padding:8px 12px;border-radius:999px;border:2px solid rgba(255,255,255,.45);font:800 12px/1 var(--font-body)">v@(training.Version.VersionNumber)</span>
+                </div>
+
+                <ol aria-label="Caminho do plano de treino" style="list-style:none;margin:0;padding:6px 0 4px;display:flex;flex-direction:column;align-items:center;gap:20px">
+                    @foreach (var n in training.Trail())
+                    {
+                        switch (n.Type)
+                        {
+                            case "week":
+                                <li style="@($"align-self:stretch;display:flex;align-items:center;gap:10px;font:800 11.5px/1 var(--font-body);letter-spacing:.07em;text-transform:uppercase;color:{n.Color}")"><span style="flex:1;height:2px;background:var(--color-divider)"></span>@n.Label<span style="flex:1;height:2px;background:var(--color-divider)"></span></li>
+                                break;
+                            case "gap":
+                                <li style="display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--color-neutral-700)"><span style="width:4px;height:26px;background:radial-gradient(circle, var(--color-neutral-400) 2px, transparent 2.5px) 0 0 / 4px 9px repeat-y"></span>@n.Label</li>
+                                break;
+                            default:
+                                @TrailNode(n)
+                                break;
+                        }
+                    }
+                </ol>
+
+                <div class="card" style="padding:16px;gap:12px;background:var(--color-neutral-100)">
+                    <div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0;font-size:19px">Missões da semana</h3><span style="font:700 12px/1 var(--font-body);color:var(--color-neutral-700)">renova @training.RenewsOn</span></div>
+                    @{
+                        var done = Math.Min(training.DoneThisWeek, training.PerWeek);
+                        var full = done >= training.PerWeek;
+                    }
+                    <div style="display:flex;align-items:center;gap:12px">
+                        <span style="flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--color-accent-100);color:var(--color-accent-600);font-size:20px"><ClientAppIcon Name="target" /></span>
+                        <div style="flex:1;display:grid;gap:6px">
+                            <b style="font-size:14px">Fazer os @training.PerWeek @(training.PerWeek == 1 ? "treino" : "treinos") da semana</b>
+                            <div style="position:relative;height:16px;border-radius:999px;background:var(--color-neutral-300);overflow:hidden"><i style="@($"display:block;height:100%;width:{done * 100 / training.PerWeek}%;border-radius:999px;background:{(full ? "var(--color-accent-2-600)" : "var(--color-accent-400)")};transition:width .4s")"></i><span style="position:absolute;inset:0;display:grid;place-items:center;font:800 10.5px/1 var(--font-body);color:var(--color-neutral-900)">@done / @training.PerWeek</span></div>
+                        </div>
+                    </div>
+                    <p style="margin:0;font-size:12px;color:var(--color-neutral-700)">Missões valem por aparecer, nunca por carga.</p>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(training.Version.ChangeDescription))
+                {
+                    <div class="card" style="padding:16px;gap:6px;background:var(--color-accent-100)">
+                        <span style="@($"{Kicker};color:var(--color-accent-700)")">O que mudou na versão @training.Version.VersionNumber · @training.Version.PublishedAt.ToLocalTime().ToString("dd/MM")</span>
+                        <p style="margin:0;font-size:14px;color:var(--color-neutral-800)">"@training.Version.ChangeDescription"</p>
+                    </div>
+                }
+
+                @if (training.LastCompleted is { } last)
+                {
+                    <h4 style="margin:6px 0 -4px;font-size:18px">Último treino · @ClientAppText.Day(TrainingPreview.DateOf(last))</h4>
+                    <div class="card" style="padding:16px;gap:10px;background:var(--color-neutral-100)">
+                        <p style="margin:0;font-size:14px;color:var(--color-neutral-700)">@LastWorkoutLine(last)</p>
+                        @if (training.LastWorkout is { Reply: { } reply } detail && detail.Id == last.Id)
+                        {
+                            @Bubble($"{training.FirstName} respondeu", reply.Message)
+                        }
+                    </div>
+                }
+            }
+        </section>
+    };
+
+    private RenderFragment TrailNode(TrailItem n) => __builder =>
+    {
+        var current = n.State == TrailNodeState.Current;
+        var locked = n.State == TrailNodeState.Locked;
+        var background = locked ? "var(--color-neutral-300)" : "var(--color-accent)";
+        var deep = locked ? "var(--color-neutral-400)" : "var(--color-accent-700)";
+        var shadow = current ? $"0 6px 0 {deep}, 0 6px 0 10px var(--color-accent-200)" : $"0 6px 0 {deep}";
+        <li style="@($"position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:{(current ? 52 : 0)}px;transform:translateX({n.X}px)")">
+            @if (current)
+            {
+                <span aria-hidden="true" style="position:absolute;top:-54px;left:50%;padding:9px 14px;border-radius:999px;background:var(--color-neutral-100);border:2px solid var(--color-divider);color:var(--color-accent-700);font:800 13px/1 var(--font-body);letter-spacing:.06em;white-space:nowrap;animation:mh-bob 1.6s ease-in-out infinite;z-index:2;transform:translate(-50%,0)">@n.Bubble</span>
+            }
+            <button class="mh-node" @onclick="() => NodeClickedAsync(n)" aria-label="@NodeLabel(n)"
+                    style="@($"width:72px;height:64px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;background:{background};color:{(locked ? "var(--color-neutral-700)" : "var(--color-bg)")};box-shadow:{shadow};font:800 24px/1 var(--font-body)")">
+                <span style="font-size:28px;display:grid;place-items:center">
+                    @if (n.State == TrailNodeState.Done)
+                    {
+                        <ClientAppIcon Name="check" />
+                    }
+                    else if (current)
+                    {
+                        <ClientAppIcon Name="star" Filled="true" />
+                    }
+                    else if (n.Icon is { } icon)
+                    {
+                        <ClientAppIcon Name="@icon" />
+                    }
+                    else
+                    {
+                        @n.Label
+                    }
+                </span>
+            </button>
+            <span style="@($"font:{(current ? 700 : 600)} 11.5px/1.25 var(--font-body);color:{(current ? "var(--color-accent-700)" : "var(--color-neutral-700)")};text-align:center;max-width:170px")">@n.When</span>
+        </li>
+    };
+
+    private static string NodeLabel(TrailItem n) => n.State switch
+    {
+        TrailNodeState.Done => $"Feito: {n.When}",
+        TrailNodeState.Current => $"Próximo treino: {n.Label}",
+        _ => string.IsNullOrEmpty(n.When) ? $"Treino {n.Label}, bloqueado" : n.When,
+    };
+
+    private async Task NodeClickedAsync(TrailItem n)
+    {
+        if (n.State == TrailNodeState.Current && n.SessionId is { } id)
+        {
+            await GoAsync(new PhoneScreen("sessao", id));
+        }
+        else if (n.Toast is { } toast)
+        {
+            Toast(toast);
+        }
+    }
+
+    private static string LastWorkoutLine(WorkoutSessionItem w)
+    {
+        var parts = new List<string> { w.PlannedSessionName };
+        if (w.PerceivedExertion is { } effort)
+        {
+            parts.Add($"esforço {effort} de 10");
+        }
+
+        if (w.CompletedAt is { } end && end > w.StartedAt)
+        {
+            parts.Add($"{(int)Math.Round((end - w.StartedAt).TotalMinutes)} min");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    // ── Exercícios do treino ─────────────────────────────────────────────────────────────────────────────────────────
+
+    private RenderFragment SessionScreen(TrainingPreview training, PlannedSession session) => __builder =>
+    {
+        var sets = session.Exercises.Sum(e => e.Sets.Count);
+        var rests = session.Exercises.Select(e => e.RestSeconds).DefaultIfEmpty(0).ToList();
+        <section data-screen-label="Exercícios do treino" style="@Section">
+            @Back("Treino", PhoneScreen.Path)
+            <div style="display:grid;gap:4px">
+                <span style="@Muted">@(training.NextSession?.Id == session.Id ? "Próximo treino" : "Prévia") · versão @training.Version.VersionNumber · cerca de @TrainingPreview.Minutes(session) min</span>
+                <h2 style="margin:0;font-size:28px;line-height:1.08">@session.Name</h2>
+            </div>
+
+            @if (session.Aerobic is { } aerobic)
+            {
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <span class="tag tag-accent" style="font-weight:700">@aerobic.Activity</span>
+                    @if (aerobic.DurationMinutes is { } minutes)
+                    {
+                        <span class="tag tag-accent" style="font-weight:700">@minutes min</span>
+                    }
+                    @if (aerobic.DistanceKm is { } km)
+                    {
+                        <span class="tag tag-accent" style="font-weight:700">@ClientAppText.Kg(km) km</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(aerobic.Intensity))
+                    {
+                        <span class="tag tag-accent" style="font-weight:700">@aerobic.Intensity</span>
+                    }
+                </div>
+                <div class="card" style="padding:6px 16px;gap:0;background:var(--color-neutral-100);font-size:13.5px">
+                    @{ var first = true; }
+                    @foreach (var (label, text) in new[] { ("Aquecimento", aerobic.WarmUp), ("Principal", $"{aerobic.Activity}{(aerobic.Intensity is { Length: > 0 } i ? $" · {i}" : string.Empty)}"), ("Volta à calma", aerobic.CoolDown) })
+                    {
+                        if (string.IsNullOrWhiteSpace(text))
+                        {
+                            continue;
+                        }
+
+                        <div style="@($"display:grid;grid-template-columns:96px 1fr;gap:8px;padding:10px 0;{(first ? string.Empty : "border-top:1px solid var(--color-divider)")}")"><b style="color:var(--color-accent-700)">@label</b><span>@text</span></div>
+                        first = false;
+                    }
+                </div>
+            }
+            else
+            {
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <span class="tag tag-accent" style="font-weight:700">@session.Exercises.Count @(session.Exercises.Count == 1 ? "exercício" : "exercícios")</span>
+                    <span class="tag tag-accent" style="font-weight:700">@sets @(sets == 1 ? "série" : "séries")</span>
+                    <span class="tag tag-accent" style="font-weight:700">descanso @(rests.Min() == rests.Max() ? $"{rests.Min()}" : $"{rests.Min()}–{rests.Max()}") s</span>
+                </div>
+                <div style="display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-radius:24px;background:var(--color-accent-2-200);font-size:13.5px;color:var(--color-accent-2-900)"><span style="font-size:18px;color:var(--color-accent-2-700);margin-top:1px"><ClientAppIcon Name="repeat" /></span><span><b>Faça na ordem que quiser.</b> Aparelho ocupado? Comece por outro exercício e volte depois.</span></div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(session.Notes))
+            {
+                @Bubble($"Nota do {training.FirstName} para você", session.Notes)
+            }
+
+            @if (session.Exercises.Count > 0)
+            {
+                <div style="display:flex;flex-direction:column;gap:10px">
+                    @foreach (var (exercise, index) in session.Exercises.OrderBy(e => e.Order).Select((e, i) => (e, i)))
+                    {
+                        <button class="mh-sink" @onclick="() => GoAsync(Ativo(session.Id, index))"
+                                style="display:flex;align-items:center;gap:12px;padding:10px 14px 10px 10px;border-radius:26px;background:var(--color-neutral-100);border:2px solid var(--color-divider);box-shadow:0 3px 0 var(--color-neutral-300);text-align:left;cursor:pointer;color:var(--color-text);width:100%">
+                            <span style="position:relative;flex:none;width:54px;height:54px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:linear-gradient(180deg, var(--color-neutral-800), var(--color-neutral-900));color:var(--color-neutral-100);font:800 17px/1 var(--font-body)">@(index + 1)</span>
+                            <span style="flex:1;min-width:0;display:grid;gap:3px">
+                                <b style="font-size:14.5px">@exercise.ExerciseName</b>
+                                <span style="font-size:12.5px;color:var(--color-neutral-700)">@ClientAppText.ExerciseLine(exercise)</span>
+                                @if (training.IsNew(session, exercise))
+                                {
+                                    <i class="tag tag-accent-2" style="justify-self:start;font-style:normal;font-weight:700;font-size:10.5px">Novo na versão @training.Version.VersionNumber</i>
+                                }
+                            </span>
+                            <span style="color:var(--color-neutral-600);font-size:18px"><ClientAppIcon Name="chevR" /></span>
+                        </button>
+                    }
+                </div>
+                <button class="btn btn-primary mh-press" @onclick="() => GoAsync(Ativo(session.Id))" style="@PrimaryButton">Começar treino</button>
+            }
+            else
+            {
+                <button class="btn btn-primary mh-press" @onclick="() => Toast(ClientOnly)" style="@PrimaryButton">Começar treino</button>
+            }
+        </section>
+    };
+
+    // ── Treino em andamento (antes da primeira série) ───────────────────────────────────────────────────────────────
+
+    private RenderFragment ExerciseScreen(TrainingPreview training, PlannedSession session) => __builder =>
+    {
+        var exercises = session.Exercises.OrderBy(e => e.Order).ToList();
+        var index = Math.Clamp(Screen.Exercise, 0, exercises.Count - 1);
+        var exercise = exercises[index];
+        var library = training.Exercises.GetValueOrDefault(exercise.ExerciseId);
+        var totalSets = exercises.Sum(e => e.Sets.Count);
+        var loads = exercise.Sets.Where(s => s.SuggestedLoadKg is not null).Select(s => s.SuggestedLoadKg!.Value).Distinct().ToList();
+        var targets = exercise.Sets.Select(ClientAppText.Target).Distinct().ToList();
+        <section data-screen-label="Treino em andamento" style="display:flex;flex-direction:column;gap:14px;padding:8px 18px 24px;min-height:100%">
+            <div style="display:flex;align-items:center;gap:12px;padding-top:4px">
+                <button @onclick="() => GoAsync(Sessao(session.Id))" aria-label="Sair do treino" style="border:0;background:none;color:var(--color-neutral-600);font-size:26px;cursor:pointer;padding:0;display:grid"><ClientAppIcon Name="x" /></button>
+                <div role="progressbar" aria-label="Séries feitas" aria-valuemin="0" aria-valuemax="@totalSets" aria-valuenow="0" style="flex:1;height:16px;border-radius:999px;background:var(--color-neutral-300);overflow:hidden"><i style="position:relative;display:block;height:100%;width:0%;border-radius:999px;background:var(--color-accent)"></i></div>
+                <span style="display:inline-flex;align-items:center;gap:4px;font:800 15px/1 var(--font-body)"><span style="color:var(--color-accent);font-size:22px"><ClientAppIcon Name="flame" Filled="true" /></span>@training.Streak</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <div><div style="font-size:12px;color:var(--color-neutral-700)">@session.Name · prévia</div><div style="font:700 32px/1 var(--font-body);letter-spacing:-.02em;font-variant-numeric:tabular-nums">00:00</div></div>
+            </div>
+
+            @Video(library)
+
+            <div style="display:grid;gap:6px">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+                    @for (var i = 0; i < exercises.Count; i++)
+                    {
+                        var target = i;
+                        var current = i == index;
+                        <button @onclick="() => GoAsync(Ativo(session.Id, target))" aria-label="@exercises[i].ExerciseName"
+                                style="@($"width:30px;height:30px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;background:{(current ? "var(--color-neutral-100)" : "var(--color-neutral-300)")};color:{(current ? "var(--color-accent-700)" : "var(--color-neutral-700)")};box-shadow:{(current ? "inset 0 0 0 2.5px var(--color-accent)" : "none")};font:800 12.5px/1 var(--font-body)")">@(i + 1)</button>
+                    }
+                    <button @onclick="() => GoAsync(Sessao(session.Id))" style="margin-left:auto;border:0;background:none;font:700 13px/1 var(--font-body);color:var(--color-accent-700);cursor:pointer;padding:6px 0;display:flex;align-items:center;gap:2px">Ver todos <ClientAppIcon Name="chevR" /></button>
+                </div>
+                <h3 style="margin:0;font-size:24px">@exercise.ExerciseName</h3>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <span class="tag tag-accent" style="font-weight:700">@exercise.Sets.Count @(exercise.Sets.Count == 1 ? "série" : "séries")</span>
+                    @if (targets.Count == 1 && targets[0] != "–")
+                    {
+                        <span class="tag tag-accent" style="font-weight:700">@targets[0]@(exercise.Sets[0].MinRepetitions is not null ? " repetições" : string.Empty)</span>
+                    }
+                    @if (loads.Count == 1)
+                    {
+                        <span class="tag tag-accent" style="font-weight:700">sugerido @ClientAppText.Kg(loads[0]) kg</span>
+                    }
+                    <span class="tag tag-accent" style="font-weight:700">descanso @exercise.RestSeconds s</span>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(library?.Precautions))
+            {
+                <div style="padding:12px 16px;border-radius:22px;background:var(--color-accent-100);color:var(--color-accent-800);font-size:13.5px;display:flex;gap:10px"><span style="font-size:17px;margin-top:1px"><ClientAppIcon Name="alert" /></span>@library.Precautions</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(exercise.Instructions))
+            {
+                @Bubble($"Nota do {training.FirstName} para você", exercise.Instructions)
+            }
+
+            <div style="display:grid;grid-template-columns:44px 1fr 1fr 44px;gap:8px;padding:0 10px;font:700 11px/1 var(--font-body);letter-spacing:.06em;text-transform:uppercase;color:var(--color-neutral-700)"><span>Série</span><span>@(exercise.Sets.All(s => s.MinRepetitions is null && s.DurationSeconds is not null) ? "Tempo" : "Reps")</span><span>Carga</span><span></span></div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                @foreach (var set in exercise.Sets.OrderBy(s => s.Order).Select((s, i) => (Target: s, Number: i + 1)))
+                {
+                    var current = set.Number == 1;
+                    <div style="@($"display:grid;grid-template-columns:44px 1fr 1fr 44px;gap:8px;align-items:center;padding:8px 10px;border-radius:22px;background:var(--color-neutral-100);border:2px solid {(current ? "var(--color-accent)" : "transparent")};opacity:{(current ? "1" : ".55")}")">
+                        <span style="font:800 14px/1 var(--font-body);color:var(--color-neutral-700);text-align:center">@set.Number</span>
+                        @if (current)
+                        {
+                            <input class="input" type="text" readonly value="@ClientAppText.Target(set.Target)" aria-label="Repetições sugeridas" style="height:40px;width:100%;text-align:center;font:700 16px/1 var(--font-body);background:var(--color-bg);border:1px solid var(--color-divider);border-radius:999px;color:var(--color-text)">
+                            <input class="input" type="text" readonly value="@(set.Target.SuggestedLoadKg is { } kg ? ClientAppText.Kg(kg) : "–")" aria-label="Carga sugerida em kg" style="height:40px;width:100%;text-align:center;font:700 16px/1 var(--font-body);background:var(--color-bg);border:1px solid var(--color-divider);border-radius:999px;color:var(--color-text)">
+                            <button @onclick="() => Toast(ClientOnly)" aria-label="Concluir série e descansar" style="justify-self:end;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:transparent;border:2.5px solid var(--color-accent);color:var(--color-accent);font-size:16px;cursor:pointer"><ClientAppIcon Name="check" /></button>
+                        }
+                        else
+                        {
+                            <span style="font:700 16px/1 var(--font-body)">@ClientAppText.Target(set.Target)</span>
+                            <span style="font:700 16px/1 var(--font-body)">@(set.Target.SuggestedLoadKg is { } kg ? ClientAppText.Kg(kg) : "–")@if (set.Target.SuggestedLoadKg is not null)
+                                {
+                                    <small style="font:500 11px/1 var(--font-body);color:var(--color-neutral-700);margin-left:3px">kg</small>
+                                }</span>
+                            <span></span>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px;margin-top:auto">
+                <button class="btn btn-secondary" @onclick="() => Toast(ClientOnly)" style="min-height:50px;background:var(--color-neutral-100);box-shadow:0 4px 0 var(--color-neutral-300)">Pausar</button>
+                <button class="btn btn-secondary" @onclick="() => Toast(ClientOnly)" style="min-height:50px;background:var(--color-neutral-100);box-shadow:0 4px 0 var(--color-neutral-300)"><span style="font-size:17px"><ClientAppIcon Name="mic" /></span>Falar</button>
+                <button class="btn btn-primary mh-press" @onclick="() => Toast(ClientOnly)" style="min-height:50px;box-shadow:0 5px 0 var(--color-accent-700)">Concluir</button>
+            </div>
+        </section>
+    };
+
+    /// <summary>The exercise's loop (or its poster) in the prototype's dark video frame; the frame alone when there is no media.</summary>
+    private static RenderFragment Video(ExerciseItem? library) => __builder =>
+    {
+        var media = library?.Media.FirstOrDefault(m => m.Kind == "Loop") ?? library?.Media.FirstOrDefault(m => m.Kind == "FullVideo");
+        var poster = media?.PosterUrl ?? library?.Media.FirstOrDefault(m => m.PosterUrl is not null)?.PosterUrl;
+        <div style="position:relative;width:100%;aspect-ratio:16 / 10;border-radius:26px;overflow:hidden;color:var(--color-neutral-100);background:linear-gradient(180deg, var(--color-neutral-800) 0%, var(--color-neutral-900) 72%, #262320 72%)">
+            @if (media is not null)
+            {
+                <video src="@media.Url" poster="@poster" muted autoplay loop playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>
+            }
+            else if (poster is not null)
+            {
+                <img src="@poster" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" />
+            }
+            else
+            {
+                <div style="position:absolute;left:0;right:0;bottom:28%;height:2px;background:var(--color-neutral-700)"></div>
+            }
+            <div style="position:absolute;inset:12px 14px auto 14px;display:flex;justify-content:space-between;font:600 11.5px/1 var(--font-body)">
+                <span style="padding:5px 10px;border-radius:999px;background:rgba(0,0,0,.45)">@(media is null ? "Sem vídeo na biblioteca" : $"{(media.Kind == "Loop" ? "Loop" : "Vídeo")}{Angle(media.Angle)}")</span>
+            </div>
+        </div>
+    };
+
+    private static string Angle(string? angle) => angle?.ToLowerInvariant() switch
+    {
+        null or "" => string.Empty,
+        "side" or "lateral" => " · vista lateral",
+        "front" or "frontal" => " · vista frontal",
+        "back" or "rear" => " · vista de costas",
+        var other => $" · {other}",
+    };
+
+    // ── Alimentação ──────────────────────────────────────────────────────────────────────────────────────────────────
+
+    private RenderFragment MealsScreen() => __builder =>
+    {
+        <section data-screen-label="Alimentação" style="@Section">
+            <div style="display:grid;gap:4px;padding-top:6px">
+                @if (Nutrition is { } header)
+                {
+                    <span style="@Muted">@header.OrganizationName · @header.DietitianName</span>
+                }
+                <h2 style="margin:0;font-size:30px">Alimentação</h2>
+            </div>
+
+            @if (Nutrition is not { } nutrition)
+            {
+                @Empty("Nenhum plano alimentar", NutritionUnavailable ?? "Sua nutricionista ainda não publicou um plano.", "var(--color-accent-2-200)")
+            }
+            else
+            {
+                var details = nutrition.Version.Details;
+                <div class="card" style="padding:16px;gap:10px;background:var(--color-accent-2-200)">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="@($"{Kicker};color:var(--color-accent-2-800)")">@details.Name</span><span class="tag" style="flex:none;background:var(--color-neutral-100);color:var(--color-accent-2-800);font-weight:700">Versão @nutrition.Version.VersionNumber</span></div>
+                    @if (!string.IsNullOrWhiteSpace(details.Goal))
+                    {
+                        <p style="margin:0;font-size:14px;color:var(--color-accent-2-900)">@details.Goal</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(details.Notes))
+                    {
+                        <p style="margin:0;font-size:13px;color:var(--color-accent-2-900)">@details.Notes</p>
+                    }
+                    @if (nutrition.WaterMl is { } water)
+                    {
+                        <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:14px;display:flex;align-items:center;gap:6px"><span style="color:var(--color-accent-2-700)"><ClientAppIcon Name="drop" /></span>Água</b><span style="font:700 13px/1 var(--font-body)">@ClientAppText.Number(water) ml hoje</span></div>
+                    }
+                </div>
+
+                var meals = nutrition.Meals;
+                var next = nutrition.NextMeal;
+                <div style="display:flex;flex-direction:column">
+                    @for (var i = 0; i < meals.Count; i++)
+                    {
+                        var meal = meals[i];
+                        var entry = nutrition.EntryFor(meal);
+                        var isNext = next?.Id == meal.Id;
+                        var isLast = i == meals.Count - 1;
+                        <div style="@($"display:grid;grid-template-columns:54px 1fr;gap:10px;position:relative;{(isLast ? string.Empty : "padding-bottom:14px")}")">
+                            @if (!isLast)
+                            {
+                                <span style="position:absolute;left:26px;top:30px;bottom:0;width:2px;background:var(--color-divider)"></span>
+                            }
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:8px;font:700 13px/1 var(--font-body);color:var(--color-neutral-700)">@(meal.Time?.ToString("HH:mm") ?? "—")<span style="@($"width:14px;height:14px;border-radius:50%;border:2.5px solid var(--color-accent-2-600);background:{(entry is null ? "var(--color-bg)" : "var(--color-accent-2-600)")}")"></span></div>
+                            <div class="card" style="@($"padding:14px 16px;gap:8px;background:var(--color-neutral-100);{(isNext ? "border:2px solid var(--color-accent-2-600)" : string.Empty)}")">
+                                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                                    <h3 style="margin:0;font-size:17px">@meal.Name</h3>
+                                    @if (entry is not null)
+                                    {
+                                        <span class="tag tag-accent-2" style="font-weight:700">@NutritionPreview.Adherence(entry.Adherence)</span>
+                                    }
+                                    else if (isNext)
+                                    {
+                                        <span class="tag tag-accent-2" style="font-weight:700">Próxima</span>
+                                    }
+                                </div>
+                                @if (meal.Items.Count > 0)
+                                {
+                                    <div style="display:grid;gap:4px;font-size:13.5px">
+                                        @foreach (var item in meal.Items)
+                                        {
+                                            <div style="display:flex;justify-content:space-between;gap:8px"><span>@item.Food</span><span style="color:var(--color-neutral-700);text-align:right">@NutritionLabels.Portion(item)</span></div>
+                                        }
+                                    </div>
+                                }
+                                @foreach (var item in meal.Items.Where(m => m.Substitutions.Count > 0))
+                                {
+                                    <span style="font-size:12px;color:var(--color-neutral-700)">Pode substituir: @ClientAppText.LowerFirst(item.Food) por @string.Join(" ou ", item.Substitutions.Select(ClientAppText.LowerFirst))</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(meal.Notes))
+                                {
+                                    <span style="font-size:12px;color:var(--color-neutral-700)">@meal.Notes</span>
+                                }
+                                @if (entry?.Comments is [.., var comment])
+                                {
+                                    @Bubble($"{ClientAppText.FirstName(comment.AuthorName)} comentou", comment.Message, "var(--color-accent-2-200)", "var(--color-accent-2-800)")
+                                }
+                                @if (isNext)
+                                {
+                                    <div style="display:flex;flex-wrap:wrap;gap:8px">
+                                        <button class="btn" @onclick="@(() => Toast("Na prévia, só o cliente registra a refeição"))" style="min-height:40px;background:var(--color-accent-2-600);color:var(--color-bg);box-shadow:0 3px 0 var(--color-accent-2-800)"><ClientAppIcon Name="check" /> Segui o plano</button>
+                                        <button class="btn btn-secondary" @onclick="@(() => Toast("O assistente conversa só com o cliente"))" style="min-height:40px">Contar ao assistente</button>
+                                    </div>
+                                    <button @onclick="@(() => Toast("Na prévia, só o cliente registra a refeição"))" style="align-self:flex-start;border:0;background:none;padding:2px 0;font:700 12.5px/1 var(--font-body);color:var(--color-accent-700);cursor:pointer">Preencher formulário</button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+                @if (meals.Count == 0)
+                {
+                    @Empty("Sem refeições", "Este plano ainda não tem refeições.", "var(--color-neutral-100)")
+                }
+            }
+        </section>
+    };
+}

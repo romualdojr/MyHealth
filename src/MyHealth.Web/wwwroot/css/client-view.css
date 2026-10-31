@@ -1,0 +1,164 @@
+/* The client app's look ("Organic" design system), copied from docs/MyHealth Client App (standalone).html so the
+   professional's "Visão do cliente" preview matches what the client sees on the phone. Everything is scoped to
+   .mh-app: the rest of the dashboard keeps its own Tailwind styles. */
+
+@font-face {
+  font-family: 'Caprasimo';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/caprasimo-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Caprasimo';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/caprasimo-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Figtree is a variable font: one file per subset covers 400 to 800. */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url("../fonts/figtree-latin-ext.woff2") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url("../fonts/figtree-latin.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+.mh-app {
+  --color-bg: #f5ead8;
+  --color-surface: #ebddc5;
+  --color-text: #201e1d;
+  --color-accent: #c67139;
+  --color-accent-2: #7a8a5e;
+  --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
+
+  --color-neutral-100: #f9f4ed;
+  --color-neutral-200: #eee7db;
+  --color-neutral-300: #dcd3c4;
+  --color-neutral-400: #c0b6a5;
+  --color-neutral-500: #a19786;
+  --color-neutral-600: #82796a;
+  --color-neutral-700: #645c50;
+  --color-neutral-800: #474238;
+  --color-neutral-900: #2e2b25;
+
+  --color-accent-100: #fff2eb;
+  --color-accent-200: #ffe1d0;
+  --color-accent-300: #ffc6a5;
+  --color-accent-400: #f6a06b;
+  --color-accent-500: #d67f48;
+  --color-accent-600: #b2622d;
+  --color-accent-700: #8c491a;
+  --color-accent-800: #643312;
+  --color-accent-900: #402310;
+
+  --color-accent-2-100: #f0fae1;
+  --color-accent-2-200: #e1eecc;
+  --color-accent-2-300: #ccdbb2;
+  --color-accent-2-400: #aebf92;
+  --color-accent-2-500: #8fa073;
+  --color-accent-2-600: #728157;
+  --color-accent-2-700: #56633f;
+  --color-accent-2-800: #3d472b;
+  --color-accent-2-900: #272e1b;
+
+  --font-heading: "Caprasimo", system-ui, sans-serif;
+  --font-heading-weight: 400;
+  --font-body: "Figtree", system-ui, sans-serif;
+
+  --space-1: 4.4px;
+  --space-2: 8.8px;
+  --space-3: 13.2px;
+  --space-4: 17.6px;
+  --space-6: 26.4px;
+  --space-8: 35.2px;
+
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 28px;
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2e2b25 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2e2b25 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2e2b25 22%, transparent);
+
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 400;
+}
+
+.mh-app *, .mh-app *::before, .mh-app *::after { box-sizing: border-box; }
+.mh-app h1, .mh-app h2, .mh-app h3, .mh-app h4, .mh-app h5, .mh-app h6 {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  line-height: 1.12; letter-spacing: -0.015em; margin: 0 0 var(--space-2);
+}
+.mh-app h1 { font-size: 42px; }
+.mh-app h2 { font-size: 32px; }
+.mh-app h3 { font-size: 25px; }
+.mh-app h4 { font-size: 20px; }
+.mh-app p { margin: 0 0 var(--space-3); }
+.mh-app a { color: var(--color-accent-700); text-underline-offset: 3px; }
+.mh-app button { font-family: var(--font-body); }
+.mh-app img, .mh-app video { display: block; max-width: 100%; }
+.mh-app :focus { outline: none; }
+.mh-app :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.mh-app ::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+
+/* — buttons — */
+.mh-app .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; text-decoration: none;
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 14px; line-height: 1.2; color: var(--color-text);
+  background: transparent; border: 1px solid transparent;
+  padding: var(--space-2) calc(var(--space-3) * 1.2);
+  border-radius: 999px;
+}
+.mh-app .btn svg { display: block; }
+.mh-app .btn-primary { background: var(--color-accent); color: var(--color-bg); }
+.mh-app .btn-primary:hover { background: var(--color-accent-600); }
+.mh-app .btn-primary:active { background: var(--color-accent-700); }
+.mh-app .btn-secondary { border-color: var(--color-divider); }
+.mh-app .btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.mh-app .btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
+
+/* — cards — */
+.mh-app .card {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-3); border-radius: calc(var(--radius-lg) * 1.15); background: var(--color-surface);
+}
+
+/* — tags — */
+.mh-app .tag {
+  display: inline-flex; align-items: center; font-size: 11px;
+  letter-spacing: 0.02em; padding: 3px 10px; border-radius: 999px;
+}
+.mh-app .tag-accent { background: var(--color-accent-100); color: var(--color-accent-800); }
+.mh-app .tag-accent-2 { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
+.mh-app .tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
+.mh-app .tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+
+/* Pressable "3D" buttons: they sink on press, as in the prototype. */
+.mh-app .mh-press:active { transform: translateY(3px); }
+.mh-app .mh-node:active { transform: translateY(4px); }
+.mh-app .mh-sink:active { transform: translateY(2px); }
+
+.mh-scroll { scrollbar-width: none; }
+.mh-scroll::-webkit-scrollbar { display: none; }
+
+@keyframes mh-bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -5px); } }
+@keyframes mh-toastin { from { transform: translate(-50%, 12px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mh-app * { animation: none !important; } }

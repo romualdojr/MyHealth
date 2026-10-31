@@ -25,6 +25,7 @@ else
                    title="Abre uma conversa no WhatsApp. Não envie dados de saúde por lá; use o app.">Conversar no WhatsApp</a>
             }
             <a class="@($"{Ui.ButtonSecondary} text-center leading-tight {(_whatsApp is null ? "col-span-2" : string.Empty)}")" href="trainer/assistant?clientId=@ClientId">Perguntar ao assistente</a>
+            <a class="@($"{Ui.ButtonSecondary} col-span-2 text-center leading-tight")" href="client-view/@ClientId">Ver como o cliente</a>
             <button class="@($"{Ui.Button} order-first col-span-2 sm:order-none")" @onclick="() => _creating = !_creating">Novo plano</button>
         </div>
     </div>
